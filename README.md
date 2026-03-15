@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Taglines — Movie Guessing Game
+
+A daily movie guessing game inspired by Framed, based on movie taglines. Guess the film from the tagline; each wrong guess reveals another hint (genre, cast, plot, year). Max 5 guesses.
+
+## Tech Stack
+
+- **Next.js 16** (App Router)
+- **TypeScript**
+- **Tailwind CSS v4**
+- **Supabase** — Movies, taglines, accepted aliases, daily schedule; optional (fallback to local sample data)
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
+cp .env.example .env   # optional: add Supabase + admin secret
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Daily mode** — One movie per day from Supabase schedule (or local fallback). Streak and history in `localStorage`.
+- **Practice mode** — Random movie from Supabase or local sample set.
+- **Answer normalization** — Ignores capitalization and punctuation; handles “Part I”/“Part 1” and leading “The”; accepts configured aliases.
+- **Admin** — `/admin`: create/edit movies, taglines, accepted aliases, and daily schedule (password-protected via `ADMIN_SECRET`).
+- **Share** — Emoji-style results (e.g. 🎬 Taglines ✅ ❌ ❌ ✅).
 
-## Learn More
+## Supabase Setup
 
-To learn more about Next.js, take a look at the following resources:
+1. Create a project at [supabase.com](https://supabase.com).
+2. Run the migration: `supabase/migrations/20250314000000_initial_schema.sql` in the SQL editor (or use Supabase CLI).
+3. Add to `.env`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (for admin write access)
+4. Set `ADMIN_SECRET` (min 8 chars) to protect `/admin`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Without Supabase, the game uses hardcoded sample movies and a date-seeded daily pick.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── admin/page.tsx   # Admin-only CRUD (movies, taglines, schedule)
+│   ├── layout.tsx, page.tsx, globals.css
+├── actions/
+│   ├── movies.ts       # getDailyMovie, getRandomPracticeMovie, listMovies, getSchedule
+│   ├── admin.ts        # adminCreateMovie, adminSetTaglines, adminSetDailyMovie, etc.
+│   └── auth.ts         # loginAdmin, logoutAdmin
+├── components/
+│   ├── admin/AdminPanel.tsx, AdminLoginForm.tsx
+│   ├── GameScreen.tsx, HintReveal.tsx, ResultModal.tsx
+├── data/movies.ts      # Sample movies + getTodayKey (local fallback)
+├── hooks/useGameState.ts
+├── lib/
+│   ├── answerNormalize.ts  # normalizeForComparison, isGuessCorrect
+│   ├── movieFromDb.ts      # Map DB rows → game Movie
+│   ├── adminAuth.ts        # Cookie-based admin gate
+│   ├── storage.ts, share.ts
+│   └── supabase/client.ts, server.ts
+├── types/movie.ts, database.ts
+└── supabase/migrations/   # movies, taglines, accepted_aliases, daily_schedule
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data Model (Supabase)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **movies** — `id`, `title`, `year`, `genre`, `cast_hint`, `plot_hint`
+- **taglines** — `movie_id`, `tagline_text`, `is_primary` (one primary per movie)
+- **accepted_aliases** — `movie_id`, `alias` (accepted answers besides title)
+- **daily_schedule** — `scheduled_date` (PK), `movie_id`
+
+## Build
+
+```bash
+npm run build
+npm start
+```
