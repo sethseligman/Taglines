@@ -9,6 +9,7 @@ interface HintRevealProps {
   className?: string;
 }
 
+// Hint order: tagline → genre → plot → cast → year (progressively more revealing)
 function getHintContent(movie: Movie, level: HintLevel): string {
   switch (level) {
     case 0:
@@ -16,9 +17,9 @@ function getHintContent(movie: Movie, level: HintLevel): string {
     case 1:
       return movie.genre;
     case 2:
-      return movie.castHint;
-    case 3:
       return movie.plotHint;
+    case 3:
+      return movie.castHint;
     case 4:
       return String(movie.year);
     default:
@@ -29,8 +30,8 @@ function getHintContent(movie: Movie, level: HintLevel): string {
 const LABELS: Record<HintLevel, string> = {
   0: "Tagline",
   1: "Genre",
-  2: "Cast",
-  3: "Plot",
+  2: "Plot",
+  3: "Cast",
   4: "Year",
 };
 

@@ -92,3 +92,28 @@ export async function getSchedule(limit = 30): Promise<DbDailySchedule[]> {
     .limit(limit);
   return (data ?? []) as DbDailySchedule[];
 }
+
+/** All movie titles + aliases for autocomplete (deduped, sorted). No Supabase = use sample list. */
+export async function getAutocompleteTitles(): Promise<string[]> {
+  if (!hasSupabase) {
+    const { SAMPLE_MOVIES } = await import("@/data/movies");
+    const set = new Set<string>();
+    for (const m of SAMPLE_MOVIES) {
+      set.add(m.title);
+      m.acceptedAnswers.forEach((a) => set.add(a));
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  }
+  const supabase = await createClient();
+  const { data: movies } = await supabase.from("movies").select("id").order("title");
+  if (!movies?.length) return [];
+  const set = new Set<string>();
+  for (const m of movies as { id: string }[]) {
+    const row = await fetchMovieRow(supabase, m.id);
+    if (row) {
+      set.add(row.title);
+      row.aliases?.forEach((a) => set.add(a));
+    }
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}

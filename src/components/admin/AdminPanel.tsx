@@ -226,7 +226,7 @@ function MovieEditForm({
   movieId: string;
   movies: MovieRow[];
   onClose: () => void;
-  onUpdate: (id: string, p: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string }) => void;
+  onUpdate: (id: string, p: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string; poster_url?: string | null }) => void;
   onSetTaglines: (id: string, t: { tagline_text: string; is_primary: boolean }[]) => void;
   onSetAliases: (id: string, a: string[]) => void;
 }) {
@@ -236,6 +236,7 @@ function MovieEditForm({
   const [genre, setGenre] = useState(m?.genre ?? "");
   const [castHint, setCastHint] = useState(m?.cast_hint ?? "");
   const [plotHint, setPlotHint] = useState(m?.plot_hint ?? "");
+  const [posterUrl, setPosterUrl] = useState((m as { poster_url?: string | null })?.poster_url ?? "");
   const [primaryTagline, setPrimaryTagline] = useState(m?.taglines?.find((t) => t.is_primary)?.tagline_text ?? "");
   const [otherTaglines, setOtherTaglines] = useState<string[]>(m?.taglines?.filter((t) => !t.is_primary).map((t) => t.tagline_text) ?? []);
   const [aliasText, setAliasText] = useState((m?.aliases ?? []).join("\n"));
@@ -243,7 +244,7 @@ function MovieEditForm({
   if (!m) return null;
 
   const handleSave = () => {
-    onUpdate(movieId, { title, year, genre, cast_hint: castHint, plot_hint: plotHint });
+    onUpdate(movieId, { title, year, genre, cast_hint: castHint, plot_hint: plotHint, poster_url: posterUrl.trim() || null });
     const taglines: { tagline_text: string; is_primary: boolean }[] = [];
     if (primaryTagline.trim()) taglines.push({ tagline_text: primaryTagline.trim(), is_primary: true });
     otherTaglines.forEach((t) => {
@@ -264,6 +265,10 @@ function MovieEditForm({
           <input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
           <input value={castHint} onChange={(e) => setCastHint(e.target.value)} placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
           <textarea value={plotHint} onChange={(e) => setPlotHint(e.target.value)} placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white resize-none" />
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Poster image URL (optional)</label>
+            <input value={posterUrl} onChange={(e) => setPosterUrl(e.target.value)} placeholder="https://..." type="url" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
+          </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Primary tagline</label>
             <input value={primaryTagline} onChange={(e) => setPrimaryTagline(e.target.value)} placeholder="Official tagline" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />

@@ -25,5 +25,6 @@ export function movieFromDb(row: MovieRow): Movie {
     castHint: row.cast_hint,
     plotHint: row.plot_hint,
     acceptedAnswers,
+    posterUrl: row.poster_url ?? undefined,
   };
 }

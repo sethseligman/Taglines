@@ -35,7 +35,7 @@ export async function adminCreateMovie(payload: {
 
 export async function adminUpdateMovie(
   id: string,
-  payload: Partial<Pick<DbMovie, "title" | "year" | "genre" | "cast_hint" | "plot_hint">>
+  payload: Partial<Pick<DbMovie, "title" | "year" | "genre" | "cast_hint" | "plot_hint" | "poster_url">>
 ): Promise<{ error?: string }> {
   await requireAdmin();
   const supabase = createServiceClient();

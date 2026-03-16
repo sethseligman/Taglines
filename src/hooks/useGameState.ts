@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
 import type { HintLevel } from "@/types/movie";
-import { isGuessCorrect } from "@/lib/answerNormalize";
+import { getDidYouMean, isGuessCorrect } from "@/lib/answerNormalize";
 import {
   appendStoredResult,
   getLastPlayedDate,
@@ -23,6 +23,8 @@ export interface GameState {
   guessHistory: string[];
   isDaily: boolean;
   dateKey: string;
+  /** When last guess was wrong but very close; show "Did you mean X?" */
+  didYouMean: string | null;
 }
 
 function isCorrectGuess(guess: string, movie: Movie): boolean {
@@ -46,6 +48,7 @@ export function useGameState(
     guessHistory: [],
     isDaily,
     dateKey,
+    didYouMean: null,
   }));
 
   // Reset internal state when movie/dateKey changes (e.g. new day or practice pick)
@@ -58,6 +61,7 @@ export function useGameState(
       guessHistory: [],
       isDaily,
       dateKey,
+      didYouMean: null,
     });
   }, [movie.title, dateKey, isDaily]);
 
@@ -81,13 +85,19 @@ export function useGameState(
               maxGuesses: MAX_GUESSES,
             });
           }
-          return {
-            ...prev,
-            guessesUsed: newGuessesUsed,
-            status: "won" as GameStatus,
-            guessHistory: [...prev.guessHistory, guess],
-          };
+        return {
+          ...prev,
+          guessesUsed: newGuessesUsed,
+          status: "won" as GameStatus,
+          guessHistory: [...prev.guessHistory, guess],
+          didYouMean: null,
+        };
         }
+        const didYouMean = getDidYouMean(
+          guess,
+          prev.movie.acceptedAnswers,
+          prev.movie.title
+        );
         const newHistory = [...prev.guessHistory, guess];
         const newGuessesUsed = prev.guessesUsed + 1;
         const nextHintLevel = Math.min(
@@ -111,6 +121,7 @@ export function useGameState(
           guessesUsed: newGuessesUsed,
           status: isLost ? ("lost" as GameStatus) : "playing",
           guessHistory: newHistory,
+          didYouMean: didYouMean ?? null,
         };
       });
     },
@@ -126,6 +137,7 @@ export function useGameState(
       guessHistory: [],
       isDaily,
       dateKey,
+      didYouMean: null,
     });
   }, [movie, isDaily, dateKey]);
 

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Movie } from "@/types/movie";
-import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
+import { getAutocompleteTitles, getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
 import { getStoredStreak } from "@/lib/storage";
+import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
 
@@ -78,15 +79,17 @@ export function GameScreen() {
   }, [mode, dailyPayload, practiceMovie]);
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
-  const [inputValue, setInputValue] = useState("");
+  const [autocompleteTitles, setAutocompleteTitles] = useState<string[]>([]);
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      submitGuess(inputValue);
-      setInputValue("");
+  useEffect(() => {
+    getAutocompleteTitles().then(setAutocompleteTitles);
+  }, []);
+
+  const handleGuessSubmit = useCallback(
+    (value: string) => {
+      submitGuess(value);
     },
-    [submitGuess, inputValue]
+    [submitGuess]
   );
 
   useEffect(() => {
@@ -183,27 +186,19 @@ export function GameScreen() {
         </div>
 
         {state.status === "playing" && (
-          <form
-            onSubmit={handleSubmit}
-            className="flex w-full max-w-md flex-col gap-4"
-          >
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Enter movie title..."
-              autoComplete="off"
-              autoFocus
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-5 py-4 text-lg text-white placeholder-zinc-500 outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
+          <div className="flex w-full max-w-md flex-col gap-4">
+            <GuessInput
+              suggestions={autocompleteTitles}
+              onSubmit={handleGuessSubmit}
+              placeholder="Search movies..."
+              aria-label="Guess the movie"
             />
-            <button
-              type="submit"
-              disabled={!inputValue.trim()}
-              className="w-full rounded-xl bg-amber-500 py-4 font-medium text-zinc-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
-            >
-              Guess
-            </button>
-          </form>
+            {state.didYouMean && (
+              <p className="text-center text-sm text-amber-400/90">
+                Did you mean <strong className="text-amber-300">{state.didYouMean}</strong>?
+              </p>
+            )}
+          </div>
         )}
 
         {state.guessHistory.length > 0 && state.status === "playing" && (
