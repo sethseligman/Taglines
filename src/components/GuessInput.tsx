@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeForComparison } from "@/lib/answerNormalize";
-
-const MAX_SUGGESTIONS = 8;
-const MIN_CHARS = 1;
+import { getPrecisionSuggestions } from "@/lib/autocompleteMatch";
 
 interface GuessInputProps {
   suggestions: string[];
@@ -14,19 +11,6 @@ interface GuessInputProps {
   "aria-label"?: string;
   /** Optional: show a Guess button (for mobile / clarity). Enter and selection still submit. */
   showSubmitButton?: boolean;
-}
-
-function filterSuggestions(query: string, list: string[]): string[] {
-  const norm = normalizeForComparison(query);
-  if (!norm || norm.length < MIN_CHARS) return [];
-  const out: string[] = [];
-  for (const item of list) {
-    if (normalizeForComparison(item).includes(norm) || norm.includes(normalizeForComparison(item))) {
-      out.push(item);
-      if (out.length >= MAX_SUGGESTIONS) break;
-    }
-  }
-  return out;
 }
 
 export function GuessInput({
@@ -43,14 +27,21 @@ export function GuessInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const clearAfterSubmit = useCallback(() => {
+    setValue("");
+    setOpen(false);
+    setHighlightIndex(0);
+  }, []);
+
   const submitCurrent = useCallback(() => {
     const v = value.trim();
-    if (v) onSubmit(v);
-  }, [value, onSubmit]);
+    if (v) {
+      onSubmit(v);
+      clearAfterSubmit();
+    }
+  }, [value, onSubmit, clearAfterSubmit]);
 
-  const filtered = value.trim().length >= MIN_CHARS
-    ? filterSuggestions(value, suggestions)
-    : [];
+  const filtered = getPrecisionSuggestions(value, suggestions);
 
   const showDropdown = open && filtered.length > 0;
 
@@ -68,7 +59,10 @@ export function GuessInput({
         if (e.key === "Enter") {
           e.preventDefault();
           const v = value.trim();
-          if (v) onSubmit(v);
+          if (v) {
+            onSubmit(v);
+            clearAfterSubmit();
+          }
         }
         return;
       }
@@ -85,9 +79,9 @@ export function GuessInput({
           e.preventDefault();
           const picked = filtered[highlightIndex];
           if (picked) {
-            setValue(picked);
             setOpen(false);
             onSubmit(picked);
+            clearAfterSubmit();
           } else {
             submitCurrent();
           }
@@ -100,7 +94,7 @@ export function GuessInput({
           break;
       }
     },
-    [showDropdown, filtered, highlightIndex, value, submitCurrent]
+    [showDropdown, filtered, highlightIndex, value, submitCurrent, clearAfterSubmit]
   );
 
   useEffect(() => {
@@ -112,12 +106,12 @@ export function GuessInput({
 
   const handleSelect = useCallback(
     (title: string) => {
-      setValue(title);
       setOpen(false);
       onSubmit(title);
+      clearAfterSubmit();
       inputRef.current?.focus();
     },
-    [onSubmit]
+    [onSubmit, clearAfterSubmit]
   );
 
   return (
@@ -142,6 +136,7 @@ export function GuessInput({
         aria-activedescendant={showDropdown ? `guess-option-${highlightIndex}` : undefined}
         id="guess-input"
         autoComplete="off"
+        inputMode="search"
         className="w-full rounded-xl border border-white/15 bg-white/5 px-5 py-4 text-lg text-white placeholder-zinc-500 outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50"
       />
       {showDropdown && (
@@ -149,7 +144,7 @@ export function GuessInput({
           id="guess-suggestions"
           ref={listRef}
           role="listbox"
-          className="absolute top-full left-0 right-0 z-10 mt-1 max-h-64 overflow-auto rounded-xl border border-white/15 bg-zinc-900/98 py-2 shadow-xl backdrop-blur-sm"
+          className="absolute top-full left-0 right-0 z-10 mt-1 max-h-64 overflow-auto rounded-xl border border-white/15 bg-zinc-900/98 py-2 shadow-xl backdrop-blur-sm touch-pan-y"
         >
           {filtered.map((title, i) => (
             <li
@@ -161,7 +156,7 @@ export function GuessInput({
                 e.preventDefault();
                 handleSelect(title);
               }}
-              className={`cursor-pointer px-5 py-3 text-left text-white transition ${
+              className={`cursor-pointer select-none px-5 py-3 text-left text-white transition touch-manipulation ${
                 i === highlightIndex ? "bg-amber-500/25 text-amber-100" : "hover:bg-white/10"
               }`}
             >

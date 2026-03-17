@@ -6,6 +6,9 @@ export interface DbMovie {
   cast_hint: string;
   plot_hint: string;
   poster_url?: string | null;
+  poster_path?: string | null;
+  status: string;
+  is_playable: boolean;
   created_at: string;
   updated_at: string;
 }

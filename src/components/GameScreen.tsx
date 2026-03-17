@@ -34,23 +34,35 @@ function getLocalRandomMovie(): Movie {
 }
 
 export function GameScreen() {
-  const [mode, setMode] = useState<Mode>("daily");
+  const [mode, setMode] = useState<Mode>("practice");
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultDismissed, setResultDismissed] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
-  // Load daily movie (from Supabase or fallback to local)
+  // Load daily movie (from Supabase or fallback to local). One retry on failure.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getDailyMovie(dateKeyForDaily).then((result) => {
-      if (cancelled) return;
-      if (result) setDailyPayload(result);
-      else setDailyPayload(getLocalDailyMovie());
-      setLoading(false);
-    });
+    const load = (retry = false) => {
+      getDailyMovie(dateKeyForDaily)
+        .then((result) => {
+          if (cancelled) return;
+          if (result) setDailyPayload(result);
+          else setDailyPayload(getLocalDailyMovie());
+          setLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (!retry) setTimeout(() => load(true), 400);
+          else {
+            setDailyPayload(getLocalDailyMovie());
+            setLoading(false);
+          }
+        });
+    };
+    load();
     return () => {
       cancelled = true;
     };
@@ -74,7 +86,8 @@ export function GameScreen() {
       const payload = dailyPayload ?? fallback;
       return { movie: payload.movie, dateKey: payload.dateKey, isDaily: true };
     }
-    const pm = practiceMovie ?? getLocalRandomMovie();
+    // Use deterministic placeholder when practice movie not loaded yet (avoids hydration mismatch from Math.random())
+    const pm = practiceMovie ?? SAMPLE_MOVIES[0]!;
     return { movie: pm, dateKey: "practice", isDaily: false };
   }, [mode, dailyPayload, practiceMovie]);
 
@@ -85,6 +98,10 @@ export function GameScreen() {
     getAutocompleteTitles().then(setAutocompleteTitles);
   }, []);
 
+  useEffect(() => {
+    setResultDismissed(false);
+  }, [movie.title, dateKey]);
+
   const handleGuessSubmit = useCallback(
     (value: string) => {
       submitGuess(value);
@@ -92,13 +109,8 @@ export function GameScreen() {
     [submitGuess]
   );
 
-  useEffect(() => {
-    if (state.status === "won" || state.status === "lost")
-      setShowResultModal(true);
-  }, [state.status]);
-
-  const handlePlayAgain = useCallback(() => {
-    setShowResultModal(false);
+  const dismissResultAndReturnToPlay = useCallback(() => {
+    setResultDismissed(false);
     if (mode === "practice") {
       getRandomPracticeMovie().then((m) => {
         setPracticeMovie(m ?? getLocalRandomMovie());
@@ -107,13 +119,26 @@ export function GameScreen() {
     reset();
   }, [mode, reset]);
 
-  const showResult =
-    (state.status === "won" || state.status === "lost") && showResultModal;
+  const isGameOver = state.status === "won" || state.status === "lost";
+  const showResult = isGameOver && !resultDismissed;
 
-  if (loading && mode === "daily") {
+  const practiceLoading = mode === "practice" && practiceMovie === null;
+  if ((loading && mode === "daily") || practiceLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4 text-zinc-400">
-        <p>Loading today&apos;s movie...</p>
+      <div className="flex min-h-screen flex-col items-center bg-zinc-950 px-4 py-8">
+        <div className="mb-10 w-full max-w-lg">
+          <div className="h-9 w-32 rounded bg-white/10 animate-pulse" />
+          <div className="mt-4 h-4 w-64 rounded bg-white/5 animate-pulse" />
+        </div>
+        <div className="w-full max-w-lg space-y-4">
+          <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8">
+            <div className="mb-2 h-3 w-20 rounded bg-white/10 animate-pulse" />
+            <div className="h-5 w-full rounded bg-white/5 animate-pulse" />
+            <div className="mt-2 h-4 w-full max-w-[80%] rounded bg-white/5 animate-pulse" />
+          </div>
+          <div className="h-14 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-14 rounded-xl bg-amber-500/20 animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -198,6 +223,11 @@ export function GameScreen() {
                 Did you mean <strong className="text-amber-300">{state.didYouMean}</strong>?
               </p>
             )}
+            {autocompleteTitles.length === 0 && (
+              <p className="text-center text-xs text-zinc-500">
+                Type any movie title and press Guess
+              </p>
+            )}
           </div>
         )}
 
@@ -223,8 +253,8 @@ export function GameScreen() {
       {showResult && (
         <ResultModal
           state={state}
-          onClose={() => setShowResultModal(false)}
-          onPlayAgain={handlePlayAgain}
+          onClose={dismissResultAndReturnToPlay}
+          onPlayAgain={dismissResultAndReturnToPlay}
         />
       )}
     </div>

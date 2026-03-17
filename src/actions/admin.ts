@@ -35,7 +35,7 @@ export async function adminCreateMovie(payload: {
 
 export async function adminUpdateMovie(
   id: string,
-  payload: Partial<Pick<DbMovie, "title" | "year" | "genre" | "cast_hint" | "plot_hint" | "poster_url">>
+  payload: Partial<Pick<DbMovie, "title" | "year" | "genre" | "cast_hint" | "plot_hint" | "poster_url" | "poster_path" | "status" | "is_playable">>
 ): Promise<{ error?: string }> {
   await requireAdmin();
   const supabase = createServiceClient();
@@ -78,6 +78,10 @@ export async function adminSetAliases(movieId: string, aliases: string[]): Promi
 export async function adminSetDailyMovie(scheduledDate: string, movieId: string): Promise<{ error?: string }> {
   await requireAdmin();
   const supabase = createServiceClient();
+  const { data: movie } = await supabase.from("movies").select("is_playable").eq("id", movieId).single();
+  if (!movie?.is_playable) {
+    return { error: "Only playable movies can be scheduled." };
+  }
   const { error } = await supabase.from("daily_schedule").upsert(
     { scheduled_date: scheduledDate, movie_id: movieId },
     { onConflict: "scheduled_date" }

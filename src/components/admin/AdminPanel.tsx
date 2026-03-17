@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { MovieRow } from "@/lib/movieFromDb";
 import type { DbDailySchedule } from "@/types/database";
 import { getSchedule, listMovies } from "@/actions/movies";
@@ -16,6 +16,8 @@ import {
 import { logoutAdmin } from "@/actions/auth";
 import Link from "next/link";
 
+type StatusFilter = "all" | "pending_review" | "approved" | "rejected";
+
 interface AdminPanelProps {
   initialMovies: MovieRow[];
   initialSchedule: DbDailySchedule[];
@@ -27,6 +29,21 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const displayMovies = useMemo(() => {
+    let list = movies;
+    if (statusFilter !== "all") {
+      list = list.filter((m) => m.status === statusFilter);
+    }
+    const order: Record<string, number> = { pending_review: 0, approved: 1, rejected: 2 };
+    return [...list].sort((a, b) => {
+      const ai = order[a.status] ?? 3;
+      const bi = order[b.status] ?? 3;
+      if (ai !== bi) return ai - bi;
+      return (a.title ?? "").localeCompare(b.title ?? "", "en", { sensitivity: "base" });
+    });
+  }, [movies, statusFilter]);
 
   const refreshMovies = useCallback(async () => {
     const list = await listMovies();
@@ -57,7 +74,7 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
     setEditingId(res.id);
   };
 
-  const handleUpdateMovie = async (id: string, payload: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string }) => {
+  const handleUpdateMovie = async (id: string, payload: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string; poster_url?: string | null; poster_path?: string | null; status?: string; is_playable?: boolean }) => {
     setError(null);
     const res = await adminUpdateMovie(id, payload);
     if (res.error) {
@@ -107,6 +124,20 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
     else await refreshSchedule();
   };
 
+  const handleQuickStatus = useCallback(async (id: string, status: "approved" | "rejected") => {
+    setError(null);
+    const res = await adminUpdateMovie(id, { status, is_playable: status === "approved" });
+    if (res.error) setError(res.error);
+    else setMovies((prev) => prev.map((m) => (m.id === id ? { ...m, status, is_playable: status === "approved" } : m)));
+  }, []);
+
+  const handleQuickTogglePlayable = useCallback(async (id: string, current: boolean) => {
+    setError(null);
+    const res = await adminUpdateMovie(id, { is_playable: !current });
+    if (res.error) setError(res.error);
+    else setMovies((prev) => prev.map((m) => (m.id === id ? { ...m, is_playable: !current } : m)));
+  }, []);
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       <div className="mb-8 flex items-center justify-between">
@@ -129,11 +160,40 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
 
       <section className="mb-10">
         <h2 className="text-lg font-medium text-white mb-4">Movies</h2>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs text-zinc-500">Status:</span>
+          {(["all", "pending_review", "approved", "rejected"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setStatusFilter(f)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                statusFilter === f
+                  ? "bg-amber-500/30 text-amber-200 border border-amber-500/50"
+                  : "bg-white/5 text-zinc-400 border border-white/10 hover:text-zinc-300"
+              }`}
+            >
+              {f === "all" ? "All" : f.replace("_", " ")}
+            </button>
+          ))}
+        </div>
         <ul className="space-y-2">
-          {movies.map((m) => (
-            <li key={m.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+          {displayMovies.map((m) => (
+            <li key={m.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
               <span className="text-white">{m.title} ({m.year})</span>
-              <div className="flex gap-2">
+              <span className="text-xs text-zinc-500">
+                {m.status ?? "—"} · {m.is_playable ? "playable" : "not playable"}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {m.status === "pending_review" && (
+                  <>
+                    <button type="button" onClick={() => handleQuickStatus(m.id, "approved")} className="text-xs text-emerald-400 hover:text-emerald-300">Approve</button>
+                    <button type="button" onClick={() => handleQuickStatus(m.id, "rejected")} className="text-xs text-rose-400 hover:text-rose-300">Reject</button>
+                  </>
+                )}
+                <button type="button" onClick={() => handleQuickTogglePlayable(m.id, m.is_playable)} className="text-xs text-zinc-400 hover:text-zinc-300">
+                  {m.is_playable ? "Unplayable" : "Playable"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setEditingId(editingId === m.id ? null : m.id)}
@@ -226,7 +286,7 @@ function MovieEditForm({
   movieId: string;
   movies: MovieRow[];
   onClose: () => void;
-  onUpdate: (id: string, p: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string; poster_url?: string | null }) => void;
+  onUpdate: (id: string, p: { title: string; year: number; genre: string; cast_hint: string; plot_hint: string; poster_url?: string | null; poster_path?: string | null; status?: string; is_playable?: boolean }) => void;
   onSetTaglines: (id: string, t: { tagline_text: string; is_primary: boolean }[]) => void;
   onSetAliases: (id: string, a: string[]) => void;
 }) {
@@ -236,7 +296,10 @@ function MovieEditForm({
   const [genre, setGenre] = useState(m?.genre ?? "");
   const [castHint, setCastHint] = useState(m?.cast_hint ?? "");
   const [plotHint, setPlotHint] = useState(m?.plot_hint ?? "");
+  const [posterPath, setPosterPath] = useState((m as { poster_path?: string | null })?.poster_path ?? "");
   const [posterUrl, setPosterUrl] = useState((m as { poster_url?: string | null })?.poster_url ?? "");
+  const [status, setStatus] = useState(m?.status ?? "pending_review");
+  const [isPlayable, setIsPlayable] = useState(m?.is_playable ?? false);
   const [primaryTagline, setPrimaryTagline] = useState(m?.taglines?.find((t) => t.is_primary)?.tagline_text ?? "");
   const [otherTaglines, setOtherTaglines] = useState<string[]>(m?.taglines?.filter((t) => !t.is_primary).map((t) => t.tagline_text) ?? []);
   const [aliasText, setAliasText] = useState((m?.aliases ?? []).join("\n"));
@@ -244,7 +307,17 @@ function MovieEditForm({
   if (!m) return null;
 
   const handleSave = () => {
-    onUpdate(movieId, { title, year, genre, cast_hint: castHint, plot_hint: plotHint, poster_url: posterUrl.trim() || null });
+    onUpdate(movieId, {
+      title,
+      year,
+      genre,
+      cast_hint: castHint,
+      plot_hint: plotHint,
+      poster_path: posterPath.trim() || null,
+      poster_url: posterUrl.trim() || null,
+      status,
+      is_playable: isPlayable,
+    });
     const taglines: { tagline_text: string; is_primary: boolean }[] = [];
     if (primaryTagline.trim()) taglines.push({ tagline_text: primaryTagline.trim(), is_primary: true });
     otherTaglines.forEach((t) => {
@@ -266,7 +339,24 @@ function MovieEditForm({
           <input value={castHint} onChange={(e) => setCastHint(e.target.value)} placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
           <textarea value={plotHint} onChange={(e) => setPlotHint(e.target.value)} placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white resize-none" />
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Poster image URL (optional)</label>
+            <label className="block text-xs text-zinc-500 mb-1">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white text-sm">
+              <option value="pending_review">pending_review</option>
+              <option value="approved">approved</option>
+              <option value="rejected">rejected</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="is_playable" checked={isPlayable} onChange={(e) => setIsPlayable(e.target.checked)} className="rounded border-white/20" />
+            <label htmlFor="is_playable" className="text-sm text-zinc-300">Playable (can appear in game and schedule)</label>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">TMDB poster path (optional)</label>
+            <input value={posterPath} onChange={(e) => setPosterPath(e.target.value)} placeholder="/kqjL17yufvn9OVLyXYpvtyrFfak.jpg" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white font-mono text-sm" />
+            <p className="mt-1 text-xs text-zinc-500">From TMDB; e.g. /abc123.jpg. Uses w500 size.</p>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Poster URL fallback (optional)</label>
             <input value={posterUrl} onChange={(e) => setPosterUrl(e.target.value)} placeholder="https://..." type="url" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
           </div>
           <div>
@@ -347,7 +437,7 @@ function ScheduleBlock({
                   }}
                 >
                   <option value="">— Assign —</option>
-                  {movies.map((m) => (
+                  {movies.filter((m) => m.is_playable).map((m) => (
                     <option key={m.id} value={m.id}>{m.title}</option>
                   ))}
                 </select>

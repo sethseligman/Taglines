@@ -12,13 +12,13 @@ export interface Movie {
 
 export type HintLevel = 0 | 1 | 2 | 3 | 4;
 
-// Order: tagline first, then progressively more revealing (genre → plot → cast → year)
+// Order: tagline → year → genre → cast → plot (early hints more deductive; plot last)
 export const HINT_LABELS: Record<HintLevel, string> = {
   0: "Tagline",
-  1: "Genre",
-  2: "Plot",
+  1: "Year",
+  2: "Genre",
   3: "Cast",
-  4: "Year",
+  4: "Plot",
 };
 
 export const MAX_GUESSES = 5;
