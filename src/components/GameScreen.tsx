@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Movie } from "@/types/movie";
+import { HINT_LABELS } from "@/types/movie";
 import { getAutocompleteTitles, getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
@@ -91,7 +92,7 @@ export function GameScreen() {
     return { movie: pm, dateKey: "practice", isDaily: false };
   }, [mode, dailyPayload, practiceMovie]);
 
-  const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
+  const { state, submitGuess, reset, revealHint } = useGameState(movie, isDaily, dateKey);
   const [autocompleteTitles, setAutocompleteTitles] = useState<string[]>([]);
 
   useEffect(() => {
@@ -195,19 +196,57 @@ export function GameScreen() {
       </header>
 
       <main className="flex w-full max-w-lg flex-1 flex-col items-center">
-        <div className="mb-8 flex w-full flex-col gap-4">
-          {[0, 1, 2, 3, 4].map((level) => {
-            const show = state.hintLevel >= level;
-            if (!show) return null;
-            return (
-              <HintReveal
-                key={level}
-                movie={state.movie}
-                hintLevel={level as 0 | 1 | 2 | 3 | 4}
-                className={level === state.hintLevel ? "ring-1 ring-amber-400/30" : ""}
-              />
-            );
-          })}
+        <div className="mb-6 w-full max-w-lg">
+          <HintReveal movie={state.movie} hintLevel={0} />
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Hints
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {([1, 2, 3, 4] as const).map((level) => {
+                const revealed = state.revealedHintLevels.includes(level);
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => !revealed && revealHint(level)}
+                    disabled={state.status !== "playing" || revealed}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                      revealed
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                        : "border-white/10 bg-white/5 text-zinc-400 hover:border-amber-500/30 hover:bg-white/10 hover:text-amber-200 disabled:opacity-50 disabled:pointer-events-none"
+                    }`}
+                  >
+                    {HINT_LABELS[level]}
+                    {revealed && " ✓"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {state.revealedHintLevels.length > 0 && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+              <ul className="space-y-1.5 text-sm">
+                {state.revealedHintLevels.map((level) => {
+                  const label = HINT_LABELS[level];
+                  const value =
+                    level === 1
+                      ? String(state.movie.year)
+                      : level === 2
+                        ? state.movie.genre
+                        : level === 3
+                          ? state.movie.castHint
+                          : state.movie.plotHint;
+                  return (
+                    <li key={level} className="text-zinc-300">
+                      <span className="font-medium text-zinc-500">{label}:</span>{" "}
+                      {value}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
 
         {state.status === "playing" && (
