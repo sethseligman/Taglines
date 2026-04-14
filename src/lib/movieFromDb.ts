@@ -7,6 +7,10 @@ export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 export interface MovieRow extends DbMovie {
   taglines?: { tagline_text: string; is_primary: boolean }[];
   aliases?: string[];
+  hint_1?: string | null;
+  hint_2?: string | null;
+  hint_3?: string | null;
+  hint_4?: string | null;
 }
 
 function buildPosterUrl(row: MovieRow): string | undefined {
@@ -34,6 +38,10 @@ export function movieFromDb(row: MovieRow): Movie {
     year: row.year,
     officialTagline,
     alternateTagline,
+    hint_1: row.hint_1 ?? undefined,
+    hint_2: row.hint_2 ?? undefined,
+    hint_3: row.hint_3 ?? undefined,
+    hint_4: row.hint_4 ?? undefined,
     genre: row.genre,
     castHint: row.cast_hint,
     plotHint: row.plot_hint,

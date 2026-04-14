@@ -56,3 +56,93 @@ body {
     transform: translateY(0);
   }
 }
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  15% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  25% {
+    opacity: 0.4;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+@keyframes filmFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.flickering {
+  animation: flicker 0.4s ease;
+}
+
+.film-fade-in {
+  animation: filmFadeIn 0.4s ease-out;
+}
+
+/*
+ * Year watermark behind tagline: %-translate is relative to the year glyph’s width
+ * so drift stays bounded; opacity ramps keep it readable on small screens.
+ */
+@keyframes yearDrift {
+  0% {
+    opacity: 0;
+    transform: translate(-92%, 0.03em);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-42%, -0.02em);
+  }
+  76% {
+    opacity: 1;
+    transform: translate(32%, 0.02em);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(72%, 0.04em);
+  }
+}
+
+/* Big enough to bleed past short taglines on narrow viewports; glow reads on OLED. */
+.game-floating-year {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.88;
+  text-align: center;
+  white-space: nowrap;
+  color: rgba(201, 169, 110, 0.3);
+  text-shadow:
+    0 0 100px rgba(201, 169, 110, 0.45),
+    0 0 36px rgba(201, 169, 110, 0.28),
+    0 2px 16px rgba(0, 0, 0, 0.65);
+  font-size: clamp(4.75rem, min(62vw, 10rem), 10rem);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (min-width: 768px) {
+  .game-floating-year {
+    color: rgba(201, 169, 110, 0.22);
+    text-shadow:
+      0 0 80px rgba(201, 169, 110, 0.32),
+      0 0 28px rgba(201, 169, 110, 0.2),
+      0 2px 14px rgba(0, 0, 0, 0.55);
+    font-size: clamp(4.25rem, min(32vw, 7.5rem), 7.5rem);
+  }
+}

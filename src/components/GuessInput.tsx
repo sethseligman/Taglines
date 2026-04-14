@@ -11,6 +11,8 @@ interface GuessInputProps {
   "aria-label"?: string;
   /** Optional: show a Guess button (for mobile / clarity). Enter and selection still submit. */
   showSubmitButton?: boolean;
+  /** Input and Guess on one row: input flex-1, fixed-width Guess button. */
+  submitInline?: boolean;
 }
 
 export function GuessInput({
@@ -20,6 +22,7 @@ export function GuessInput({
   placeholder = "Search movies...",
   "aria-label": ariaLabel = "Guess the movie",
   showSubmitButton = true,
+  submitInline = false,
 }: GuessInputProps) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -114,8 +117,12 @@ export function GuessInput({
     [onSubmit, clearAfterSubmit]
   );
 
-  return (
-    <div className="relative w-full">
+  const inputClassName = submitInline
+    ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
+    : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
+
+  const fieldBlock = (
+    <div className={submitInline ? "relative min-w-0 flex-1" : "relative w-full"}>
       <input
         ref={inputRef}
         type="text"
@@ -137,7 +144,7 @@ export function GuessInput({
         id="guess-input"
         autoComplete="off"
         inputMode="search"
-        className="w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
+        className={inputClassName}
       />
       {showDropdown && (
         <ul
@@ -165,6 +172,29 @@ export function GuessInput({
           ))}
         </ul>
       )}
+    </div>
+  );
+
+  if (submitInline && showSubmitButton) {
+    return (
+      <div className="flex w-full items-stretch gap-2" style={{ gap: 8 }}>
+        {fieldBlock}
+        <button
+          type="button"
+          onClick={submitCurrent}
+          disabled={disabled || !value.trim()}
+          className="shrink-0 rounded-xl bg-gold px-4 py-3 text-sm font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+          style={{ width: 96 }}
+        >
+          Guess
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full">
+      {fieldBlock}
       {showSubmitButton && (
         <button
           type="button"

@@ -72,7 +72,7 @@ async function fetchMovieRow(
 ): Promise<MovieRow | null> {
   const { data: movie, error: movieError } = await supabase
     .from("movies")
-    .select("*")
+    .select("id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, is_playable, hint_1, hint_2, hint_3, hint_4")
     .eq("id", movieId)
     .single();
   if (movieError || !movie) return null;
@@ -102,7 +102,10 @@ export async function getMovieById(id: string): Promise<MovieRow | null> {
 export async function listMovies(): Promise<MovieRow[]> {
   if (!hasSupabase) return [];
   const supabase = await createClient();
-  const { data: movies } = await supabase.from("movies").select("*").order("title");
+  const { data: movies } = await supabase
+    .from("movies")
+    .select("id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, is_playable, hint_1, hint_2, hint_3, hint_4")
+    .order("title");
   if (!movies?.length) return [];
   const rows: MovieRow[] = [];
   for (const m of movies as DbMovie[]) {

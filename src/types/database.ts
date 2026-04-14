@@ -5,6 +5,10 @@ export interface DbMovie {
   genre: string;
   cast_hint: string;
   plot_hint: string;
+  hint_1?: string | null;
+  hint_2?: string | null;
+  hint_3?: string | null;
+  hint_4?: string | null;
   poster_url?: string | null;
   poster_path?: string | null;
   status: string;
