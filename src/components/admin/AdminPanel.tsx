@@ -142,11 +142,13 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
     <div className="mx-auto max-w-4xl p-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <Link href="/" className="text-amber-400 hover:text-amber-300 text-sm">← Game</Link>
-          <h1 className="text-2xl font-semibold text-white mt-1">Admin</h1>
+          <Link href="/" className="text-sm text-gold hover:text-gold/90">
+            ← Game
+          </Link>
+          <h1 className="text-2xl font-semibold text-foreground mt-1">Admin</h1>
         </div>
         <form action={logoutAdmin}>
-          <button type="submit" className="text-sm text-zinc-500 hover:text-zinc-300">
+          <button type="submit" className="text-sm text-muted hover:text-foreground/80">
             Log out
           </button>
         </form>
@@ -159,9 +161,9 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
       )}
 
       <section className="mb-10">
-        <h2 className="text-lg font-medium text-white mb-4">Movies</h2>
+        <h2 className="text-lg font-medium text-foreground mb-4">Movies</h2>
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className="text-xs text-zinc-500">Status:</span>
+          <span className="text-xs text-muted">Status:</span>
           {(["all", "pending_review", "approved", "rejected"] as const).map((f) => (
             <button
               key={f}
@@ -169,8 +171,8 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
               onClick={() => setStatusFilter(f)}
               className={`rounded px-2.5 py-1 text-xs font-medium transition ${
                 statusFilter === f
-                  ? "bg-amber-500/30 text-amber-200 border border-amber-500/50"
-                  : "bg-white/5 text-zinc-400 border border-white/10 hover:text-zinc-300"
+                  ? "bg-gold/30 text-gold border border-gold/50"
+                  : "bg-white/5 text-muted border border-white/10 hover:text-foreground/80"
               }`}
             >
               {f === "all" ? "All" : f.replace("_", " ")}
@@ -180,8 +182,8 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
         <ul className="space-y-2">
           {displayMovies.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <span className="text-white">{m.title} ({m.year})</span>
-              <span className="text-xs text-zinc-500">
+              <span className="text-foreground">{m.title} ({m.year})</span>
+              <span className="text-xs text-muted">
                 {m.status ?? "—"} · {m.is_playable ? "playable" : "not playable"}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -191,13 +193,13 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
                     <button type="button" onClick={() => handleQuickStatus(m.id, "rejected")} className="text-xs text-rose-400 hover:text-rose-300">Reject</button>
                   </>
                 )}
-                <button type="button" onClick={() => handleQuickTogglePlayable(m.id, m.is_playable)} className="text-xs text-zinc-400 hover:text-zinc-300">
+                <button type="button" onClick={() => handleQuickTogglePlayable(m.id, m.is_playable)} className="text-xs text-muted hover:text-foreground/80">
                   {m.is_playable ? "Unplayable" : "Playable"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingId(editingId === m.id ? null : m.id)}
-                  className="text-sm text-amber-400 hover:text-amber-300"
+                  className="text-sm text-gold hover:text-gold"
                 >
                   {editingId === m.id ? "Cancel" : "Edit"}
                 </button>
@@ -221,7 +223,7 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="mt-4 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-300 px-4 py-2 text-sm hover:bg-amber-500/30"
+            className="mt-4 rounded-lg bg-gold/20 border border-gold/50 text-gold px-4 py-2 text-sm hover:bg-gold/30"
           >
             + Add movie
           </button>
@@ -240,7 +242,7 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
       </section>
 
       <section>
-        <h2 className="text-lg font-medium text-white mb-4">Daily schedule</h2>
+        <h2 className="text-lg font-medium text-foreground mb-4">Daily schedule</h2>
         <ScheduleBlock
           schedule={schedule}
           movies={movies}
@@ -262,14 +264,14 @@ function MovieForm({
 }) {
   return (
     <form onSubmit={onSubmit} className="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 space-y-3">
-      <input name="title" placeholder="Title" required className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white placeholder-zinc-500" />
-      <input name="year" type="number" placeholder="Year" required min={1800} max={2100} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white placeholder-zinc-500" />
-      <input name="genre" placeholder="Genre" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white placeholder-zinc-500" />
-      <input name="cast_hint" placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white placeholder-zinc-500" />
-      <textarea name="plot_hint" placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white placeholder-zinc-500 resize-none" />
+      <input name="title" placeholder="Title" required className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground placeholder:text-muted" />
+      <input name="year" type="number" placeholder="Year" required min={1800} max={2100} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground placeholder:text-muted" />
+      <input name="genre" placeholder="Genre" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground placeholder:text-muted" />
+      <input name="cast_hint" placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground placeholder:text-muted" />
+      <textarea name="plot_hint" placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground placeholder:text-muted resize-none" />
       <div className="flex gap-2">
-        <button type="submit" className="rounded bg-amber-500 text-zinc-900 px-4 py-2 text-sm font-medium">Create</button>
-        <button type="button" onClick={onCancel} className="rounded border border-white/20 text-zinc-300 px-4 py-2 text-sm">Cancel</button>
+        <button type="submit" className="rounded bg-gold text-background px-4 py-2 text-sm font-medium">Create</button>
+        <button type="button" onClick={onCancel} className="rounded border border-white/20 text-foreground/80 px-4 py-2 text-sm">Cancel</button>
       </div>
     </form>
   );
@@ -329,18 +331,18 @@ function MovieEditForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-medium text-white mb-4">Edit movie</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-surface p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-medium text-foreground mb-4">Edit movie</h3>
         <div className="space-y-3">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
-          <input type="number" value={year || ""} onChange={(e) => setYear(parseInt(e.target.value, 10) || 0)} placeholder="Year" min={1800} max={2100} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
-          <input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
-          <input value={castHint} onChange={(e) => setCastHint(e.target.value)} placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
-          <textarea value={plotHint} onChange={(e) => setPlotHint(e.target.value)} placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white resize-none" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
+          <input type="number" value={year || ""} onChange={(e) => setYear(parseInt(e.target.value, 10) || 0)} placeholder="Year" min={1800} max={2100} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
+          <input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
+          <input value={castHint} onChange={(e) => setCastHint(e.target.value)} placeholder="Cast hint" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
+          <textarea value={plotHint} onChange={(e) => setPlotHint(e.target.value)} placeholder="Plot hint" rows={2} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground resize-none" />
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white text-sm">
+            <label className="block text-xs text-muted mb-1">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground text-sm">
               <option value="pending_review">pending_review</option>
               <option value="approved">approved</option>
               <option value="rejected">rejected</option>
@@ -348,39 +350,39 @@ function MovieEditForm({
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="is_playable" checked={isPlayable} onChange={(e) => setIsPlayable(e.target.checked)} className="rounded border-white/20" />
-            <label htmlFor="is_playable" className="text-sm text-zinc-300">Playable (can appear in game and schedule)</label>
+            <label htmlFor="is_playable" className="text-sm text-foreground/80">Playable (can appear in game and schedule)</label>
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">TMDB poster path (optional)</label>
-            <input value={posterPath} onChange={(e) => setPosterPath(e.target.value)} placeholder="/kqjL17yufvn9OVLyXYpvtyrFfak.jpg" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white font-mono text-sm" />
-            <p className="mt-1 text-xs text-zinc-500">From TMDB; e.g. /abc123.jpg. Uses w500 size.</p>
+            <label className="block text-xs text-muted mb-1">TMDB poster path (optional)</label>
+            <input value={posterPath} onChange={(e) => setPosterPath(e.target.value)} placeholder="/kqjL17yufvn9OVLyXYpvtyrFfak.jpg" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground font-mono text-sm" />
+            <p className="mt-1 text-xs text-muted">From TMDB; e.g. /abc123.jpg. Uses w500 size.</p>
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Poster URL fallback (optional)</label>
-            <input value={posterUrl} onChange={(e) => setPosterUrl(e.target.value)} placeholder="https://..." type="url" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
+            <label className="block text-xs text-muted mb-1">Poster URL fallback (optional)</label>
+            <input value={posterUrl} onChange={(e) => setPosterUrl(e.target.value)} placeholder="https://..." type="url" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Primary tagline</label>
-            <input value={primaryTagline} onChange={(e) => setPrimaryTagline(e.target.value)} placeholder="Official tagline" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
+            <label className="block text-xs text-muted mb-1">Primary tagline</label>
+            <input value={primaryTagline} onChange={(e) => setPrimaryTagline(e.target.value)} placeholder="Official tagline" className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Other taglines</label>
+            <label className="block text-xs text-muted mb-1">Other taglines</label>
             {otherTaglines.map((t, i) => (
               <div key={i} className="flex gap-2 mb-2">
-                <input value={t} onChange={(e) => { const n = [...otherTaglines]; n[i] = e.target.value; setOtherTaglines(n); }} className="flex-1 rounded bg-white/10 border border-white/10 px-3 py-2 text-white" />
+                <input value={t} onChange={(e) => { const n = [...otherTaglines]; n[i] = e.target.value; setOtherTaglines(n); }} className="flex-1 rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground" />
                 <button type="button" onClick={() => setOtherTaglines(otherTaglines.filter((_, j) => j !== i))} className="text-rose-400 text-sm">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => setOtherTaglines([...otherTaglines, ""])} className="text-sm text-amber-400">+ Add tagline</button>
+            <button type="button" onClick={() => setOtherTaglines([...otherTaglines, ""])} className="text-sm text-gold">+ Add tagline</button>
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Accepted aliases (one per line or comma)</label>
-            <textarea value={aliasText} onChange={(e) => setAliasText(e.target.value)} placeholder="One per line or comma: Shawshank Redemption, Shawshank" rows={3} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-white resize-none" />
+            <label className="block text-xs text-muted mb-1">Accepted aliases (one per line or comma)</label>
+            <textarea value={aliasText} onChange={(e) => setAliasText(e.target.value)} placeholder="One per line or comma: Shawshank Redemption, Shawshank" rows={3} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 text-foreground resize-none" />
           </div>
         </div>
         <div className="flex gap-2 mt-6">
-          <button type="button" onClick={handleSave} className="rounded bg-amber-500 text-zinc-900 px-4 py-2 text-sm font-medium">Save</button>
-          <button type="button" onClick={onClose} className="rounded border border-white/20 text-zinc-300 px-4 py-2 text-sm">Close</button>
+          <button type="button" onClick={handleSave} className="rounded bg-gold text-background px-4 py-2 text-sm font-medium">Save</button>
+          <button type="button" onClick={onClose} className="rounded border border-white/20 text-foreground/80 px-4 py-2 text-sm">Close</button>
         </div>
       </div>
     </div>
@@ -414,22 +416,22 @@ function ScheduleBlock({
 
   return (
     <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-      <p className="text-sm text-zinc-500 mb-4">Assign a movie to a date. Only the first movie per date is used for the daily game.</p>
+      <p className="text-sm text-muted mb-4">Assign a movie to a date. Only the first movie per date is used for the daily game.</p>
       <div className="space-y-2 mb-4">
         {next14.map((date) => {
           const movieId = scheduleMap.get(date);
           const movie = movieId ? movies.find((m) => m.id === movieId) : null;
           return (
             <div key={date} className="flex items-center justify-between gap-4 py-2 border-b border-white/5">
-              <span className="text-zinc-400 font-mono text-sm">{date}</span>
+              <span className="text-muted font-mono text-sm">{date}</span>
               {movie ? (
                 <>
-                  <span className="text-white flex-1 truncate">{movie.title}</span>
+                  <span className="text-foreground flex-1 truncate">{movie.title}</span>
                   <button type="button" onClick={() => onRemove(date)} className="text-sm text-rose-400 hover:text-rose-300">Remove</button>
                 </>
               ) : (
                 <select
-                  className="flex-1 rounded bg-white/10 border border-white/10 px-3 py-1.5 text-white text-sm"
+                  className="flex-1 rounded bg-white/10 border border-white/10 px-3 py-1.5 text-foreground text-sm"
                   value=""
                   onChange={(e) => {
                     const id = e.target.value;
@@ -446,7 +448,7 @@ function ScheduleBlock({
           );
         })}
       </div>
-      <button type="button" onClick={onRefresh} className="text-sm text-zinc-500 hover:text-zinc-300">Refresh schedule</button>
+      <button type="button" onClick={onRefresh} className="text-sm text-muted hover:text-foreground/80">Refresh schedule</button>
     </div>
   );
 }

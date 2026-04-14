@@ -1,6 +1,7 @@
 const STREAK_KEY = "taglines-streak";
 const HISTORY_KEY = "taglines-history";
 const LAST_PLAYED_KEY = "taglines-last-played";
+const BEST_STREAK_KEY = "taglines-best-streak";
 
 export interface GameResult {
   date: string;
@@ -78,4 +79,27 @@ export function getWinCount(): number {
 
 export function getPlayCount(): number {
   return getStoredHistory().length;
+}
+
+export function getStoredBestStreak(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const v = localStorage.getItem(BEST_STREAK_KEY);
+    return v ? Math.max(0, parseInt(v, 10)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Persist rolling max streak (e.g. after a daily win). Does not decrease stored best. */
+export function maybeUpdateStoredBestStreak(currentStreak: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    const prev = getStoredBestStreak();
+    if (currentStreak > prev) {
+      localStorage.setItem(BEST_STREAK_KEY, String(currentStreak));
+    }
+  } catch {
+    // ignore
+  }
 }

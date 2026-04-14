@@ -19,14 +19,14 @@ export function AdminLoginForm() {
         name="password"
         placeholder="Admin password"
         autoComplete="current-password"
-        className="w-full rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-white placeholder-zinc-500 outline-none focus:ring-2 focus:ring-amber-500/50"
+        className="w-full rounded-lg border border-white/20 bg-surface px-4 py-3 text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-gold/50"
       />
       {state?.error && (
         <p className="text-sm text-rose-400">{state.error}</p>
       )}
       <button
         type="submit"
-        className="w-full rounded-lg bg-amber-500 py-3 font-medium text-zinc-900 hover:bg-amber-400"
+        className="w-full rounded-lg bg-gold py-3 font-semibold text-background hover:bg-gold/90"
       >
         Log in
       </button>

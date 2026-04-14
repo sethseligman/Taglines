@@ -41,13 +41,17 @@ export function HintReveal({ movie, hintLevel, className = "" }: HintRevealProps
 
   return (
     <div
-      className={`rounded-xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-sm transition-all duration-300 ${className}`}
+      className={`rounded-xl border border-white/10 bg-surface px-6 py-5 backdrop-blur-sm transition-all duration-300 ${className}`}
       style={{ animation: "fadeIn 0.4s ease-out" }}
     >
-      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-amber-400/90">
+      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-gold/90">
         {label}
       </p>
-      <p className="text-lg leading-relaxed text-zinc-100 md:text-xl">
+      <p
+        className={`text-lg leading-relaxed text-foreground md:text-xl ${
+          hintLevel === 0 ? "font-tagline-display" : ""
+        }`}
+      >
         {content}
       </p>
     </div>

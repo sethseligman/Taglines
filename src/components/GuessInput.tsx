@@ -137,14 +137,14 @@ export function GuessInput({
         id="guess-input"
         autoComplete="off"
         inputMode="search"
-        className="w-full rounded-xl border border-white/15 bg-white/5 px-5 py-4 text-lg text-white placeholder-zinc-500 outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50"
+        className="w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
       />
       {showDropdown && (
         <ul
           id="guess-suggestions"
           ref={listRef}
           role="listbox"
-          className="absolute top-full left-0 right-0 z-10 mt-1 max-h-64 overflow-auto rounded-xl border border-white/15 bg-zinc-900/98 py-2 shadow-xl backdrop-blur-sm touch-pan-y"
+          className="absolute top-full left-0 right-0 z-10 mt-1 max-h-64 overflow-auto rounded-xl border border-white/15 bg-surface py-2 backdrop-blur-sm touch-pan-y"
         >
           {filtered.map((title, i) => (
             <li
@@ -156,8 +156,8 @@ export function GuessInput({
                 e.preventDefault();
                 handleSelect(title);
               }}
-              className={`cursor-pointer select-none px-5 py-3 text-left text-white transition touch-manipulation ${
-                i === highlightIndex ? "bg-amber-500/25 text-amber-100" : "hover:bg-white/10"
+              className={`cursor-pointer select-none px-5 py-3 text-left text-foreground transition touch-manipulation ${
+                i === highlightIndex ? "bg-gold/25 text-gold" : "hover:bg-white/10"
               }`}
             >
               {title}
@@ -170,7 +170,7 @@ export function GuessInput({
           type="button"
           onClick={submitCurrent}
           disabled={disabled || !value.trim()}
-          className="mt-4 w-full rounded-xl bg-amber-500 py-4 font-medium text-zinc-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+          className="mt-4 w-full rounded-xl bg-gold py-4 font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
         >
           Guess
         </button>

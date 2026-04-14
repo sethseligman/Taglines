@@ -1,21 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
+  --background: #0d0d0d;
+  --foreground: #f0ede6;
+  --surface: #111111;
+  --muted: #6b6860;
+  --gold: #c9a96e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-gold: var(--gold);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Tagline card: official tagline copy */
+.font-tagline-display {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Result modal: revealed movie title */
+.font-result-movie-title {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* Result modal: narrator reaction */
+.font-narrator-line {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--gold);
 }
 
 @keyframes fadeIn {

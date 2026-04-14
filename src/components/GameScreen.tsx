@@ -149,19 +149,19 @@ export function GameScreen() {
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center bg-zinc-950 px-4 py-8">
+      <div className="flex min-h-screen flex-col items-center bg-background px-4 py-8">
         <div className="mb-10 w-full max-w-lg">
           <div className="h-9 w-32 rounded bg-white/10 animate-pulse" />
           <div className="mt-4 h-4 w-64 rounded bg-white/5 animate-pulse" />
         </div>
         <div className="w-full max-w-lg space-y-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8">
+          <div className="rounded-xl border border-white/10 bg-surface px-6 py-8">
             <div className="mb-2 h-3 w-20 rounded bg-white/10 animate-pulse" />
             <div className="h-5 w-full rounded bg-white/5 animate-pulse" />
             <div className="mt-2 h-4 w-full max-w-[80%] rounded bg-white/5 animate-pulse" />
           </div>
           <div className="h-14 rounded-xl bg-white/5 animate-pulse" />
-          <div className="h-14 rounded-xl bg-amber-500/20 animate-pulse" />
+          <div className="h-14 rounded-xl bg-gold/20 animate-pulse" />
         </div>
       </div>
     );
@@ -169,16 +169,16 @@ export function GameScreen() {
 
   if (dailyUnavailable) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 py-12 text-center text-zinc-100">
-        <p className="max-w-md text-lg font-medium text-white">Today’s daily couldn’t be loaded.</p>
-        <p className="mt-3 max-w-md text-sm text-zinc-400">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-12 text-center text-foreground">
+        <p className="max-w-md text-lg font-medium text-foreground">Today’s daily couldn’t be loaded.</p>
+        <p className="mt-3 max-w-md text-sm text-muted">
           There is no playable movie scheduled for {dateKeyForDaily} in Supabase, or the request failed. Check
           daily_schedule and try again.
         </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-8 rounded-xl bg-amber-500/90 px-6 py-3 font-medium text-zinc-900 transition hover:bg-amber-500 active:scale-[0.99]"
+          className="mt-8 rounded-xl bg-gold/90 px-6 py-3 font-medium text-background transition hover:bg-gold active:scale-[0.99]"
         >
           Retry
         </button>
@@ -187,27 +187,28 @@ export function GameScreen() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-zinc-950 px-4 py-8 text-zinc-100">
+    <div className="flex min-h-screen flex-col items-center bg-background px-4 py-8 text-foreground">
       <header className="mb-10 w-full max-w-lg">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
-              Taglines
+            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+              <span>Tag</span>
+              <span className="text-gold">lines</span>
             </h1>
             {mode === "daily" && getStoredStreak() > 0 && (
-              <p className="mt-1 text-sm text-amber-400/90">
+              <p className="mt-1 text-sm text-gold/90">
                 🔥 {getStoredStreak()} day streak
               </p>
             )}
           </div>
-          <div className="flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+          <div className="flex rounded-lg border border-white/10 bg-surface p-0.5">
             <button
               type="button"
               onClick={() => setMode("daily")}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                 mode === "daily"
-                  ? "bg-white/15 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-white/15 text-foreground"
+                  : "text-muted hover:text-foreground/80"
               }`}
             >
               Daily
@@ -217,8 +218,8 @@ export function GameScreen() {
               onClick={() => setMode("practice")}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                 mode === "practice"
-                  ? "bg-white/15 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-white/15 text-foreground"
+                  : "text-muted hover:text-foreground/80"
               }`}
             >
               Practice
@@ -226,12 +227,12 @@ export function GameScreen() {
           </div>
         </div>
         {mode === "daily" && (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             One movie per day. Can you guess it from the tagline?
           </p>
         )}
         {mode === "practice" && (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             Unlimited rounds with random movies from our collection.
           </p>
         )}
@@ -241,7 +242,7 @@ export function GameScreen() {
         <div className="mb-6 w-full max-w-lg">
           <HintReveal movie={state.movie} hintLevel={0} />
           <div className="mt-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
               Hints
             </p>
             <div className="flex flex-wrap gap-2">
@@ -260,8 +261,8 @@ export function GameScreen() {
                     key={level}
                     className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                       revealed
-                        ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-                        : "border-white/10 bg-white/5 text-zinc-400"
+                        ? "border-gold/40 bg-gold/10 text-gold"
+                        : "border-white/10 bg-surface text-muted"
                     }`}
                   >
                     {revealed ? `${HINT_LABELS[level]}: ${value}` : HINT_LABELS[level]}
@@ -274,7 +275,7 @@ export function GameScreen() {
 
         {state.status === "playing" && (
           <div className="flex w-full max-w-md flex-col gap-4">
-            <p className="text-center text-xs text-zinc-500">
+            <p className="text-center text-xs text-muted">
               Wrong guesses reveal more clues.
             </p>
             <GuessInput
@@ -284,12 +285,12 @@ export function GameScreen() {
               aria-label="Guess the movie"
             />
             {state.didYouMean && (
-              <p className="text-center text-sm text-amber-400/90">
-                Did you mean <strong className="text-amber-300">{state.didYouMean}</strong>?
+              <p className="text-center text-sm text-gold/90">
+                Did you mean <strong className="text-gold">{state.didYouMean}</strong>?
               </p>
             )}
             {autocompleteTitles.length === 0 && (
-              <p className="text-center text-xs text-zinc-500">
+              <p className="text-center text-xs text-muted">
                 Type any movie title and press Guess
               </p>
             )}
@@ -298,14 +299,14 @@ export function GameScreen() {
 
         {state.guessHistory.length > 0 && state.status === "playing" && (
           <div className="mt-6 w-full max-w-md">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
               Guesses ({state.guessesUsed}/5)
             </p>
             <ul className="flex flex-wrap gap-2">
               {state.guessHistory.map((g, i) => (
                 <li
                   key={i}
-                  className="rounded-lg bg-white/10 px-3 py-1.5 text-sm text-zinc-400"
+                  className="rounded-lg bg-white/10 px-3 py-1.5 text-sm text-muted"
                 >
                   {g}
                 </li>
