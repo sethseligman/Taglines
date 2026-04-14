@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
+import type { HintLevel } from "@/types/movie";
 import { getDidYouMean, isGuessCorrect } from "@/lib/answerNormalize";
 import {
   appendStoredResult,
@@ -14,13 +15,9 @@ import {
 
 export type GameStatus = "playing" | "won" | "lost";
 
-/** Hint levels 1–4 (Year, Genre, Cast, Plot) that the player can reveal manually. 0 = tagline, always visible. */
-export type RevealableHintLevel = 1 | 2 | 3 | 4;
-
 export interface GameState {
   movie: Movie;
-  /** Which hints (Year, Genre, Cast, Plot) the player has chosen to reveal. Tagline (0) is always visible. */
-  revealedHintLevels: RevealableHintLevel[];
+  hintLevel: HintLevel;
   guessesUsed: number;
   status: GameStatus;
   guessHistory: string[];
@@ -42,11 +39,10 @@ export function useGameState(
   state: GameState;
   submitGuess: (guess: string) => void;
   reset: () => void;
-  revealHint: (level: RevealableHintLevel) => void;
 } {
   const [state, setState] = useState<GameState>(() => ({
     movie,
-    revealedHintLevels: [],
+    hintLevel: 0,
     guessesUsed: 0,
     status: "playing",
     guessHistory: [],
@@ -59,7 +55,7 @@ export function useGameState(
   useEffect(() => {
     setState({
       movie,
-      revealedHintLevels: [],
+      hintLevel: 0,
       guessesUsed: 0,
       status: "playing",
       guessHistory: [],
@@ -104,6 +100,10 @@ export function useGameState(
         );
         const newHistory = [...prev.guessHistory, guess];
         const newGuessesUsed = prev.guessesUsed + 1;
+        const nextHintLevel = Math.min(
+          prev.hintLevel + 1,
+          4
+        ) as HintLevel;
         const isLost = newGuessesUsed >= MAX_GUESSES;
         if (isLost && prev.isDaily && getLastPlayedDate() !== prev.dateKey) {
           setStoredStreak(0);
@@ -117,6 +117,7 @@ export function useGameState(
         }
         return {
           ...prev,
+          hintLevel: nextHintLevel,
           guessesUsed: newGuessesUsed,
           status: isLost ? ("lost" as GameStatus) : "playing",
           guessHistory: newHistory,
@@ -130,7 +131,7 @@ export function useGameState(
   const reset = useCallback(() => {
     setState({
       movie,
-      revealedHintLevels: [],
+      hintLevel: 0,
       guessesUsed: 0,
       status: "playing",
       guessHistory: [],
@@ -140,15 +141,5 @@ export function useGameState(
     });
   }, [movie, isDaily, dateKey]);
 
-  const revealHint = useCallback((level: RevealableHintLevel) => {
-    setState((prev) => {
-      if (prev.status !== "playing" || prev.revealedHintLevels.includes(level)) return prev;
-      return {
-        ...prev,
-        revealedHintLevels: [...prev.revealedHintLevels, level].sort((a, b) => a - b),
-      };
-    });
-  }, []);
-
-  return { state, submitGuess, reset, revealHint };
+  return { state, submitGuess, reset };
 }

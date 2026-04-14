@@ -14,13 +14,12 @@ import { ResultModal } from "./ResultModal";
 
 type Mode = "daily" | "practice";
 
+const hasSupabase = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
 function getLocalDailyMovie(): { movie: Movie; dateKey: string } {
   const dateKey = getTodayKey();
-  const date = new Date(
-    parseInt(dateKey.slice(0, 4), 10),
-    parseInt(dateKey.slice(5, 7), 10) - 1,
-    parseInt(dateKey.slice(8, 10), 10)
-  );
   let hash = 0;
   for (let i = 0; i < dateKey.length; i++) {
     hash = (hash << 5) - hash + dateKey.charCodeAt(i);
@@ -37,28 +36,44 @@ function getLocalRandomMovie(): Movie {
 export function GameScreen() {
   const [mode, setMode] = useState<Mode>("practice");
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
+  const [dailyFailed, setDailyFailed] = useState(false);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [resultDismissed, setResultDismissed] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
-  // Load daily movie (from Supabase or fallback to local). One retry on failure.
+  // Load daily: Supabase schedule only when configured; otherwise local sample fallback.
   useEffect(() => {
     let cancelled = false;
+    if (!hasSupabase) {
+      setDailyPayload(getLocalDailyMovie());
+      setDailyFailed(false);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     setLoading(true);
+    setDailyFailed(false);
     const load = (retry = false) => {
       getDailyMovie(dateKeyForDaily)
         .then((result) => {
           if (cancelled) return;
-          if (result) setDailyPayload(result);
-          else setDailyPayload(getLocalDailyMovie());
+          if (result) {
+            setDailyPayload(result);
+            setDailyFailed(false);
+          } else {
+            setDailyPayload(null);
+            setDailyFailed(true);
+          }
           setLoading(false);
         })
         .catch(() => {
           if (cancelled) return;
           if (!retry) setTimeout(() => load(true), 400);
           else {
-            setDailyPayload(getLocalDailyMovie());
+            setDailyPayload(null);
+            setDailyFailed(true);
             setLoading(false);
           }
         });
@@ -83,16 +98,21 @@ export function GameScreen() {
 
   const { movie, dateKey, isDaily } = useMemo(() => {
     if (mode === "daily") {
-      const fallback = getLocalDailyMovie();
-      const payload = dailyPayload ?? fallback;
-      return { movie: payload.movie, dateKey: payload.dateKey, isDaily: true };
+      if (!hasSupabase) {
+        const payload = dailyPayload ?? getLocalDailyMovie();
+        return { movie: payload.movie, dateKey: payload.dateKey, isDaily: true };
+      }
+      if (dailyPayload) {
+        return { movie: dailyPayload.movie, dateKey: dailyPayload.dateKey, isDaily: true };
+      }
+      return { movie: SAMPLE_MOVIES[0]!, dateKey: dateKeyForDaily, isDaily: true };
     }
     // Use deterministic placeholder when practice movie not loaded yet (avoids hydration mismatch from Math.random())
     const pm = practiceMovie ?? SAMPLE_MOVIES[0]!;
     return { movie: pm, dateKey: "practice", isDaily: false };
-  }, [mode, dailyPayload, practiceMovie]);
+  }, [mode, dailyPayload, practiceMovie, dateKeyForDaily]);
 
-  const { state, submitGuess, reset, revealHint } = useGameState(movie, isDaily, dateKey);
+  const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
   const [autocompleteTitles, setAutocompleteTitles] = useState<string[]>([]);
 
   useEffect(() => {
@@ -124,6 +144,9 @@ export function GameScreen() {
   const showResult = isGameOver && !resultDismissed;
 
   const practiceLoading = mode === "practice" && practiceMovie === null;
+  const dailyUnavailable =
+    mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
+
   if ((loading && mode === "daily") || practiceLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center bg-zinc-950 px-4 py-8">
@@ -140,6 +163,25 @@ export function GameScreen() {
           <div className="h-14 rounded-xl bg-white/5 animate-pulse" />
           <div className="h-14 rounded-xl bg-amber-500/20 animate-pulse" />
         </div>
+      </div>
+    );
+  }
+
+  if (dailyUnavailable) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 py-12 text-center text-zinc-100">
+        <p className="max-w-md text-lg font-medium text-white">Today’s daily couldn’t be loaded.</p>
+        <p className="mt-3 max-w-md text-sm text-zinc-400">
+          There is no playable movie scheduled for {dateKeyForDaily} in Supabase, or the request failed. Check
+          daily_schedule and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-8 rounded-xl bg-amber-500/90 px-6 py-3 font-medium text-zinc-900 transition hover:bg-amber-500 active:scale-[0.99]"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -204,53 +246,37 @@ export function GameScreen() {
             </p>
             <div className="flex flex-wrap gap-2">
               {([1, 2, 3, 4] as const).map((level) => {
-                const revealed = state.revealedHintLevels.includes(level);
+                const revealed = state.hintLevel >= level;
+                const value =
+                  level === 1
+                    ? String(state.movie.year)
+                    : level === 2
+                      ? state.movie.genre
+                      : level === 3
+                        ? state.movie.castHint
+                        : state.movie.plotHint;
                 return (
-                  <button
+                  <span
                     key={level}
-                    type="button"
-                    onClick={() => !revealed && revealHint(level)}
-                    disabled={state.status !== "playing" || revealed}
                     className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                       revealed
                         ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-                        : "border-white/10 bg-white/5 text-zinc-400 hover:border-amber-500/30 hover:bg-white/10 hover:text-amber-200 disabled:opacity-50 disabled:pointer-events-none"
+                        : "border-white/10 bg-white/5 text-zinc-400"
                     }`}
                   >
-                    {HINT_LABELS[level]}
-                    {revealed && " ✓"}
-                  </button>
+                    {revealed ? `${HINT_LABELS[level]}: ${value}` : HINT_LABELS[level]}
+                  </span>
                 );
               })}
             </div>
           </div>
-          {state.revealedHintLevels.length > 0 && (
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <ul className="space-y-1.5 text-sm">
-                {state.revealedHintLevels.map((level) => {
-                  const label = HINT_LABELS[level];
-                  const value =
-                    level === 1
-                      ? String(state.movie.year)
-                      : level === 2
-                        ? state.movie.genre
-                        : level === 3
-                          ? state.movie.castHint
-                          : state.movie.plotHint;
-                  return (
-                    <li key={level} className="text-zinc-300">
-                      <span className="font-medium text-zinc-500">{label}:</span>{" "}
-                      {value}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
         </div>
 
         {state.status === "playing" && (
           <div className="flex w-full max-w-md flex-col gap-4">
+            <p className="text-center text-xs text-zinc-500">
+              Wrong guesses reveal more clues.
+            </p>
             <GuessInput
               suggestions={autocompleteTitles}
               onSubmit={handleGuessSubmit}
