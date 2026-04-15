@@ -768,7 +768,22 @@ export function GameScreen() {
                           aria-label={`Show clue ${i + 1}`}
                           aria-current={active ? "true" : undefined}
                           disabled={!revealed}
-                          onClick={() => revealed && setCurrentClueIndex(i)}
+                          onPointerDown={(e) => {
+                            if (!revealed) return;
+                            // Avoid moving focus from the guess field so the mobile keyboard stays up.
+                            e.preventDefault();
+                            // Some environments still omit `click` after preventDefault; set clue here too.
+                            setCurrentClueIndex(i);
+                          }}
+                          onClick={() => {
+                            if (!revealed) return;
+                            setCurrentClueIndex(i);
+                            if (!isDesktop) {
+                              requestAnimationFrame(() => {
+                                document.getElementById("guess-input")?.focus({ preventScroll: true });
+                              });
+                            }
+                          }}
                           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all disabled:cursor-default"
                         >
                           <span
