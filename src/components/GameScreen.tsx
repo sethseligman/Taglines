@@ -527,7 +527,8 @@ export function GameScreen() {
               <div
                 style={{
                   position: "sticky",
-                  top: 0,
+                  // Below notch / status bar when the visual viewport shifts (e.g. keyboard).
+                  top: "env(safe-area-inset-top, 0px)",
                   zIndex: 10,
                   background: "#080808",
                   paddingTop: "1rem",

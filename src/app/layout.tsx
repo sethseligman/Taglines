@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -11,6 +11,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Taglines — Guess the movie",
   description: "A daily movie guessing game based on taglines. One movie per day.",
+};
+
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
