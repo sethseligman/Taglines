@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { GameState } from "@/hooks/useGameState";
-import { buildShareText, copyShareToClipboard, getGuessCellKinds } from "@/lib/share";
+import { buildShareText, copyShareToClipboard } from "@/lib/share";
 import {
   getPlayCount,
   getStoredBestStreak,
@@ -10,8 +10,6 @@ import {
   getWinCount,
   maybeUpdateStoredBestStreak,
 } from "@/lib/storage";
-import { MAX_GUESSES } from "@/types/movie";
-import type { GuessCellKind } from "@/lib/share";
 
 interface ResultModalProps {
   state: GameState;
@@ -42,97 +40,6 @@ function formatCountdownToLocalMidnight(): string {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-function FilmCell({ kind, lost }: { kind: GuessCellKind; lost: boolean }) {
-  if (lost) {
-    return (
-      <div
-        className="flex flex-shrink-0 items-center justify-center"
-        style={{
-          width: 44,
-          height: 58,
-          borderRadius: 4,
-          backgroundColor: "#3a1a1a",
-          border: "1px solid #5a2a2a",
-          color: "#f87171",
-          fontFamily: DM,
-          fontSize: "1.25rem",
-          fontWeight: 600,
-          lineHeight: 1,
-        }}
-        aria-hidden
-      >
-        ×
-      </div>
-    );
-  }
-
-  if (kind === "wrong") {
-    return (
-      <div
-        className="flex flex-shrink-0 items-center justify-center"
-        style={{
-          width: 44,
-          height: 58,
-          borderRadius: 4,
-          backgroundColor: "#3a1a1a",
-          border: "1px solid #5a2a2a",
-          color: "#f87171",
-          fontFamily: DM,
-          fontSize: "1.25rem",
-          fontWeight: 600,
-          lineHeight: 1,
-        }}
-        aria-hidden
-      >
-        ×
-      </div>
-    );
-  }
-
-  if (kind === "win") {
-    return (
-      <div
-        className="flex flex-shrink-0 items-center justify-center"
-        style={{
-          width: 44,
-          height: 58,
-          borderRadius: 4,
-          backgroundColor: "#1a3a1a",
-          border: "1px solid #2a5a2a",
-          color: "#4ade80",
-          fontFamily: DM,
-          fontSize: "1.1rem",
-          fontWeight: 700,
-          lineHeight: 1,
-        }}
-        aria-hidden
-      >
-        ✓
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="flex flex-shrink-0 items-center justify-center"
-      style={{
-        width: 44,
-        height: 58,
-        borderRadius: 4,
-        backgroundColor: "#161616",
-        border: "1px solid #222",
-        color: "#6b6860",
-        fontFamily: DM,
-        fontSize: "0.5rem",
-        lineHeight: 1,
-      }}
-      aria-hidden
-    >
-      ·
-    </div>
-  );
-}
-
 function ShareIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
@@ -153,6 +60,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const [copied, setCopied] = useState(false);
   const [posterError, setPosterError] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [beat1Show, setBeat1Show] = useState(false);
   const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
 
   const streak = getStoredStreak();
@@ -163,11 +71,9 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const wins = getWinCount();
   const winPct = played > 0 ? Math.round((100 * wins) / played) : 0;
 
-  const isWon = state.status === "won";
   const lost = state.status === "lost";
   const movie = state.movie;
   const showPoster = movie.posterUrl && !posterError;
-  const cellKinds = useMemo(() => getGuessCellKinds(state), [state]);
   const narrator = useMemo(() => narratorLine(state), [state]);
 
   const hintsUsed = state.hintLevel;
@@ -179,10 +85,6 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
       : hintsUsed === 1
         ? "1 hint used."
         : `${hintsUsed} hints used.`;
-
-  const filmHeadline = isWon
-    ? `YOUR FILM — SOLVED IN ${state.guessesUsed}`
-    : `YOUR FILM — MISSED`;
 
   const metaLine = `${movie.year} · ${movie.genre}`;
 
@@ -197,6 +99,35 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
       window.clearTimeout(t);
     };
   }, [state.movie.title, state.status]);
+
+  useEffect(() => {
+    if (!revealed) {
+      const resetId = window.setTimeout(() => {
+        setBeat1Show(false);
+      }, 0);
+      return () => window.clearTimeout(resetId);
+    }
+    const reduceMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      const id = window.setTimeout(() => {
+        setBeat1Show(true);
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+    let cancelled = false;
+    const resetId = window.setTimeout(() => {
+      if (!cancelled) setBeat1Show(false);
+    }, 0);
+    const beat1At = window.setTimeout(() => {
+      if (!cancelled) setBeat1Show(true);
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(resetId);
+      window.clearTimeout(beat1At);
+    };
+  }, [revealed, state.movie.title, state.status, state.guessesUsed]);
 
   useLayoutEffect(() => {
     if (state.isDaily && state.status === "won") {
@@ -223,7 +154,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
 
   const phaseEase = "transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:transform-none";
 
-  const fadeInStagger = (delayMs: number) =>
+  const fadeInStagger = () =>
     `${phaseEase} ${
       revealed ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
     }`;
@@ -307,7 +238,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
 
         {/* Phase B: compact movie row, then narrator, film, stats, share, secondary */}
         <div className={detailShellClass}>
-          <div className={`mt-2 flex w-full flex-row items-start gap-3 ${fadeInStagger(0)}`} style={fadeInStyle(0)}>
+          <div className={`mt-2 flex w-full flex-row items-start gap-3 ${fadeInStagger()}`} style={fadeInStyle(0)}>
             {showPoster ? (
               <img
                 src={movie.posterUrl!}
@@ -347,7 +278,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             </div>
           </div>
 
-          <div className={`mt-8 text-center ${fadeInStagger(60)}`} style={fadeInStyle(60)}>
+          <div className={`mt-8 text-center ${fadeInStagger()}`} style={fadeInStyle(60)}>
             <p
               className="font-normal italic leading-none text-[#c9a96e]"
               style={{
@@ -361,17 +292,39 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             </p>
           </div>
 
-          <div className={`mt-8 w-full ${fadeInStagger(120)}`} style={fadeInStyle(120)}>
-            <p
-              className="mb-2 text-center uppercase tracking-[0.08em] text-[#6b6860]"
-              style={{ fontFamily: DM, fontSize: "0.65rem" }}
-            >
-              {filmHeadline}
-            </p>
-            <div className="flex flex-row items-center justify-center" style={{ gap: 8 }}>
-              {cellKinds.map((kind, i) => (
-                <FilmCell key={i} kind={kind} lost={lost} />
-              ))}
+          <div className={`mt-8 w-full ${fadeInStagger()}`} style={fadeInStyle(120)}>
+            <div className="flex flex-col items-center text-center">
+              <div
+                className="motion-reduce:transition-none"
+                style={{
+                  transform: beat1Show ? "scale(1)" : "scale(0.6)",
+                  opacity: beat1Show ? 1 : 0,
+                  transition: "transform 400ms ease-out, opacity 400ms ease-out",
+                  transformOrigin: "center center",
+                }}
+              >
+                <p
+                  className="mb-1 motion-reduce:opacity-100"
+                  style={{
+                    fontFamily: DM,
+                    fontSize: "0.7rem",
+                    color: "#6B6860",
+                  }}
+                >
+                  {lost ? "Not this time." : "solved in"}
+                </p>
+                <p
+                  className="font-bold leading-none text-[#f0ede6] motion-reduce:opacity-100"
+                  style={{
+                    fontFamily: PF,
+                    fontSize: "5rem",
+                    color: "#F0EDE6",
+                  }}
+                  aria-label={lost ? "Not solved" : `Solved in ${state.guessesUsed} guesses`}
+                >
+                  {lost ? "X" : state.guessesUsed}
+                </p>
+              </div>
             </div>
             <p
               className="mt-2 text-center text-[#6b6860]"
@@ -382,7 +335,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
           </div>
 
           <div
-            className={`mt-6 grid w-full grid-cols-4 border border-[#222] ${fadeInStagger(180)}`}
+            className={`mt-6 grid w-full grid-cols-4 border border-[#222] ${fadeInStagger()}`}
             style={{ ...fadeInStyle(180), borderColor: "#222" }}
           >
             {[
@@ -411,7 +364,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             ))}
           </div>
 
-          <div className={`mt-8 flex w-full justify-center ${fadeInStagger(240)}`} style={fadeInStyle(240)}>
+          <div className={`mt-8 flex w-full justify-center ${fadeInStagger()}`} style={fadeInStyle(240)}>
             <button
               type="button"
               onClick={handleShare}
@@ -428,7 +381,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             </button>
           </div>
 
-          <div className={`mt-4 flex w-full flex-col items-center gap-3 ${fadeInStagger(300)}`} style={fadeInStyle(300)}>
+          <div className={`mt-4 flex w-full flex-col items-center gap-3 ${fadeInStagger()}`} style={fadeInStyle(300)}>
             <div className="flex w-full max-w-[320px] flex-row flex-wrap justify-center gap-2">
               <button type="button" onClick={onPlayAgain} className={pillClass} style={pillStyle}>
                 {state.isDaily ? "Play again tomorrow" : "Play again"}
