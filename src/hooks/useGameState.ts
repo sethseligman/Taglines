@@ -82,7 +82,45 @@ export function useGameState(
   const submitGuess = useCallback(
     (rawGuess: string) => {
       const guess = rawGuess.trim();
-      if (!guess) return;
+      if (!guess) {
+        setState((prev) => {
+          if (prev.status !== "playing") return prev;
+          const newGuessesUsed = prev.guessesUsed + 1;
+          const nextHintLevel = Math.min(prev.hintLevel + 1, 4) as HintLevel;
+          const isLost = newGuessesUsed >= MAX_GUESSES;
+          if (isLost && prev.isDaily) {
+            setDailyCompletionResult({
+              status: "lost",
+              guessesUsed: newGuessesUsed,
+              dateKey: prev.dateKey,
+              movieTitle: prev.movie.title,
+              movieYear: prev.movie.year,
+              movieGenre: prev.movie.genre,
+              posterUrl: prev.movie.posterUrl ?? null,
+            });
+          }
+          if (isLost && prev.isDaily && getLastPlayedDate() !== prev.dateKey) {
+            setStoredStreak(0);
+            setLastPlayedDate(prev.dateKey);
+            appendStoredResult({
+              date: prev.dateKey,
+              won: false,
+              guessesUsed: newGuessesUsed,
+              maxGuesses: MAX_GUESSES,
+            });
+          }
+          return {
+            ...prev,
+            hintLevel: nextHintLevel,
+            guessesUsed: newGuessesUsed,
+            status: isLost ? ("lost" as GameStatus) : "playing",
+            guessHistory: [...prev.guessHistory, ""],
+            didYouMean: null,
+            submitMessage: null,
+          };
+        });
+        return;
+      }
 
       let duplicated = false;
       setState((prev) => {

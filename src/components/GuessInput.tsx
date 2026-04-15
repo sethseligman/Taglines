@@ -7,6 +7,8 @@ import type { SuggestionCatalogItem } from "@/types/suggestion";
 
 interface GuessInputProps {
   onSubmit: (value: string) => void;
+  /** Fires on every input change (for parent idle timers, etc.). */
+  onInputValueChange?: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
   "aria-label"?: string;
@@ -23,6 +25,7 @@ interface GuessInputProps {
 
 export function GuessInput({
   onSubmit,
+  onInputValueChange,
   disabled = false,
   placeholder = "Search movies...",
   "aria-label": ariaLabel = "Guess the movie",
@@ -49,12 +52,12 @@ export function GuessInput({
   const finishSubmit = useCallback(
     (guess: string) => {
       const trimmed = guess.trim();
-      if (!trimmed) return;
       if (blurLayoutTimeoutRef.current) {
         clearTimeout(blurLayoutTimeoutRef.current);
         blurLayoutTimeoutRef.current = null;
       }
       onSubmit(trimmed);
+      if (!trimmed) return;
       clearAfterSubmit();
       onLayoutBreathingChange?.(true);
       requestAnimationFrame(() => {
@@ -198,7 +201,9 @@ export function GuessInput({
         type="text"
         value={value}
         onChange={(e) => {
-          setValue(e.target.value);
+          const v = e.target.value;
+          setValue(v);
+          onInputValueChange?.(v);
           setOpen(true);
         }}
         onFocus={handleInputFocus}
@@ -259,7 +264,7 @@ export function GuessInput({
         <button
           type="button"
           onClick={submitCurrent}
-          disabled={disabled || !value.trim()}
+          disabled={disabled}
           className="shrink-0 rounded-xl bg-gold px-4 py-3 text-sm font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
           style={{ width: 96 }}
         >
@@ -276,7 +281,7 @@ export function GuessInput({
         <button
           type="button"
           onClick={submitCurrent}
-          disabled={disabled || !value.trim()}
+          disabled={disabled}
           className="mt-4 w-full rounded-xl bg-gold py-4 font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
         >
           Guess

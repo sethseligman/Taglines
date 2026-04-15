@@ -34,6 +34,19 @@ const hasSupabase = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+const idleMessages = [
+  "No idea? No one's watching. Just hit Guess.",
+  "Take the hint. We won't tell anyone.",
+  "Stuck? Submit empty. It'll be our secret.",
+  "The hints are right there. It's okay.",
+  "Even Ebert needed a second opinion sometimes.",
+  "An empty guess never hurt anyone. Except your ego.",
+  "Hit Guess. The movie isn't going to guess itself.",
+  "You can always blame the tagline.",
+  "No shame in the hint game.",
+  "Submit empty. The algorithm won't judge you.",
+];
+
 function getLocalDailyMovie(): { movie: Movie; dateKey: string } {
   const dateKey = getTodayKey();
   let hash = 0;
@@ -171,6 +184,11 @@ export function GameScreen() {
   }, [mode, dailyPayload, practiceMovie, dateKeyForDaily]);
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
+  const [idleTooltipVisible, setIdleTooltipVisible] = useState(false);
+  const [idleTooltipMessage, setIdleTooltipMessage] = useState("");
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleGameRef = useRef({ status: state.status, guessesUsed: state.guessesUsed });
+  idleGameRef.current = { status: state.status, guessesUsed: state.guessesUsed };
   const played = getPlayCount();
   const wins = getWinCount();
   const streak = getStoredStreak();
@@ -323,6 +341,39 @@ export function GameScreen() {
     },
     [submitGuess]
   );
+
+  const clearIdleTooltipTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
+  const armIdleTooltipTimer = useCallback(() => {
+    clearIdleTooltipTimer();
+    idleTimerRef.current = setTimeout(() => {
+      idleTimerRef.current = null;
+      const { status, guessesUsed } = idleGameRef.current;
+      if (status !== "playing" || guessesUsed < 1) return;
+      setIdleTooltipMessage(idleMessages[Math.floor(Math.random() * idleMessages.length)] ?? "");
+      setIdleTooltipVisible(true);
+    }, 20000);
+  }, [clearIdleTooltipTimer]);
+
+  const handleGuessInputActivity = useCallback(() => {
+    setIdleTooltipVisible(false);
+    armIdleTooltipTimer();
+  }, [armIdleTooltipTimer]);
+
+  useEffect(() => {
+    if (state.status !== "playing" || state.guessesUsed < 1) {
+      setIdleTooltipVisible(false);
+      clearIdleTooltipTimer();
+      return;
+    }
+    armIdleTooltipTimer();
+    return () => clearIdleTooltipTimer();
+  }, [state.status, state.guessesUsed, armIdleTooltipTimer, clearIdleTooltipTimer]);
 
   const handleShareCompletion = useCallback(async () => {
     if (!completionShareText) return;
@@ -724,13 +775,28 @@ export function GameScreen() {
                 </div>
 
                 <div
-                  className={`flex w-full max-w-md shrink-0 flex-col ${motionGap} ${
+                  className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${
                     relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
                   }`}
                 >
+                  {idleTooltipVisible && state.status === "playing" && (
+                    <p
+                      className="pointer-events-none absolute left-0 right-0 z-20 text-center italic"
+                      style={{
+                        bottom: "100%",
+                        marginBottom: 6,
+                        fontSize: "0.75rem",
+                        color: "#6B6860",
+                        animation: "fadeIn 0.35s ease-out",
+                      }}
+                    >
+                      {idleTooltipMessage}
+                    </p>
+                  )}
                   <GuessInput
                     submitInline
                     onSubmit={handleGuessSubmit}
+                    onInputValueChange={handleGuessInputActivity}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
                     placeholder="Search movies..."
                     aria-label="Guess the movie"
@@ -881,7 +947,7 @@ export function GameScreen() {
                         background: "#0f0f0f",
                       }}
                     >
-                      {g}
+                      {g === "" ? "\u00a0" : g}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <div
