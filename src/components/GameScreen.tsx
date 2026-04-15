@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
 import { getAutocompleteTitles, getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
@@ -89,6 +97,8 @@ export function GameScreen() {
   const [visualViewportOffset, setVisualViewportOffset] = useState(0);
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
+  /** Tailwind `md` — desktop uses classic static layout; mobile keeps keyboard-optimized chrome. */
+  const [isDesktop, setIsDesktop] = useState(false);
 
   // Load daily: Supabase schedule only when configured; otherwise local sample fallback.
   useEffect(() => {
@@ -188,7 +198,7 @@ export function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
+    if (typeof window === "undefined" || !window.visualViewport || isDesktop) return;
     const vv = window.visualViewport;
     const sync = () => {
       setVisualViewportOffset(vv.offsetTop);
@@ -200,9 +210,21 @@ export function GameScreen() {
       vv.removeEventListener("resize", sync);
       vv.removeEventListener("scroll", sync);
     };
+  }, [isDesktop]);
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, []);
 
   useEffect(() => {
+    if (isDesktop) {
+      setVisualViewportOffset(0);
+      return;
+    }
     const el = topChromeRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
@@ -211,7 +233,7 @@ export function GameScreen() {
     ro.observe(el);
     setTopChromeHeight(el.getBoundingClientRect().height);
     return () => ro.disconnect();
-  }, [movie.title, mode, dailyCompletion, showFloatingYear, state.status]);
+  }, [movie.title, mode, dailyCompletion, showFloatingYear, state.status, isDesktop]);
 
   useEffect(() => {
     if (mode !== "daily") {
@@ -332,6 +354,30 @@ export function GameScreen() {
   const practiceLoading = mode === "practice" && practiceMovie === null;
   const dailyUnavailable =
     mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
+
+  const relaxedVisual = isDesktop || playLayoutRelaxed;
+  const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
+  const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
+  const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
+
+  const topChromeStyle: CSSProperties = isDesktop
+    ? {
+        position: "relative",
+        zIndex: 30,
+        background: "#080808",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }
+    : {
+        position: "fixed",
+        left: 0,
+        right: 0,
+        top: 0,
+        zIndex: 30,
+        background: "#080808",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        transform: `translate3d(0, ${visualViewportOffset}px, 0)`,
+        willChange: "transform",
+      };
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -518,7 +564,9 @@ export function GameScreen() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
+    <div
+      className={`relative min-h-screen w-full bg-[#080808] text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
+    >
       <div
         className="pointer-events-none absolute inset-0 z-0"
         style={{
@@ -527,25 +575,25 @@ export function GameScreen() {
         }}
       />
 
-      <div ref={stageRef} className="relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div
-            ref={topChromeRef}
-            style={{
-              position: "fixed",
-              left: 0,
-              right: 0,
-              top: 0,
-              zIndex: 30,
-              background: "#080808",
-              paddingTop: "env(safe-area-inset-top, 0px)",
-              transform: `translate3d(0, ${visualViewportOffset}px, 0)`,
-              willChange: "transform",
-            }}
-          >
+      <div
+        ref={stageRef}
+        className={
+          isDesktop
+            ? "relative flex min-h-screen w-full flex-col"
+            : "relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden"
+        }
+      >
+        <div
+          className={
+            isDesktop
+              ? "relative z-10 flex flex-1 flex-col"
+              : "relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden"
+          }
+        >
+          <div ref={topChromeRef} className="shrink-0" style={topChromeStyle}>
             <header
-              className={`w-full shrink-0 px-5 md:px-8 transition-[padding] duration-300 ease-out ${
-                playLayoutRelaxed ? "pb-3 pt-4 md:pb-3 md:pt-5" : "pb-2 pt-3"
+              className={`w-full shrink-0 px-5 md:px-8 ${motionPad} ${
+                relaxedVisual ? "pb-3 pt-4 md:pb-3 md:pt-5" : "pb-2 pt-3"
               }`}
             >
               <div className="mx-auto flex w-full max-w-lg items-center justify-between">
@@ -581,8 +629,8 @@ export function GameScreen() {
             </header>
             <section className="relative mx-auto w-full max-w-lg px-1">
               <div
-                className={`relative transition-[padding] duration-300 ease-out ${
-                  playLayoutRelaxed ? "pb-5 pt-2 md:pb-6 md:pt-2" : "pb-2 pt-0.5 md:pb-4 md:pt-1"
+                className={`relative ${motionPad} ${
+                  relaxedVisual ? "pb-5 pt-2 md:pb-6 md:pt-2" : "pb-2 pt-0.5 md:pb-4 md:pt-1"
                 }`}
               >
                 {showFloatingYear && (
@@ -606,8 +654,8 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className={`w-full [&_p]:!italic transition-[margin] duration-300 ease-out ${
-                      playLayoutRelaxed
+                    className={`w-full [&_p]:!italic ${motionMargin} ${
+                      relaxedVisual
                         ? "[&_p]:!text-[1.45rem] [&_p]:!leading-[1.45] md:[&_p]:!text-[1.85rem] md:[&_p]:!leading-[1.52] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-8"
                         : "[&_p]:!text-[1.38rem] [&_p]:!leading-[1.38] md:[&_p]:!text-[1.75rem] md:[&_p]:!leading-[1.5] [&>div:last-child]:!mt-3 md:[&>div:last-child]:!mt-6"
                     }`}
@@ -617,19 +665,23 @@ export function GameScreen() {
             </section>
           </div>
 
-          <div className="shrink-0" style={{ height: Math.max(topChromeHeight, 1) }} aria-hidden />
+          {!isDesktop && (
+            <div className="shrink-0" style={{ height: Math.max(topChromeHeight, 1) }} aria-hidden />
+          )}
 
           <main
-            className={`flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 transition-[padding] duration-300 ease-out ${
-              playLayoutRelaxed ? "pt-5 md:pt-7" : "pt-2"
-            }`}
+            className={
+              isDesktop
+                ? `flex flex-1 flex-col px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                : `flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+            }
           >
             <div className="mx-auto flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && (
               <>
                 <div
-                  className={`flex w-full max-w-md shrink-0 items-center justify-center gap-2 transition-[margin] duration-300 ease-out ${
-                    playLayoutRelaxed ? "mb-12 md:mb-14" : "mb-8"
+                  className={`flex w-full max-w-md shrink-0 items-center justify-center gap-2 ${motionMargin} ${
+                    relaxedVisual ? "mb-12 md:mb-14" : "mb-8"
                   }`}
                 >
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -666,15 +718,15 @@ export function GameScreen() {
                 </div>
 
                 <div
-                  className={`flex w-full max-w-md shrink-0 flex-col transition-[gap] duration-300 ease-out ${
-                    playLayoutRelaxed ? "gap-5 md:gap-6" : "gap-3"
+                  className={`flex w-full max-w-md shrink-0 flex-col ${motionGap} ${
+                    relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
                   }`}
                 >
                   <GuessInput
                     submitInline
                     suggestions={autocompleteTitles}
                     onSubmit={handleGuessSubmit}
-                    onLayoutBreathingChange={setPlayLayoutRelaxed}
+                    onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
                     placeholder="Search movies..."
                     aria-label="Guess the movie"
                   />
@@ -694,14 +746,14 @@ export function GameScreen() {
                 </div>
 
                 <hr
-                  className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] transition-[margin] duration-300 ease-out ${
-                    playLayoutRelaxed ? "my-10 md:my-12" : "my-8"
+                  className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${motionMargin} ${
+                    relaxedVisual ? "my-10 md:my-12" : "my-8"
                   }`}
                 />
 
                 <section
-                  className={`flex w-full max-w-md shrink-0 flex-col items-center transition-[gap] duration-300 ease-out ${
-                    playLayoutRelaxed ? "gap-5 md:gap-6" : "gap-3"
+                  className={`flex w-full max-w-md shrink-0 flex-col items-center ${motionGap} ${
+                    relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
                   }`}
                 >
                   <div className="flex items-center justify-center gap-3">
@@ -760,9 +812,7 @@ export function GameScreen() {
 
             {state.guessHistory.length > 0 && state.status === "playing" && (
               <div
-                className={`transition-[margin] duration-300 ease-out ${
-                  playLayoutRelaxed ? "mt-12 md:mt-14" : "mt-8"
-                }`}
+                className={`${motionMargin} ${relaxedVisual ? "mt-12 md:mt-14" : "mt-8"}`}
                 style={{
                   display: "flex",
                   flexDirection: "column",

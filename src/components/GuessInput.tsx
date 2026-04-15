@@ -43,13 +43,28 @@ export function GuessInput({
     setHighlightIndex(0);
   }, []);
 
-  const submitCurrent = useCallback(() => {
-    const v = value.trim();
-    if (v) {
-      onSubmit(v);
+  /** Every successful guess path ends here: same clear, blur (dismiss keyboard), relaxed layout. */
+  const finishSubmit = useCallback(
+    (guess: string) => {
+      const trimmed = guess.trim();
+      if (!trimmed) return;
+      if (blurLayoutTimeoutRef.current) {
+        clearTimeout(blurLayoutTimeoutRef.current);
+        blurLayoutTimeoutRef.current = null;
+      }
+      onSubmit(trimmed);
       clearAfterSubmit();
-    }
-  }, [value, onSubmit, clearAfterSubmit]);
+      onLayoutBreathingChange?.(true);
+      requestAnimationFrame(() => {
+        inputRef.current?.blur();
+      });
+    },
+    [onSubmit, clearAfterSubmit, onLayoutBreathingChange]
+  );
+
+  const submitCurrent = useCallback(() => {
+    finishSubmit(value);
+  }, [value, finishSubmit]);
 
   const filtered = getPrecisionSuggestions(value, suggestions);
 
@@ -101,11 +116,7 @@ export function GuessInput({
       if (!showDropdown) {
         if (e.key === "Enter") {
           e.preventDefault();
-          const v = value.trim();
-          if (v) {
-            onSubmit(v);
-            clearAfterSubmit();
-          }
+          finishSubmit(value);
         }
         return;
       }
@@ -122,9 +133,7 @@ export function GuessInput({
           e.preventDefault();
           const picked = filtered[highlightIndex];
           if (picked) {
-            setOpen(false);
-            onSubmit(picked);
-            clearAfterSubmit();
+            finishSubmit(picked);
           } else {
             submitCurrent();
           }
@@ -137,7 +146,7 @@ export function GuessInput({
           break;
       }
     },
-    [showDropdown, filtered, highlightIndex, value, submitCurrent, clearAfterSubmit]
+    [showDropdown, filtered, highlightIndex, value, submitCurrent, finishSubmit]
   );
 
   useEffect(() => {
@@ -149,12 +158,9 @@ export function GuessInput({
 
   const handleSelect = useCallback(
     (title: string) => {
-      setOpen(false);
-      onSubmit(title);
-      clearAfterSubmit();
-      inputRef.current?.focus();
+      finishSubmit(title);
     },
-    [onSubmit, clearAfterSubmit]
+    [finishSubmit]
   );
 
   const inputClassName = submitInline
