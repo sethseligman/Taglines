@@ -359,12 +359,6 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             >
               {narrator}
             </p>
-            <p
-              className="uppercase tracking-[0.12em] text-[#6b6860]"
-              style={{ fontFamily: DM, fontSize: "0.7rem" }}
-            >
-              {"Today's verdict"}
-            </p>
           </div>
 
           <div className={`mt-8 w-full ${fadeInStagger(120)}`} style={fadeInStyle(120)}>
