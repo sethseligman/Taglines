@@ -131,7 +131,18 @@ export function GuessInput({
           setValue(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          const el = inputRef.current;
+          if (!el) return;
+          // After the mobile keyboard opens, nudge the scroll container so the field stays visible.
+          requestAnimationFrame(() => {
+            el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+          });
+          window.setTimeout(() => {
+            el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+          }, 160);
+        }}
         onBlur={() => setTimeout(() => setOpen(false), 180)}
         onKeyDown={handleKeyDown}
         disabled={disabled}

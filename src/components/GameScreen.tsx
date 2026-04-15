@@ -566,7 +566,7 @@ export function GameScreen() {
               </div>
             </header>
             <section className="relative mx-auto w-full max-w-lg px-1">
-              <div className="relative pb-4 pt-1">
+              <div className="relative pb-2 pt-0.5 md:pb-4 md:pt-1">
                 {showFloatingYear && (
                   <div
                     className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
@@ -588,7 +588,7 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className="w-full [&_p]:!text-[1.75rem] [&_p]:!italic [&_p]:!leading-[1.5]"
+                    className="w-full [&_p]:!text-[1.38rem] [&_p]:!italic [&_p]:!leading-[1.38] md:[&_p]:!text-[1.75rem] md:[&_p]:!leading-[1.5] [&>div:last-child]:!mt-3 md:[&>div:last-child]:!mt-6"
                   />
                 </div>
               </div>
