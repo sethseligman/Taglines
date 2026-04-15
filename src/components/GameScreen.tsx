@@ -33,7 +33,7 @@ function getLocalRandomMovie(): Movie {
 }
 
 export function GameScreen() {
-  const [mode, setMode] = useState<Mode>("practice");
+  const [mode, setMode] = useState<Mode>("daily");
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
   const [dailyFailed, setDailyFailed] = useState(false);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
@@ -361,6 +361,9 @@ export function GameScreen() {
                     placeholder="Search movies..."
                     aria-label="Guess the movie"
                   />
+                  {state.submitMessage && (
+                    <p className="text-center text-sm text-gold/90">{state.submitMessage}</p>
+                  )}
                   {state.didYouMean && (
                     <p className="text-center text-sm text-gold/90">
                       Did you mean <strong className="text-gold">{state.didYouMean}</strong>?
@@ -431,13 +434,23 @@ export function GameScreen() {
             )}
 
             {state.guessHistory.length > 0 && state.status === "playing" && (
-              <div className="mt-8 flex w-full max-w-md flex-col gap-3">
+              <div
+                className="mt-8"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  padding: "0 1.5rem",
+                  width: "100%",
+                }}
+              >
                 {state.guessHistory.map((g, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5"
                     style={{
-                      opacity: 0.45,
+                      opacity: 0.75,
                       transform: i % 2 === 0 ? "rotate(-0.4deg)" : "rotate(0.3deg)",
                       alignSelf: i % 2 === 0 ? "flex-start" : "flex-end",
                     }}

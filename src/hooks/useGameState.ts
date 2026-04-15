@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
 import type { HintLevel } from "@/types/movie";
-import { getDidYouMean, isGuessCorrect } from "@/lib/answerNormalize";
+import { getDidYouMean, isGuessCorrect, normalizeForComparison } from "@/lib/answerNormalize";
 import {
   appendStoredResult,
   getLastPlayedDate,
@@ -25,6 +25,8 @@ export interface GameState {
   dateKey: string;
   /** When last guess was wrong but very close; show "Did you mean X?" */
   didYouMean: string | null;
+  /** Transient inline submission feedback (e.g., duplicate guess). */
+  submitMessage: string | null;
 }
 
 function isCorrectGuess(guess: string, movie: Movie): boolean {
@@ -49,7 +51,9 @@ export function useGameState(
     isDaily,
     dateKey,
     didYouMean: null,
+    submitMessage: null,
   }));
+  const submitMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset internal state when movie/dateKey changes (e.g. new day or practice pick)
   useEffect(() => {
@@ -62,16 +66,35 @@ export function useGameState(
       isDaily,
       dateKey,
       didYouMean: null,
+      submitMessage: null,
     });
   }, [movie.title, dateKey, isDaily]);
+
+  useEffect(() => {
+    return () => {
+      if (submitMessageTimeoutRef.current) {
+        clearTimeout(submitMessageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const submitGuess = useCallback(
     (rawGuess: string) => {
       const guess = rawGuess.trim();
       if (!guess) return;
 
+      let duplicated = false;
       setState((prev) => {
         if (prev.status !== "playing") return prev;
+        if (
+          prev.guessHistory.some(
+            (existingGuess) =>
+              normalizeForComparison(existingGuess) === normalizeForComparison(guess)
+          )
+        ) {
+          duplicated = true;
+          return { ...prev, submitMessage: "Already guessed" };
+        }
         if (isCorrectGuess(guess, prev.movie)) {
           const newGuessesUsed = prev.guessesUsed + 1;
           if (prev.isDaily && getLastPlayedDate() !== prev.dateKey) {
@@ -91,6 +114,7 @@ export function useGameState(
           status: "won" as GameStatus,
           guessHistory: [...prev.guessHistory, guess],
           didYouMean: null,
+          submitMessage: null,
         };
         }
         const didYouMean = getDidYouMean(
@@ -122,8 +146,20 @@ export function useGameState(
           status: isLost ? ("lost" as GameStatus) : "playing",
           guessHistory: newHistory,
           didYouMean: didYouMean ?? null,
+          submitMessage: null,
         };
       });
+      if (duplicated) {
+        if (submitMessageTimeoutRef.current) {
+          clearTimeout(submitMessageTimeoutRef.current);
+        }
+        submitMessageTimeoutRef.current = setTimeout(() => {
+          setState((prev) =>
+            prev.submitMessage === "Already guessed" ? { ...prev, submitMessage: null } : prev
+          );
+          submitMessageTimeoutRef.current = null;
+        }, 2000);
+      }
     },
     []
   );
@@ -138,6 +174,7 @@ export function useGameState(
       isDaily,
       dateKey,
       didYouMean: null,
+      submitMessage: null,
     });
   }, [movie, isDaily, dateKey]);
 
