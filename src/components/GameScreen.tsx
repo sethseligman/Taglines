@@ -87,6 +87,8 @@ export function GameScreen() {
   const topChromeRef = useRef<HTMLDivElement>(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [visualViewportOffset, setVisualViewportOffset] = useState(0);
+  /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
+  const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
 
   // Load daily: Supabase schedule only when configured; otherwise local sample fallback.
   useEffect(() => {
@@ -243,6 +245,14 @@ export function GameScreen() {
     setCurrentClueIndex(0);
     prevHintLevelForCluesRef.current = 0;
   }, [movie.title, dateKey]);
+
+  useEffect(() => {
+    setPlayLayoutRelaxed(true);
+  }, [movie.title, dateKey]);
+
+  useEffect(() => {
+    if (state.status !== "playing") setPlayLayoutRelaxed(true);
+  }, [state.status]);
 
   useEffect(() => {
     const h = state.hintLevel;
@@ -533,7 +543,11 @@ export function GameScreen() {
               willChange: "transform",
             }}
           >
-            <header className="w-full shrink-0 px-5 pb-2 pt-3 md:px-8">
+            <header
+              className={`w-full shrink-0 px-5 md:px-8 transition-[padding] duration-300 ease-out ${
+                playLayoutRelaxed ? "pb-3 pt-4 md:pb-3 md:pt-5" : "pb-2 pt-3"
+              }`}
+            >
               <div className="mx-auto flex w-full max-w-lg items-center justify-between">
                 <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
                   <span>Tag</span>
@@ -566,7 +580,11 @@ export function GameScreen() {
               </div>
             </header>
             <section className="relative mx-auto w-full max-w-lg px-1">
-              <div className="relative pb-2 pt-0.5 md:pb-4 md:pt-1">
+              <div
+                className={`relative transition-[padding] duration-300 ease-out ${
+                  playLayoutRelaxed ? "pb-5 pt-2 md:pb-6 md:pt-2" : "pb-2 pt-0.5 md:pb-4 md:pt-1"
+                }`}
+              >
                 {showFloatingYear && (
                   <div
                     className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
@@ -588,7 +606,11 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className="w-full [&_p]:!text-[1.38rem] [&_p]:!italic [&_p]:!leading-[1.38] md:[&_p]:!text-[1.75rem] md:[&_p]:!leading-[1.5] [&>div:last-child]:!mt-3 md:[&>div:last-child]:!mt-6"
+                    className={`w-full [&_p]:!italic transition-[margin] duration-300 ease-out ${
+                      playLayoutRelaxed
+                        ? "[&_p]:!text-[1.45rem] [&_p]:!leading-[1.45] md:[&_p]:!text-[1.85rem] md:[&_p]:!leading-[1.52] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-8"
+                        : "[&_p]:!text-[1.38rem] [&_p]:!leading-[1.38] md:[&_p]:!text-[1.75rem] md:[&_p]:!leading-[1.5] [&>div:last-child]:!mt-3 md:[&>div:last-child]:!mt-6"
+                    }`}
                   />
                 </div>
               </div>
@@ -597,11 +619,19 @@ export function GameScreen() {
 
           <div className="shrink-0" style={{ height: Math.max(topChromeHeight, 1) }} aria-hidden />
 
-          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 pt-2 md:px-8">
+          <main
+            className={`flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 transition-[padding] duration-300 ease-out ${
+              playLayoutRelaxed ? "pt-5 md:pt-7" : "pt-2"
+            }`}
+          >
             <div className="mx-auto flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && (
               <>
-                <div className="mb-8 flex w-full max-w-md shrink-0 items-center justify-center gap-2">
+                <div
+                  className={`flex w-full max-w-md shrink-0 items-center justify-center gap-2 transition-[margin] duration-300 ease-out ${
+                    playLayoutRelaxed ? "mb-12 md:mb-14" : "mb-8"
+                  }`}
+                >
                   {[0, 1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
@@ -635,11 +665,16 @@ export function GameScreen() {
                   </span>
                 </div>
 
-                <div className="flex w-full max-w-md shrink-0 flex-col gap-3">
+                <div
+                  className={`flex w-full max-w-md shrink-0 flex-col transition-[gap] duration-300 ease-out ${
+                    playLayoutRelaxed ? "gap-5 md:gap-6" : "gap-3"
+                  }`}
+                >
                   <GuessInput
                     submitInline
                     suggestions={autocompleteTitles}
                     onSubmit={handleGuessSubmit}
+                    onLayoutBreathingChange={setPlayLayoutRelaxed}
                     placeholder="Search movies..."
                     aria-label="Guess the movie"
                   />
@@ -658,9 +693,17 @@ export function GameScreen() {
                   )}
                 </div>
 
-                <hr className="my-8 w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a]" />
+                <hr
+                  className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] transition-[margin] duration-300 ease-out ${
+                    playLayoutRelaxed ? "my-10 md:my-12" : "my-8"
+                  }`}
+                />
 
-                <section className="flex w-full max-w-md shrink-0 flex-col items-center gap-3">
+                <section
+                  className={`flex w-full max-w-md shrink-0 flex-col items-center transition-[gap] duration-300 ease-out ${
+                    playLayoutRelaxed ? "gap-5 md:gap-6" : "gap-3"
+                  }`}
+                >
                   <div className="flex items-center justify-center gap-3">
                     {[0, 1, 2, 3].map((i) => {
                       const revealed = i < state.hintLevel;
@@ -717,7 +760,9 @@ export function GameScreen() {
 
             {state.guessHistory.length > 0 && state.status === "playing" && (
               <div
-                className="mt-8"
+                className={`transition-[margin] duration-300 ease-out ${
+                  playLayoutRelaxed ? "mt-12 md:mt-14" : "mt-8"
+                }`}
                 style={{
                   display: "flex",
                   flexDirection: "column",

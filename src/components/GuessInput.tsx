@@ -13,6 +13,11 @@ interface GuessInputProps {
   showSubmitButton?: boolean;
   /** Input and Guess on one row: input flex-1, fixed-width Guess button. */
   submitInline?: boolean;
+  /**
+   * `false` while the guess field is focused (compact layout); `true` when relaxed after blur.
+   * Lets the parent add breathing room when the keyboard is not active.
+   */
+  onLayoutBreathingChange?: (relaxed: boolean) => void;
 }
 
 export function GuessInput({
@@ -23,12 +28,14 @@ export function GuessInput({
   "aria-label": ariaLabel = "Guess the movie",
   showSubmitButton = true,
   submitInline = false,
+  onLayoutBreathingChange,
 }: GuessInputProps) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const blurLayoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearAfterSubmit = useCallback(() => {
     setValue("");
@@ -55,6 +62,39 @@ export function GuessInput({
   useEffect(() => {
     setHighlightIndex(0);
   }, [value]);
+
+  useEffect(() => {
+    return () => {
+      if (blurLayoutTimeoutRef.current) {
+        clearTimeout(blurLayoutTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    if (blurLayoutTimeoutRef.current) {
+      clearTimeout(blurLayoutTimeoutRef.current);
+      blurLayoutTimeoutRef.current = null;
+    }
+    onLayoutBreathingChange?.(false);
+    setOpen(true);
+    const el = inputRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    });
+    window.setTimeout(() => {
+      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    }, 160);
+  }, [onLayoutBreathingChange]);
+
+  const handleInputBlur = useCallback(() => {
+    blurLayoutTimeoutRef.current = setTimeout(() => {
+      setOpen(false);
+      onLayoutBreathingChange?.(true);
+      blurLayoutTimeoutRef.current = null;
+    }, 180);
+  }, [onLayoutBreathingChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -131,19 +171,8 @@ export function GuessInput({
           setValue(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => {
-          setOpen(true);
-          const el = inputRef.current;
-          if (!el) return;
-          // After the mobile keyboard opens, nudge the scroll container so the field stays visible.
-          requestAnimationFrame(() => {
-            el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-          });
-          window.setTimeout(() => {
-            el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-          }, 160);
-        }}
-        onBlur={() => setTimeout(() => setOpen(false), 180)}
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={placeholder}
