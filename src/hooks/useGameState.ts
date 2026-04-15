@@ -8,6 +8,7 @@ import { getDidYouMean, isGuessCorrect, normalizeForComparison } from "@/lib/ans
 import {
   appendStoredResult,
   getLastPlayedDate,
+  setDailyCompletionResult,
   getStoredStreak,
   setLastPlayedDate,
   setStoredStreak,
@@ -97,6 +98,17 @@ export function useGameState(
         }
         if (isCorrectGuess(guess, prev.movie)) {
           const newGuessesUsed = prev.guessesUsed + 1;
+          if (prev.isDaily) {
+            setDailyCompletionResult({
+              status: "won",
+              guessesUsed: newGuessesUsed,
+              dateKey: prev.dateKey,
+              movieTitle: prev.movie.title,
+              movieYear: prev.movie.year,
+              movieGenre: prev.movie.genre,
+              posterUrl: prev.movie.posterUrl ?? null,
+            });
+          }
           if (prev.isDaily && getLastPlayedDate() !== prev.dateKey) {
             const streak = getStoredStreak();
             setStoredStreak(streak + 1);
@@ -129,6 +141,17 @@ export function useGameState(
           4
         ) as HintLevel;
         const isLost = newGuessesUsed >= MAX_GUESSES;
+        if (isLost && prev.isDaily) {
+          setDailyCompletionResult({
+            status: "lost",
+            guessesUsed: newGuessesUsed,
+            dateKey: prev.dateKey,
+            movieTitle: prev.movie.title,
+            movieYear: prev.movie.year,
+            movieGenre: prev.movie.genre,
+            posterUrl: prev.movie.posterUrl ?? null,
+          });
+        }
         if (isLost && prev.isDaily && getLastPlayedDate() !== prev.dateKey) {
           setStoredStreak(0);
           setLastPlayedDate(prev.dateKey);

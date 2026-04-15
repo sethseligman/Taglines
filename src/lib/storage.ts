@@ -3,6 +3,16 @@ const HISTORY_KEY = "taglines-history";
 const LAST_PLAYED_KEY = "taglines-last-played";
 const BEST_STREAK_KEY = "taglines-best-streak";
 
+export interface DailyCompletionResult {
+  status: "won" | "lost";
+  guessesUsed: number;
+  dateKey: string;
+  movieTitle: string;
+  movieYear: number;
+  movieGenre: string;
+  posterUrl: string | null;
+}
+
 export interface GameResult {
   date: string;
   won: boolean;
@@ -101,5 +111,46 @@ export function maybeUpdateStoredBestStreak(currentStreak: number): void {
     }
   } catch {
     // ignore
+  }
+}
+
+function getDailyResultStorageKey(dateKey: string): string {
+  return `taglines-daily-result-${dateKey}`;
+}
+
+export function setDailyCompletionResult(result: DailyCompletionResult): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getDailyResultStorageKey(result.dateKey), JSON.stringify(result));
+  } catch {
+    // ignore
+  }
+}
+
+export function getDailyCompletionResult(dateKey: string): DailyCompletionResult | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(getDailyResultStorageKey(dateKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DailyCompletionResult> | null;
+    if (!parsed) return null;
+    if (parsed.dateKey !== dateKey) return null;
+    if (parsed.status !== "won" && parsed.status !== "lost") return null;
+    if (typeof parsed.guessesUsed !== "number") return null;
+    if (typeof parsed.movieTitle !== "string") return null;
+    if (typeof parsed.movieYear !== "number") return null;
+    if (typeof parsed.movieGenre !== "string") return null;
+    if (!(typeof parsed.posterUrl === "string" || parsed.posterUrl === null)) return null;
+    return {
+      status: parsed.status,
+      guessesUsed: parsed.guessesUsed,
+      dateKey: parsed.dateKey,
+      movieTitle: parsed.movieTitle,
+      movieYear: parsed.movieYear,
+      movieGenre: parsed.movieGenre,
+      posterUrl: parsed.posterUrl,
+    };
+  } catch {
+    return null;
   }
 }

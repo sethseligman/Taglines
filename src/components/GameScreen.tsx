@@ -7,6 +7,15 @@ import { getAutocompleteTitles, getDailyMovie, getRandomPracticeMovie } from "@/
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
+import { buildShareText, copyShareToClipboard } from "@/lib/share";
+import {
+  type DailyCompletionResult,
+  getDailyCompletionResult,
+  getPlayCount,
+  getStoredBestStreak,
+  getStoredStreak,
+  getWinCount,
+} from "@/lib/storage";
 import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
@@ -32,6 +41,26 @@ function getLocalRandomMovie(): Movie {
   return SAMPLE_MOVIES[Math.floor(Math.random() * SAMPLE_MOVIES.length)]!;
 }
 
+function narratorLineForResult(status: "won" | "lost", guessesUsed: number): string {
+  if (status === "lost") return "Maybe next time.";
+  if (guessesUsed === 1) return "Flawless.";
+  if (guessesUsed === 2) return "Sharp.";
+  if (guessesUsed === 3) return "Solid.";
+  if (guessesUsed === 4) return "You got there.";
+  return "Hard earned.";
+}
+
+function formatCountdownToLocalMidnight(): string {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  const ms = Math.max(0, next.getTime() - now.getTime());
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
 export function GameScreen() {
   const [mode, setMode] = useState<Mode>("daily");
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
@@ -39,6 +68,10 @@ export function GameScreen() {
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [resultDismissed, setResultDismissed] = useState(false);
+  const [dailyCompletion, setDailyCompletion] = useState<DailyCompletionResult | null>(null);
+  const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
+  const [copied, setCopied] = useState(false);
+  const [completionPosterError, setCompletionPosterError] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -122,10 +155,57 @@ export function GameScreen() {
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
   const [autocompleteTitles, setAutocompleteTitles] = useState<string[]>([]);
+  const played = getPlayCount();
+  const wins = getWinCount();
+  const streak = getStoredStreak();
+  const bestStreak = getStoredBestStreak();
+  const winPct = played > 0 ? Math.round((100 * wins) / played) : 0;
+
+  const completionShareText = useMemo(() => {
+    if (!dailyCompletion) return "";
+    return buildShareText({
+      movie,
+      hintLevel: Math.min(Math.max(dailyCompletion.guessesUsed - 1, 0), 4) as HintLevel,
+      guessesUsed: dailyCompletion.guessesUsed,
+      status: dailyCompletion.status,
+      guessHistory: Array.from({ length: dailyCompletion.guessesUsed }, () => ""),
+      isDaily: true,
+      dateKey: dailyCompletion.dateKey,
+      didYouMean: null,
+      submitMessage: null,
+    });
+  }, [dailyCompletion, movie]);
 
   useEffect(() => {
     getAutocompleteTitles().then(setAutocompleteTitles);
   }, []);
+
+  useEffect(() => {
+    if (mode !== "daily") {
+      setDailyCompletion(null);
+      return;
+    }
+    setDailyCompletion(getDailyCompletionResult(dateKey));
+  }, [mode, dateKey]);
+
+  useEffect(() => {
+    if (mode !== "daily") return;
+    const isOver = state.status === "won" || state.status === "lost";
+    if (!isOver) return;
+    setDailyCompletion(getDailyCompletionResult(dateKey));
+  }, [mode, state.status, state.guessesUsed, dateKey]);
+
+  useEffect(() => {
+    if (!dailyCompletion || mode !== "daily") return;
+    const tick = () => setCountdown(formatCountdownToLocalMidnight());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [dailyCompletion, mode]);
+
+  useEffect(() => {
+    setCompletionPosterError(false);
+  }, [dailyCompletion?.dateKey]);
 
   useEffect(() => {
     setResultDismissed(false);
@@ -186,6 +266,15 @@ export function GameScreen() {
     [submitGuess]
   );
 
+  const handleShareCompletion = useCallback(async () => {
+    if (!completionShareText) return;
+    const ok = await copyShareToClipboard(completionShareText);
+    setCopied(ok);
+    if (ok) {
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [completionShareText]);
+
   const dismissResultAndReturnToPlay = useCallback(() => {
     setResultDismissed(false);
     if (mode === "practice") {
@@ -242,6 +331,151 @@ export function GameScreen() {
     );
   }
 
+  if (mode === "daily" && dailyCompletion) {
+    return (
+      <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 200px 500px at 50% -5%, rgba(201,169,110,0.04) 0%, transparent 70%)",
+          }}
+        />
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <header className="w-full shrink-0 px-5 pt-6 pb-2 md:px-8">
+            <div className="mx-auto flex w-full max-w-lg items-center justify-between">
+              <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                <span>Tag</span>
+                <span className="text-gold">lines</span>
+              </h1>
+              <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setMode("daily")}
+                  className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground transition md:px-4 md:py-2 md:text-sm"
+                >
+                  Daily
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("practice")}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-muted transition hover:text-foreground/80 md:px-4 md:py-2 md:text-sm"
+                >
+                  Practice
+                </button>
+              </div>
+            </div>
+          </header>
+          <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
+            <div className="w-full max-w-md text-center">
+              <div className="mx-auto mt-2 flex w-full flex-col items-center text-center">
+                {dailyCompletion.posterUrl && !completionPosterError ? (
+                  <img
+                    src={dailyCompletion.posterUrl}
+                    alt=""
+                    width={80}
+                    height={116}
+                    className="block shrink-0 object-cover"
+                    style={{ width: 80, height: 116, borderRadius: 4 }}
+                    onError={() => setCompletionPosterError(true)}
+                  />
+                ) : (
+                  <div
+                    className="shrink-0 bg-[#161616]"
+                    style={{ width: 80, height: 116, borderRadius: 4, border: "1px solid #222" }}
+                    aria-hidden
+                  />
+                )}
+                <p
+                  className="mt-4 font-bold leading-tight text-[#f0ede6]"
+                  style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.1rem" }}
+                >
+                  {dailyCompletion.movieTitle}
+                </p>
+                <p
+                  className="mt-1 text-[#6b6860]"
+                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.75rem" }}
+                >
+                  {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
+                </p>
+                <p
+                  className="mt-1.5 text-[#C9A96E]"
+                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.75rem" }}
+                >
+                  {dailyCompletion.status === "won"
+                    ? `Solved in ${dailyCompletion.guessesUsed} ${
+                        dailyCompletion.guessesUsed === 1 ? "guess" : "guesses"
+                      }`
+                    : "Not solved"}
+                </p>
+                <div
+                  className="mt-6"
+                  style={{
+                    width: 24,
+                    height: 1,
+                    backgroundColor: "rgba(201, 169, 110, 0.4)",
+                  }}
+                  aria-hidden
+                />
+              </div>
+              <p
+                className="mt-8 font-normal italic leading-none text-[#c9a96e]"
+                style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "2.75rem" }}
+              >
+                {narratorLineForResult(dailyCompletion.status, dailyCompletion.guessesUsed)}
+              </p>
+              <p className="mt-3 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
+                You've already played today
+              </p>
+              <p className="mt-2 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}>
+                Next tagline in {countdown}
+              </p>
+
+              <div className="mt-8 grid w-full grid-cols-4 border border-[#222]">
+                {[
+                  { n: played, l: "Played" },
+                  { n: `${winPct}%`, l: "Win %" },
+                  { n: streak, l: "Streak" },
+                  { n: bestStreak, l: "Best" },
+                ].map((cell, i) => (
+                  <div
+                    key={cell.l}
+                    className="flex flex-col items-center justify-center py-3 text-center"
+                    style={{ borderLeft: i > 0 ? "1px solid #222" : undefined }}
+                  >
+                    <span
+                      className="font-bold text-[#f0ede6]"
+                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1.35rem" }}
+                    >
+                      {cell.n}
+                    </span>
+                    <span
+                      className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
+                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.65rem" }}
+                    >
+                      {cell.l}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleShareCompletion}
+                  className="w-full rounded-lg bg-[#c9a96e] py-3 font-bold text-black transition hover:bg-[#d4b377] active:scale-[0.99]"
+                  style={{ fontFamily: '"DM Sans", sans-serif' }}
+                >
+                  {copied ? "Copied" : "Share today's result"}
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
       <div
@@ -289,31 +523,42 @@ export function GameScreen() {
 
         <main className="flex flex-1 flex-col items-center px-5 pb-12 pt-4 md:px-8">
           <div className="flex w-full max-w-lg flex-1 flex-col items-center">
-            <section className="relative flex w-full flex-col items-center px-1 py-12 md:py-16">
-              {showFloatingYear && (
-                <div
-                  className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
-                  aria-hidden
-                >
-                  {/* Nudge up so more of the glyph sits in padding / beside lines (still behind z-10 copy). */}
-                  <div className="-translate-y-2 md:-translate-y-3">
-                    <span
-                      className="game-floating-year select-none"
-                      style={{
-                        animation: "yearDrift 7s ease-in-out forwards",
-                      }}
-                    >
-                      {state.movie.year}
-                    </span>
+            <section className="relative flex w-full flex-col items-center px-1">
+              <div
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10,
+                  background: "#080808",
+                  paddingTop: "1rem",
+                  paddingBottom: "1rem",
+                }}
+              >
+                {showFloatingYear && (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+                    aria-hidden
+                  >
+                    {/* Nudge up so more of the glyph sits in padding / beside lines (still behind z-10 copy). */}
+                    <div className="-translate-y-2 md:-translate-y-3">
+                      <span
+                        className="game-floating-year select-none"
+                        style={{
+                          animation: "yearDrift 7s ease-in-out forwards",
+                        }}
+                      >
+                        {state.movie.year}
+                      </span>
+                    </div>
                   </div>
+                )}
+                <div className="relative z-10 w-full">
+                  <HintReveal
+                    movie={state.movie}
+                    hintLevel={0}
+                    className="w-full [&_p]:!text-[1.75rem] [&_p]:!italic [&_p]:!leading-[1.5]"
+                  />
                 </div>
-              )}
-              <div className="relative z-10 w-full">
-                <HintReveal
-                  movie={state.movie}
-                  hintLevel={0}
-                  className="w-full [&_p]:!text-[1.75rem] [&_p]:!italic [&_p]:!leading-[1.5]"
-                />
               </div>
             </section>
 
