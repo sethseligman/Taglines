@@ -83,6 +83,11 @@ export function GameScreen() {
   const [currentClueIndex, setCurrentClueIndex] = useState(0);
   const prevHintLevelForCluesRef = useRef(0);
 
+  /** Fixed header + tagline: height for scroll spacer; visualViewport offset for iOS keyboard. */
+  const topChromeRef = useRef<HTMLDivElement>(null);
+  const [topChromeHeight, setTopChromeHeight] = useState(0);
+  const [visualViewportOffset, setVisualViewportOffset] = useState(0);
+
   // Load daily: Supabase schedule only when configured; otherwise local sample fallback.
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +184,32 @@ export function GameScreen() {
   useEffect(() => {
     getAutocompleteTitles().then(setAutocompleteTitles);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const sync = () => {
+      setVisualViewportOffset(vv.offsetTop);
+    };
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = topChromeRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setTopChromeHeight(el.getBoundingClientRect().height);
+    });
+    ro.observe(el);
+    setTopChromeHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, [movie.title, mode, dailyCompletion, showFloatingYear, state.status]);
 
   useEffect(() => {
     if (mode !== "daily") {
@@ -486,61 +517,61 @@ export function GameScreen() {
         }}
       />
 
-      <div ref={stageRef} className="relative flex min-h-screen w-full flex-col">
-        <div className="relative z-10 flex min-h-screen flex-1 flex-col">
-        <header className="w-full shrink-0 px-5 pt-6 pb-2 md:px-8">
-          <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-            <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-              <span>Tag</span>
-              <span className="text-gold">lines</span>
-            </h1>
-            <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
-              <button
-                type="button"
-                onClick={() => setMode("daily")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
-                  mode === "daily"
-                    ? "bg-white/10 text-foreground"
-                    : "text-muted hover:text-foreground/80"
-                }`}
-              >
-                Daily
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("practice")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
-                  mode === "practice"
-                    ? "bg-white/10 text-foreground"
-                    : "text-muted hover:text-foreground/80"
-                }`}
-              >
-                Practice
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex flex-1 flex-col items-center px-5 pb-12 pt-4 md:px-8">
-          <div className="flex w-full max-w-lg flex-1 flex-col items-center">
-            <section className="relative flex w-full flex-col items-center px-1">
-              <div
-                style={{
-                  position: "sticky",
-                  // Below notch / status bar when the visual viewport shifts (e.g. keyboard).
-                  top: "env(safe-area-inset-top, 0px)",
-                  zIndex: 10,
-                  background: "#080808",
-                  paddingTop: "1rem",
-                  paddingBottom: "1rem",
-                }}
-              >
+      <div ref={stageRef} className="relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            ref={topChromeRef}
+            style={{
+              position: "fixed",
+              left: 0,
+              right: 0,
+              top: 0,
+              zIndex: 30,
+              background: "#080808",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              transform: `translate3d(0, ${visualViewportOffset}px, 0)`,
+              willChange: "transform",
+            }}
+          >
+            <header className="w-full shrink-0 px-5 pb-2 pt-3 md:px-8">
+              <div className="mx-auto flex w-full max-w-lg items-center justify-between">
+                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                  <span>Tag</span>
+                  <span className="text-gold">lines</span>
+                </h1>
+                <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMode("daily")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
+                      mode === "daily"
+                        ? "bg-white/10 text-foreground"
+                        : "text-muted hover:text-foreground/80"
+                    }`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("practice")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
+                      mode === "practice"
+                        ? "bg-white/10 text-foreground"
+                        : "text-muted hover:text-foreground/80"
+                    }`}
+                  >
+                    Practice
+                  </button>
+                </div>
+              </div>
+            </header>
+            <section className="relative mx-auto w-full max-w-lg px-1">
+              <div className="relative pb-4 pt-1">
                 {showFloatingYear && (
                   <div
                     className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
                     aria-hidden
                   >
-                    {/* Nudge up so more of the glyph sits in padding / beside lines (still behind z-10 copy). */}
                     <div className="-translate-y-2 md:-translate-y-3">
                       <span
                         className="game-floating-year select-none"
@@ -562,7 +593,12 @@ export function GameScreen() {
                 </div>
               </div>
             </section>
+          </div>
 
+          <div className="shrink-0" style={{ height: Math.max(topChromeHeight, 1) }} aria-hidden />
+
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 pt-2 md:px-8">
+            <div className="mx-auto flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && (
               <>
                 <div className="mb-8 flex w-full max-w-md shrink-0 items-center justify-center gap-2">
