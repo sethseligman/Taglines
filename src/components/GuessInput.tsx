@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getPrecisionSuggestions } from "@/lib/autocompleteMatch";
+import { searchAutocompleteSuggestions } from "@/actions/movies";
+import { normalizeForComparison } from "@/lib/answerNormalize";
+import type { SuggestionCatalogItem } from "@/types/suggestion";
 
 interface GuessInputProps {
-  suggestions: string[];
   onSubmit: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
@@ -21,7 +22,6 @@ interface GuessInputProps {
 }
 
 export function GuessInput({
-  suggestions,
   onSubmit,
   disabled = false,
   placeholder = "Search movies...",
@@ -33,9 +33,11 @@ export function GuessInput({
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [filtered, setFiltered] = useState<SuggestionCatalogItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const blurLayoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryRequestIdRef = useRef(0);
 
   const clearAfterSubmit = useCallback(() => {
     setValue("");
@@ -66,8 +68,6 @@ export function GuessInput({
     finishSubmit(value);
   }, [value, finishSubmit]);
 
-  const filtered = getPrecisionSuggestions(value, suggestions);
-
   const showDropdown = open && filtered.length > 0;
 
   const resetHighlight = useCallback(() => {
@@ -77,6 +77,30 @@ export function GuessInput({
   useEffect(() => {
     setHighlightIndex(0);
   }, [value]);
+
+  useEffect(() => {
+    if (!open || disabled) {
+      setFiltered([]);
+      return;
+    }
+    const trimmed = value.trim();
+    if (normalizeForComparison(trimmed).length < 3) {
+      setFiltered([]);
+      return;
+    }
+    const requestId = ++queryRequestIdRef.current;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const results = await searchAutocompleteSuggestions(trimmed);
+        if (queryRequestIdRef.current !== requestId) return;
+        setFiltered(results);
+      } catch {
+        if (queryRequestIdRef.current !== requestId) return;
+        setFiltered([]);
+      }
+    }, 120);
+    return () => window.clearTimeout(timeoutId);
+  }, [value, open, disabled]);
 
   useEffect(() => {
     return () => {
@@ -133,7 +157,7 @@ export function GuessInput({
           e.preventDefault();
           const picked = filtered[highlightIndex];
           if (picked) {
-            finishSubmit(picked);
+            finishSubmit(picked.title);
           } else {
             submitCurrent();
           }
@@ -157,8 +181,8 @@ export function GuessInput({
   }, [showDropdown, highlightIndex]);
 
   const handleSelect = useCallback(
-    (title: string) => {
-      finishSubmit(title);
+    (item: SuggestionCatalogItem) => {
+      finishSubmit(item.title);
     },
     [finishSubmit]
   );
@@ -199,21 +223,28 @@ export function GuessInput({
           role="listbox"
           className="absolute top-full left-0 right-0 z-10 mt-1 max-h-64 overflow-auto rounded-xl border border-white/15 bg-surface py-2 backdrop-blur-sm touch-pan-y"
         >
-          {filtered.map((title, i) => (
+          {filtered.map((item, i) => (
             <li
-              key={title}
+              key={`${item.tmdbId}-${item.title}`}
               id={`guess-option-${i}`}
               role="option"
               aria-selected={i === highlightIndex}
               onMouseDown={(e) => {
                 e.preventDefault();
-                handleSelect(title);
+                handleSelect(item);
               }}
               className={`cursor-pointer select-none px-5 py-3 text-left text-foreground transition touch-manipulation ${
                 i === highlightIndex ? "bg-gold/25 text-gold" : "hover:bg-white/10"
               }`}
             >
-              {title}
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate">{item.title}</span>
+                {item.year > 0 && (
+                  <span className={`shrink-0 text-xs ${i === highlightIndex ? "text-gold/90" : "text-muted"}`}>
+                    {item.year}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

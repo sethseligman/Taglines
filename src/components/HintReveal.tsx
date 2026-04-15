@@ -12,6 +12,7 @@ interface HintRevealProps {
 
 export function HintReveal({ movie, hintLevel, className = "" }: HintRevealProps) {
   const content = getHintBodyForLevel(movie, hintLevel);
+  const isStandaloneYearHint = hintLevel === 1 && /^\d{4}$/.test(content);
 
   if (hintLevel === 0) {
     return (
@@ -35,6 +36,26 @@ export function HintReveal({ movie, hintLevel, className = "" }: HintRevealProps
           }}
           aria-hidden
         />
+      </div>
+    );
+  }
+
+  if (isStandaloneYearHint) {
+    return (
+      <div className={`film-fade-in text-center ${className}`}>
+        <p
+          className="font-tagline-display"
+          style={{
+            fontSize: "clamp(1.7rem, 8vw, 2.5rem)",
+            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            color: "rgba(201,169,110,0.92)",
+            textShadow: "0 0 24px rgba(201,169,110,0.28), 0 1px 8px rgba(0,0,0,0.45)",
+            animation: "fadeIn 0.38s ease-out both",
+          }}
+        >
+          {content}
+        </p>
       </div>
     );
   }

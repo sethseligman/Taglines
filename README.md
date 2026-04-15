@@ -23,6 +23,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - **Daily mode** — One movie per day from Supabase schedule (or local fallback). Streak and history in `localStorage`.
 - **Practice mode** — Random movie from Supabase or local sample set.
+- **Broad autocomplete catalog** — TMDB-derived local catalog powers suggestions through server-side search (client receives only top matches); guess validation still uses current playable answer logic.
 - **Answer normalization** — Ignores capitalization and punctuation; handles “Part I”/“Part 1” and leading “The”; accepts configured aliases.
 - **Admin** — `/admin`: create/edit movies, taglines, accepted aliases, and daily schedule (password-protected via `ADMIN_SECRET`).
 - **Share** — Emoji-style results (e.g. 🎬 Taglines ✅ ❌ ❌ ✅).
@@ -39,6 +40,28 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Without Supabase, the game uses hardcoded sample movies and a date-seeded daily pick.
 
+## Build suggestion catalog (TMDB)
+
+Create/update `src/data/suggestionCatalog.json` (default target: 5,000 titles):
+
+```bash
+TMDB_ACCESS_TOKEN=... npm run build:suggestions
+```
+
+Optional tuning:
+
+- `TMDB_SUGGESTION_TARGET` (default `5000`)
+- `TMDB_MAX_PAGES` (default `250`)
+- `TMDB_MIN_RELEASE_YEAR` (default `1950`)
+- `TMDB_MIN_VOTE_COUNT` (default `200`)
+
+## Autocomplete architecture
+
+- Suggestion catalog lives in `src/data/suggestionCatalog.json` and is generated ahead of time.
+- Guess input calls a server action once query length reaches 3+ normalized characters.
+- Server ranks and returns top 5 matches; full catalog is never sent to the client.
+- Playable titles are still merged into the suggestion set server-side to guarantee coverage.
+
 ## Project Structure
 
 ```
@@ -54,6 +77,7 @@ src/
 │   ├── admin/AdminPanel.tsx, AdminLoginForm.tsx
 │   ├── GameScreen.tsx, HintReveal.tsx, ResultModal.tsx
 ├── data/movies.ts      # Sample movies + getTodayKey (local fallback)
+├── data/suggestionCatalog.json  # Local autocomplete suggestion catalog
 ├── hooks/useGameState.ts
 ├── lib/
 │   ├── answerNormalize.ts  # normalizeForComparison, isGuessCorrect

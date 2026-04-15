@@ -4,13 +4,20 @@ import { randomInt } from "node:crypto";
 import { unstable_noStore } from "next/cache";
 import type { Movie } from "@/types/movie";
 import type { DbMovie, DbDailySchedule } from "@/types/database";
+import type { SuggestionCatalogItem } from "@/types/suggestion";
 import { logDailyFallback, logPracticeFallback } from "@/lib/debug";
 import { createClient } from "@/lib/supabase/server";
 import { movieFromDb, type MovieRow } from "@/lib/movieFromDb";
+import { normalizeForComparison } from "@/lib/answerNormalize";
+import { getPrecisionSuggestions } from "@/lib/autocompleteMatch";
+import suggestionCatalog from "@/data/suggestionCatalog.json";
 
 const hasSupabase = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
+const AUTOCOMPLETE_CACHE_MS = 5 * 60 * 1000;
+let autocompleteCatalogCache: SuggestionCatalogItem[] | null = null;
+let autocompleteCatalogCacheAt = 0;
 
 /** Get daily movie for a date (YYYY-MM-DD). Returns null if not configured or no Supabase. */
 export async function getDailyMovie(dateKey: string): Promise<{ movie: Movie; dateKey: string } | null> {
@@ -127,27 +134,76 @@ export async function getSchedule(limit = 30): Promise<DbDailySchedule[]> {
   return (data ?? []) as DbDailySchedule[];
 }
 
-/** All movie titles + aliases for autocomplete (deduped, sorted). No Supabase = use sample list. */
-export async function getAutocompleteTitles(): Promise<string[]> {
+async function getSampleTitles(): Promise<string[]> {
+  const { SAMPLE_MOVIES } = await import("@/data/movies");
+  const set = new Set<string>();
+  for (const m of SAMPLE_MOVIES) {
+    set.add(m.title);
+    m.acceptedAnswers.forEach((a) => set.add(a));
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
+async function getPlayableSuggestionSeed(): Promise<SuggestionCatalogItem[]> {
+  if (!hasSupabase) {
+    const { SAMPLE_MOVIES } = await import("@/data/movies");
+    return SAMPLE_MOVIES.map((m) => ({
+      tmdbId: 0,
+      title: m.title,
+      year: m.year,
+      normalizedTitle: normalizeForComparison(m.title),
+      popularity: 0,
+    }));
+  }
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("movies")
+      .select("title, year")
+      .eq("is_playable", true)
+      .order("title");
+    return (data ?? [])
+      .filter((m): m is { title: string; year: number } => !!m?.title)
+      .map((m) => ({
+        tmdbId: 0,
+        title: m.title,
+        year: Number.isFinite(m.year) ? m.year : 0,
+        normalizedTitle: normalizeForComparison(m.title),
+        popularity: 0,
+      }));
+  } catch {
+    const fallbackTitles = await getSampleTitles();
+    return fallbackTitles.map((title) => ({
+      tmdbId: 0,
+      title,
+      year: 0,
+      normalizedTitle: normalizeForComparison(title),
+      popularity: 0,
+    }));
+  }
+}
+
+function mergeUniqueSuggestions(
+  base: SuggestionCatalogItem[],
+  required: SuggestionCatalogItem[]
+): SuggestionCatalogItem[] {
+  const map = new Map<string, SuggestionCatalogItem>();
+  for (const item of base) {
+    map.set(`${item.normalizedTitle}::${item.year}`, item);
+  }
+  for (const item of required) {
+    const key = `${item.normalizedTitle}::${item.year}`;
+    if (!map.has(key)) map.set(key, item);
+  }
+  return Array.from(map.values());
+}
+
+/** Existing playable-catalog fallback for autocomplete if suggestion catalog is unavailable. */
+async function getPlayableAutocompleteTitles(): Promise<string[]> {
   const { logAutocompleteFallback } = await import("@/lib/debug");
   if (!hasSupabase) {
     logAutocompleteFallback("Supabase not configured");
-    const { SAMPLE_MOVIES } = await import("@/data/movies");
-    const set = new Set<string>();
-    for (const m of SAMPLE_MOVIES) {
-      set.add(m.title);
-      m.acceptedAnswers.forEach((a) => set.add(a));
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
-  }
-  async function getSampleTitles(): Promise<string[]> {
-    const { SAMPLE_MOVIES } = await import("@/data/movies");
-    const set = new Set<string>();
-    for (const m of SAMPLE_MOVIES) {
-      set.add(m.title);
-      m.acceptedAnswers.forEach((a) => set.add(a));
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+    return getSampleTitles();
   }
   try {
     const supabase = await createClient();
@@ -169,4 +225,42 @@ export async function getAutocompleteTitles(): Promise<string[]> {
     logAutocompleteFallback("fetch failed");
     return getSampleTitles();
   }
+}
+
+/** Large, local suggestion catalog (TMDB-derived) for autocomplete UI only. */
+export async function getAutocompleteSuggestions(): Promise<SuggestionCatalogItem[]> {
+  const now = Date.now();
+  if (autocompleteCatalogCache && now - autocompleteCatalogCacheAt < AUTOCOMPLETE_CACHE_MS) {
+    return autocompleteCatalogCache;
+  }
+  const playableSeed = await getPlayableSuggestionSeed();
+  const items = Array.isArray(suggestionCatalog.items)
+    ? (suggestionCatalog.items as SuggestionCatalogItem[])
+    : [];
+  if (items.length === 0) {
+    const fallbackTitles = await getPlayableAutocompleteTitles();
+    const fallbackItems = fallbackTitles.map((title) => ({
+      tmdbId: 0,
+      title,
+      year: 0,
+      normalizedTitle: normalizeForComparison(title),
+      popularity: 0,
+    }));
+    const mergedFallback = mergeUniqueSuggestions(fallbackItems, playableSeed);
+    autocompleteCatalogCache = mergedFallback;
+    autocompleteCatalogCacheAt = now;
+    return mergedFallback;
+  }
+  const merged = mergeUniqueSuggestions(items, playableSeed);
+  autocompleteCatalogCache = merged;
+  autocompleteCatalogCacheAt = now;
+  return merged;
+}
+
+/** Server-side autocomplete query over local suggestion catalog. */
+export async function searchAutocompleteSuggestions(query: string): Promise<SuggestionCatalogItem[]> {
+  const trimmed = query.trim();
+  if (normalizeForComparison(trimmed).length < 3) return [];
+  const candidates = await getAutocompleteSuggestions();
+  return getPrecisionSuggestions(trimmed, candidates);
 }

@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
-import { getAutocompleteTitles, getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
+import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
@@ -171,7 +171,6 @@ export function GameScreen() {
   }, [mode, dailyPayload, practiceMovie, dateKeyForDaily]);
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
-  const [autocompleteTitles, setAutocompleteTitles] = useState<string[]>([]);
   const played = getPlayCount();
   const wins = getWinCount();
   const streak = getStoredStreak();
@@ -192,10 +191,6 @@ export function GameScreen() {
       submitMessage: null,
     });
   }, [dailyCompletion, movie]);
-
-  useEffect(() => {
-    getAutocompleteTitles().then(setAutocompleteTitles);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport || isDesktop) return;
@@ -642,6 +637,17 @@ export function GameScreen() {
                       <span
                         className="game-floating-year select-none"
                         style={{
+                          display: "inline-block",
+                          fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+                          fontStyle: "italic",
+                          fontWeight: 700,
+                          letterSpacing: "-0.05em",
+                          lineHeight: 0.88,
+                          whiteSpace: "nowrap",
+                          color: "rgba(201, 169, 110, 0.3)",
+                          textShadow:
+                            "0 0 100px rgba(201, 169, 110, 0.45), 0 0 36px rgba(201, 169, 110, 0.28), 0 2px 16px rgba(0, 0, 0, 0.65)",
+                          fontSize: "clamp(4.75rem, min(62vw, 10rem), 10rem)",
                           animation: "yearDrift 7s ease-in-out forwards",
                         }}
                       >
@@ -724,7 +730,6 @@ export function GameScreen() {
                 >
                   <GuessInput
                     submitInline
-                    suggestions={autocompleteTitles}
                     onSubmit={handleGuessSubmit}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
                     placeholder="Search movies..."
@@ -738,11 +743,7 @@ export function GameScreen() {
                       Did you mean <strong className="text-gold">{state.didYouMean}</strong>?
                     </p>
                   )}
-                  {autocompleteTitles.length === 0 && (
-                    <p className="text-center text-xs text-muted">
-                      Type any movie title and press Guess
-                    </p>
-                  )}
+                  <p className="text-center text-xs text-muted">Type any movie title and press Guess</p>
                 </div>
 
                 <hr
@@ -815,7 +816,7 @@ export function GameScreen() {
                     {state.hintLevel >= 1 ? (
                       <HintReveal
                         key={`clue-${currentClueIndex}-${state.hintLevel}`}
-                        className="[&_p]:!text-[0.95rem] md:[&_p]:!text-[0.95rem]"
+                        className="[&_p]:!text-[1.12rem] [&_p]:!leading-[1.62] md:[&_p]:!text-[1.16rem] md:[&_p]:!leading-[1.64]"
                         movie={state.movie}
                         hintLevel={(currentClueIndex + 1) as HintLevel}
                       />
