@@ -76,16 +76,6 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const showPoster = movie.posterUrl && !posterError;
   const narrator = useMemo(() => narratorLine(state), [state]);
 
-  const hintsUsed = state.hintLevel;
-  const guessesLine =
-    state.guessesUsed === 1 ? "1 guess." : `${state.guessesUsed} guesses.`;
-  const hintsLine =
-    hintsUsed === 0
-      ? "0 hints used."
-      : hintsUsed === 1
-        ? "1 hint used."
-        : `${hintsUsed} hints used.`;
-
   const metaLine = `${movie.year} · ${movie.genre}`;
 
   useEffect(() => {
@@ -326,12 +316,6 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
                 </p>
               </div>
             </div>
-            <p
-              className="mt-2 text-center text-[#6b6860]"
-              style={{ fontFamily: DM, fontSize: "0.75rem" }}
-            >
-              {guessesLine} {hintsLine}
-            </p>
           </div>
 
           <div
