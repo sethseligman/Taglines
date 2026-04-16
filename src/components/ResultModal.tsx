@@ -20,6 +20,13 @@ interface ResultModalProps {
 const DM = '"DM Sans", ui-sans-serif, system-ui, sans-serif';
 const PF = '"Playfair Display", Georgia, "Times New Roman", serif';
 
+interface TmdbMovieMeta {
+  movieImdbId: string | null;
+  imdbRating: number | null;
+  director: { name: string; imdbId: string | null } | null;
+  cast: Array<{ name: string; imdbId: string | null }>;
+}
+
 function narratorLine(state: GameState): string {
   if (state.status === "lost") return "Maybe next time.";
   if (state.guessesUsed === 1) return "Flawless.";
@@ -61,6 +68,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const [posterError, setPosterError] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [beat1Show, setBeat1Show] = useState(false);
+  const [tmdbMeta, setTmdbMeta] = useState<TmdbMovieMeta | null>(null);
   const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
 
   const streak = getStoredStreak();
@@ -77,6 +85,8 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const narrator = useMemo(() => narratorLine(state), [state]);
 
   const metaLine = `${movie.year} · ${movie.genre}`;
+  const imdbRating = tmdbMeta?.imdbRating ?? null;
+  const movieImdbUrl = tmdbMeta?.movieImdbId ? `https://www.imdb.com/title/${tmdbMeta.movieImdbId}` : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +143,40 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [state.isDaily]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTmdbMeta(null);
+    const title = encodeURIComponent(movie.title);
+    const year = encodeURIComponent(String(movie.year));
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/tmdb-movie-meta?title=${title}&year=${year}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as
+          | ({ ok: true } & TmdbMovieMeta)
+          | { ok?: false };
+        if (!cancelled && data.ok) {
+          setTmdbMeta({
+            movieImdbId: data.movieImdbId ?? null,
+            imdbRating: typeof data.imdbRating === "number" ? data.imdbRating : null,
+            director: data.director ?? null,
+            cast: Array.isArray(data.cast) ? data.cast.slice(0, 3) : [],
+          });
+        }
+      } catch {
+        // Graceful fallback: keep compact tile without external data.
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [movie.title, movie.year]);
 
   const shareText = useMemo(() => buildShareText(state), [state]);
 
@@ -228,44 +272,143 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
 
         {/* Phase B: compact movie row, then narrator, film, stats, share, secondary */}
         <div className={detailShellClass}>
-          <div className={`mt-2 flex w-full flex-row items-start gap-3 ${fadeInStagger()}`} style={fadeInStyle(0)}>
-            {showPoster ? (
-              <img
-                src={movie.posterUrl!}
-                alt=""
-                width={52}
-                height={72}
-                className="block shrink-0 object-cover"
-                style={{ width: 52, height: 72, borderRadius: 4 }}
-                onError={() => setPosterError(true)}
-              />
+          <div className={`mt-2 w-full ${fadeInStagger()}`} style={fadeInStyle(0)}>
+            {movieImdbUrl ? (
+              <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
+                <a
+                  href={movieImdbUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute inset-0 z-0"
+                  aria-label={`View ${movie.title} on IMDb`}
+                />
+                <div className="relative z-10 flex w-full flex-row items-start gap-3">
+                  {showPoster ? (
+                    <img
+                      src={movie.posterUrl!}
+                      alt=""
+                      width={84}
+                      height={124}
+                      className="block shrink-0 object-cover"
+                      style={{ width: 84, height: 124, borderRadius: 6 }}
+                      onError={() => setPosterError(true)}
+                    />
+                  ) : (
+                    <div
+                      className="shrink-0 bg-[#161616]"
+                      style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
+                      aria-hidden
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 text-left">
+                    <p
+                      className="font-bold leading-tight text-[#f0ede6]"
+                      style={{ fontFamily: PF, fontSize: "1.05rem" }}
+                    >
+                      {movie.title}
+                    </p>
+                    <p
+                      className="mt-0.5 text-[#6b6860]"
+                      style={{ fontFamily: DM, fontSize: "0.75rem" }}
+                    >
+                      {imdbRating !== null ? `${metaLine} · ⭐ ${imdbRating.toFixed(1)}` : metaLine}
+                    </p>
+                    <p
+                      className="mt-2 italic leading-snug text-[#d7d3c8]"
+                      style={{ fontFamily: PF, fontSize: "0.98rem" }}
+                    >
+                      {movie.officialTagline}
+                    </p>
+                    {tmdbMeta?.director?.name && tmdbMeta.director.imdbId ? (
+                      <p className="mt-1 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem" }}>
+                        🎬{" "}
+                        <a
+                          href={`https://www.imdb.com/name/${tmdbMeta.director.imdbId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="relative z-20 underline"
+                        >
+                          {tmdbMeta.director.name}
+                        </a>
+                      </p>
+                    ) : null}
+                    {tmdbMeta?.cast?.length ? (
+                      <p className="mt-1 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem" }}>
+                        {tmdbMeta.cast.map((actor, idx) => (
+                          <span key={`${actor.name}-${idx}`}>
+                            {actor.imdbId ? (
+                              <a
+                                href={`https://www.imdb.com/name/${actor.imdbId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="relative z-20 underline"
+                              >
+                                {actor.name}
+                              </a>
+                            ) : (
+                              actor.name
+                            )}
+                            {idx < tmdbMeta.cast.length - 1 ? " · " : ""}
+                          </span>
+                        ))}
+                      </p>
+                    ) : null}
+                    <a
+                      href={movieImdbUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative z-20 mt-1 inline-block text-[#6b6860] underline"
+                      style={{ fontFamily: DM, fontSize: "0.72rem" }}
+                    >
+                      View on IMDb →
+                    </a>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <div
-                className="shrink-0 bg-[#161616]"
-                style={{ width: 52, height: 72, borderRadius: 4, border: "1px solid #222" }}
-                aria-hidden
-              />
+              <div className="flex w-full flex-row items-start gap-3 rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
+                {showPoster ? (
+                  <img
+                    src={movie.posterUrl!}
+                    alt=""
+                    width={84}
+                    height={124}
+                    className="block shrink-0 object-cover"
+                    style={{ width: 84, height: 124, borderRadius: 6 }}
+                    onError={() => setPosterError(true)}
+                  />
+                ) : (
+                  <div
+                    className="shrink-0 bg-[#161616]"
+                    style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
+                    aria-hidden
+                  />
+                )}
+                <div className="min-w-0 flex-1 text-left">
+                  <p
+                    className="font-bold leading-tight text-[#f0ede6]"
+                    style={{ fontFamily: PF, fontSize: "1.05rem" }}
+                  >
+                    {movie.title}
+                  </p>
+                  <p
+                    className="mt-0.5 text-[#6b6860]"
+                    style={{ fontFamily: DM, fontSize: "0.75rem" }}
+                  >
+                    {metaLine}
+                  </p>
+                  <p
+                    className="mt-2 italic leading-snug text-[#d7d3c8]"
+                    style={{ fontFamily: PF, fontSize: "0.98rem" }}
+                  >
+                    {movie.officialTagline}
+                  </p>
+                </div>
+              </div>
             )}
-            <div className="min-w-0 flex-1 text-left">
-              <p
-                className="font-bold leading-tight text-[#f0ede6]"
-                style={{ fontFamily: PF, fontSize: "1.05rem" }}
-              >
-                {movie.title}
-              </p>
-              <p
-                className="mt-0.5 text-[#6b6860]"
-                style={{ fontFamily: DM, fontSize: "0.75rem" }}
-              >
-                {metaLine}
-              </p>
-              <p
-                className="mt-1.5 italic leading-snug text-[#6b6860]"
-                style={{ fontFamily: PF, fontSize: "0.8rem" }}
-              >
-                {movie.officialTagline}
-              </p>
-            </div>
+          </div>
+          <div className={`mt-4 w-full ${fadeInStagger()}`} style={fadeInStyle(30)}>
+            <div className="w-full border-t" style={{ borderColor: "#1e1e1e" }} />
           </div>
 
           <div className={`mt-8 text-center ${fadeInStagger()}`} style={fadeInStyle(60)}>
