@@ -303,24 +303,24 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
                   <div className="min-w-0 flex-1 text-left">
                     <p
                       className="font-bold leading-tight text-[#f0ede6]"
-                      style={{ fontFamily: PF, fontSize: "1.05rem" }}
+                      style={{ fontFamily: PF, fontSize: "1.12rem", lineHeight: 1.15 }}
                     >
                       {movie.title}
                     </p>
                     <p
-                      className="mt-0.5 text-[#6b6860]"
-                      style={{ fontFamily: DM, fontSize: "0.75rem" }}
+                      className="mt-1 text-[#6b6860]"
+                      style={{ fontFamily: DM, fontSize: "0.74rem", lineHeight: 1.3 }}
                     >
                       {imdbRating !== null ? `${metaLine} · ⭐ ${imdbRating.toFixed(1)}` : metaLine}
                     </p>
                     <p
-                      className="mt-2 italic leading-snug text-[#d7d3c8]"
-                      style={{ fontFamily: PF, fontSize: "0.98rem" }}
+                      className="mt-2.5 italic leading-snug text-[#d7d3c8]"
+                      style={{ fontFamily: PF, fontSize: "1.03rem" }}
                     >
                       {movie.officialTagline}
                     </p>
                     {tmdbMeta?.director?.name && tmdbMeta.director.imdbId ? (
-                      <p className="mt-1 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem" }}>
+                      <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem" }}>
                         🎬{" "}
                         <a
                           href={`https://www.imdb.com/name/${tmdbMeta.director.imdbId}`}
@@ -333,7 +333,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
                       </p>
                     ) : null}
                     {tmdbMeta?.cast?.length ? (
-                      <p className="mt-1 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem" }}>
+                      <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.72rem", lineHeight: 1.35 }}>
                         {tmdbMeta.cast.map((actor, idx) => (
                           <span key={`${actor.name}-${idx}`}>
                             {actor.imdbId ? (
@@ -357,7 +357,7 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
                       href={movieImdbUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="relative z-20 mt-1 inline-block text-[#6b6860] underline"
+                      className="relative z-20 mt-1.5 inline-block text-[#6b6860] underline"
                       style={{ fontFamily: DM, fontSize: "0.72rem" }}
                     >
                       View on IMDb →
@@ -387,19 +387,19 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
                 <div className="min-w-0 flex-1 text-left">
                   <p
                     className="font-bold leading-tight text-[#f0ede6]"
-                    style={{ fontFamily: PF, fontSize: "1.05rem" }}
+                    style={{ fontFamily: PF, fontSize: "1.12rem", lineHeight: 1.15 }}
                   >
                     {movie.title}
                   </p>
                   <p
-                    className="mt-0.5 text-[#6b6860]"
-                    style={{ fontFamily: DM, fontSize: "0.75rem" }}
+                    className="mt-1 text-[#6b6860]"
+                    style={{ fontFamily: DM, fontSize: "0.74rem", lineHeight: 1.3 }}
                   >
                     {metaLine}
                   </p>
                   <p
-                    className="mt-2 italic leading-snug text-[#d7d3c8]"
-                    style={{ fontFamily: PF, fontSize: "0.98rem" }}
+                    className="mt-2.5 italic leading-snug text-[#d7d3c8]"
+                    style={{ fontFamily: PF, fontSize: "1.03rem" }}
                   >
                     {movie.officialTagline}
                   </p>
