@@ -36,6 +36,11 @@ export const metadata: Metadata = {
       "A daily movie trivia game. See a classic tagline and guess the film. Five chances. Hints that escalate. How well do you know your movies?",
     images: ["/og-image.png"],
   },
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export const viewport: Viewport = {
