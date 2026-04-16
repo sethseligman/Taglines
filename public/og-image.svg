@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Taglines - Guess the movie from its tagline</title>
+  <desc id="desc">Dark Open Graph image with Taglines wordmark and sample tagline.</desc>
+  <rect width="1200" height="630" fill="#0D0D0D" />
+  <g text-anchor="middle">
+    <text x="600" y="280" fill="#F0EDE6" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="700">
+      Tag
+      <tspan fill="#C9A96E">lines</tspan>
+    </text>
+    <text x="600" y="355" fill="#8A877F" font-family="'DM Sans', Arial, sans-serif" font-size="36">
+      Guess the movie from its tagline
+    </text>
+    <text x="600" y="435" fill="#B9B4AA" font-family="'Playfair Display', Georgia, serif" font-size="44" font-style="italic">
+      "In space, no one can hear you scream."
+    </text>
+  </g>
+</svg>
