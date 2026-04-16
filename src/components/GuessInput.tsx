@@ -9,6 +9,8 @@ interface GuessInputProps {
   onSubmit: (value: string) => void;
   /** Fires on every input change (for parent idle timers, etc.). */
   onInputValueChange?: (value: string) => void;
+  /** Remaining guesses (e.g. MAX_GUESSES - guessesUsed). Drives submit button label when set. */
+  remainingGuesses?: number;
   disabled?: boolean;
   placeholder?: string;
   "aria-label"?: string;
@@ -26,6 +28,7 @@ interface GuessInputProps {
 export function GuessInput({
   onSubmit,
   onInputValueChange,
+  remainingGuesses,
   disabled = false,
   placeholder = "Search movies...",
   "aria-label": ariaLabel = "Guess the movie",
@@ -194,6 +197,13 @@ export function GuessInput({
     ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
     : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
 
+  const submitButtonLabel =
+    remainingGuesses === undefined
+      ? "Guess"
+      : remainingGuesses === 1
+        ? "Guess · Last one"
+        : `Guess · ${remainingGuesses} left`;
+
   const fieldBlock = (
     <div className={submitInline ? "relative min-w-0 flex-1" : "relative w-full"}>
       <input
@@ -265,10 +275,10 @@ export function GuessInput({
           type="button"
           onClick={submitCurrent}
           disabled={disabled}
-          className="shrink-0 rounded-xl bg-gold px-4 py-3 text-sm font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
-          style={{ width: 96 }}
+          className="shrink-0 whitespace-nowrap rounded-xl bg-gold px-3 py-3 text-sm font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+          style={{ minWidth: 130 }}
         >
-          Guess
+          {submitButtonLabel}
         </button>
       </div>
     );
@@ -284,7 +294,7 @@ export function GuessInput({
           disabled={disabled}
           className="mt-4 w-full rounded-xl bg-gold py-4 font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
         >
-          Guess
+          {submitButtonLabel}
         </button>
       )}
     </div>

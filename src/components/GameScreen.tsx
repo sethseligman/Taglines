@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
+import { MAX_GUESSES } from "@/types/movie";
 import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
@@ -872,46 +873,8 @@ export function GameScreen() {
             {state.status === "playing" && (
               <>
                 <div
-                  className={`flex w-full max-w-md shrink-0 items-center justify-center gap-2 ${motionMargin} ${
-                    relaxedVisual ? "mb-12 md:mb-14" : "mb-8"
-                  }`}
-                >
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        width: 28,
-                        height: 3,
-                        borderRadius: 2,
-                        background:
-                          i < state.guessesUsed ? "#3D1A0A" : i === state.guessesUsed ? "#C9A96E" : "#1a1a1a",
-                        boxShadow:
-                          i < state.guessesUsed
-                            ? "0 0 6px rgba(180,60,10,0.5)"
-                            : i === state.guessesUsed
-                              ? "0 0 8px rgba(201,169,110,0.6)"
-                              : "none",
-                        transition: "all 0.3s ease",
-                      }}
-                    />
-                  ))}
-                  <span
-                    style={{
-                      fontFamily: '"DM Sans", sans-serif',
-                      fontSize: "0.6rem",
-                      color: "#3a3a3a",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      marginLeft: 6,
-                    }}
-                  >
-                    {5 - state.guessesUsed} left
-                  </span>
-                </div>
-
-                <div
-                  className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${
-                    relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
+                  className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
+                    relaxedVisual ? "mb-12 gap-5 md:mb-14 md:gap-6" : "mb-8 gap-3"
                   }`}
                 >
                   {idleTooltipVisible && state.status === "playing" && (
@@ -930,6 +893,7 @@ export function GameScreen() {
                   )}
                   <GuessInput
                     submitInline
+                    remainingGuesses={MAX_GUESSES - state.guessesUsed}
                     onSubmit={handleGuessSubmit}
                     onInputValueChange={handleGuessInputActivity}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
