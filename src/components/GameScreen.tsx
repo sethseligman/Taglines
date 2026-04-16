@@ -16,6 +16,7 @@ import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
+import { narratorResultLine } from "@/lib/narratorResult";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
 import {
   type DailyCompletionResult,
@@ -68,15 +69,6 @@ function getLocalDailyMovie(): { movie: Movie; dateKey: string } {
 
 function getLocalRandomMovie(): Movie {
   return SAMPLE_MOVIES[Math.floor(Math.random() * SAMPLE_MOVIES.length)]!;
-}
-
-function narratorLineForResult(status: "won" | "lost", guessesUsed: number): string {
-  if (status === "lost") return "Maybe next time.";
-  if (guessesUsed === 1) return "Flawless.";
-  if (guessesUsed === 2) return "Sharp.";
-  if (guessesUsed === 3) return "Solid.";
-  if (guessesUsed === 4) return "You got there.";
-  return "Hard earned.";
 }
 
 function formatCountdownToLocalMidnight(): string {
@@ -691,7 +683,7 @@ export function GameScreen() {
                 className="mt-8 font-normal italic leading-none text-[#c9a96e]"
                 style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "2.75rem" }}
               >
-                {narratorLineForResult(dailyCompletion.status, dailyCompletion.guessesUsed)}
+                {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed)}
               </p>
               <p className="mt-3 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
                 You've already played today

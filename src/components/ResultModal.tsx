@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { GameState } from "@/hooks/useGameState";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
+import { narratorResultLine } from "@/lib/narratorResult";
 import {
   getPlayCount,
   getStoredBestStreak,
@@ -25,15 +26,6 @@ interface TmdbMovieMeta {
   imdbRating: number | null;
   director: { name: string; imdbId: string | null } | null;
   cast: Array<{ name: string; imdbId: string | null }>;
-}
-
-function narratorLine(state: GameState): string {
-  if (state.status === "lost") return "Maybe next time.";
-  if (state.guessesUsed === 1) return "Flawless.";
-  if (state.guessesUsed === 2) return "Sharp.";
-  if (state.guessesUsed === 3) return "Solid.";
-  if (state.guessesUsed === 4) return "You got there.";
-  return "Hard earned.";
 }
 
 function formatCountdownToLocalMidnight(): string {
@@ -82,7 +74,10 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const lost = state.status === "lost";
   const movie = state.movie;
   const showPoster = movie.posterUrl && !posterError;
-  const narrator = useMemo(() => narratorLine(state), [state]);
+  const narrator = useMemo(() => {
+    if (state.status === "playing") return "";
+    return narratorResultLine(state.status, state.guessesUsed);
+  }, [state.status, state.guessesUsed]);
 
   const metaLine = `${movie.year} · ${movie.genre}`;
   const imdbRating = tmdbMeta?.imdbRating ?? null;
