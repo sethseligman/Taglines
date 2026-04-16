@@ -30,6 +30,13 @@ import { ResultModal } from "./ResultModal";
 
 type Mode = "daily" | "practice";
 
+interface TmdbMovieMeta {
+  movieImdbId: string | null;
+  imdbRating: number | null;
+  director: { name: string; imdbId: string | null } | null;
+  cast: Array<{ name: string; imdbId: string | null }>;
+}
+
 const hasSupabase = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
@@ -93,6 +100,7 @@ export function GameScreen() {
   const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
   const [copied, setCopied] = useState(false);
   const [completionPosterError, setCompletionPosterError] = useState(false);
+  const [completionTmdbMeta, setCompletionTmdbMeta] = useState<TmdbMovieMeta | null>(null);
   const dateKeyForDaily = getTodayKey();
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -224,6 +232,40 @@ export function GameScreen() {
       vv.removeEventListener("scroll", sync);
     };
   }, [isDesktop]);
+
+  useEffect(() => {
+    if (!dailyCompletion?.movieTitle || !dailyCompletion.movieYear) {
+      setCompletionTmdbMeta(null);
+      return;
+    }
+    let cancelled = false;
+    setCompletionTmdbMeta(null);
+    const title = encodeURIComponent(dailyCompletion.movieTitle);
+    const year = encodeURIComponent(String(dailyCompletion.movieYear));
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/tmdb-movie-meta?title=${title}&year=${year}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as ({ ok: true } & TmdbMovieMeta) | { ok?: false };
+        if (!cancelled && data.ok) {
+          setCompletionTmdbMeta({
+            movieImdbId: data.movieImdbId ?? null,
+            imdbRating: typeof data.imdbRating === "number" ? data.imdbRating : null,
+            director: data.director ?? null,
+            cast: Array.isArray(data.cast) ? data.cast.slice(0, 3) : [],
+          });
+        }
+      } catch {
+        // Graceful fallback: keep base completion tile.
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [dailyCompletion?.movieTitle, dailyCompletion?.movieYear]);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -465,6 +507,13 @@ export function GameScreen() {
   }
 
   if (mode === "daily" && dailyCompletion) {
+    const completionImdbUrl = completionTmdbMeta?.movieImdbId
+      ? `https://www.imdb.com/title/${completionTmdbMeta.movieImdbId}`
+      : null;
+    const completionMetaLine =
+      completionTmdbMeta?.imdbRating !== null && completionTmdbMeta?.imdbRating !== undefined
+        ? `${dailyCompletion.movieYear} · ${dailyCompletion.movieGenre} · ⭐ ${completionTmdbMeta.imdbRating.toFixed(1)}`
+        : `${dailyCompletion.movieYear} · ${dailyCompletion.movieGenre}`;
     return (
       <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
         <div
@@ -501,55 +550,141 @@ export function GameScreen() {
           </header>
           <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
             <div className="w-full max-w-md text-center">
-              <div className="mx-auto mt-2 flex w-full flex-col items-center text-center">
-                {dailyCompletion.posterUrl && !completionPosterError ? (
-                  <img
-                    src={dailyCompletion.posterUrl}
-                    alt=""
-                    width={80}
-                    height={116}
-                    className="block shrink-0 object-cover"
-                    style={{ width: 80, height: 116, borderRadius: 4 }}
-                    onError={() => setCompletionPosterError(true)}
-                  />
+              <div className="mx-auto mt-2 w-full">
+                {completionImdbUrl ? (
+                  <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
+                    <a
+                      href={completionImdbUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute inset-0 z-0"
+                      aria-label={`View ${dailyCompletion.movieTitle} on IMDb`}
+                    />
+                    <div className="relative z-10 flex w-full flex-row items-start gap-3 text-left">
+                      {dailyCompletion.posterUrl && !completionPosterError ? (
+                        <img
+                          src={dailyCompletion.posterUrl}
+                          alt=""
+                          width={84}
+                          height={124}
+                          className="block shrink-0 object-cover"
+                          style={{ width: 84, height: 124, borderRadius: 6 }}
+                          onError={() => setCompletionPosterError(true)}
+                        />
+                      ) : (
+                        <div
+                          className="shrink-0 bg-[#161616]"
+                          style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
+                          aria-hidden
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="font-bold leading-tight text-[#f0ede6]"
+                          style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.12rem", lineHeight: 1.15 }}
+                        >
+                          {dailyCompletion.movieTitle}
+                        </p>
+                        <p
+                          className="mt-1 text-[#6b6860]"
+                          style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
+                        >
+                          {completionMetaLine}
+                        </p>
+                        <p
+                          className="mt-2.5 italic leading-snug text-[#d7d3c8]"
+                          style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.03rem" }}
+                        >
+                          {movie.officialTagline}
+                        </p>
+                        {completionTmdbMeta?.director?.name && completionTmdbMeta.director.imdbId ? (
+                          <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}>
+                            🎬{" "}
+                            <a
+                              href={`https://www.imdb.com/name/${completionTmdbMeta.director.imdbId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative z-20 underline"
+                            >
+                              {completionTmdbMeta.director.name}
+                            </a>
+                          </p>
+                        ) : null}
+                        {completionTmdbMeta?.cast?.length ? (
+                          <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem", lineHeight: 1.35 }}>
+                            {completionTmdbMeta.cast.map((actor, idx) => (
+                              <span key={`${actor.name}-${idx}`}>
+                                {actor.imdbId ? (
+                                  <a
+                                    href={`https://www.imdb.com/name/${actor.imdbId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="relative z-20 underline"
+                                  >
+                                    {actor.name}
+                                  </a>
+                                ) : (
+                                  actor.name
+                                )}
+                                {idx < completionTmdbMeta.cast.length - 1 ? " · " : ""}
+                              </span>
+                            ))}
+                          </p>
+                        ) : null}
+                        <a
+                          href={completionImdbUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="relative z-20 mt-1.5 inline-block text-[#6b6860] underline"
+                          style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}
+                        >
+                          View on IMDb →
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <div
-                    className="shrink-0 bg-[#161616]"
-                    style={{ width: 80, height: 116, borderRadius: 4, border: "1px solid #222" }}
-                    aria-hidden
-                  />
+                  <div className="flex w-full flex-row items-start gap-3 rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3 text-left">
+                    {dailyCompletion.posterUrl && !completionPosterError ? (
+                      <img
+                        src={dailyCompletion.posterUrl}
+                        alt=""
+                        width={84}
+                        height={124}
+                        className="block shrink-0 object-cover"
+                        style={{ width: 84, height: 124, borderRadius: 6 }}
+                        onError={() => setCompletionPosterError(true)}
+                      />
+                    ) : (
+                      <div
+                        className="shrink-0 bg-[#161616]"
+                        style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
+                        aria-hidden
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="font-bold leading-tight text-[#f0ede6]"
+                        style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.12rem", lineHeight: 1.15 }}
+                      >
+                        {dailyCompletion.movieTitle}
+                      </p>
+                      <p
+                        className="mt-1 text-[#6b6860]"
+                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
+                      >
+                        {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
+                      </p>
+                      <p
+                        className="mt-2.5 italic leading-snug text-[#d7d3c8]"
+                        style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.03rem" }}
+                      >
+                        {movie.officialTagline}
+                      </p>
+                    </div>
+                  </div>
                 )}
-                <p
-                  className="mt-4 font-bold leading-tight text-[#f0ede6]"
-                  style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.1rem" }}
-                >
-                  {dailyCompletion.movieTitle}
-                </p>
-                <p
-                  className="mt-1 text-[#6b6860]"
-                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.75rem" }}
-                >
-                  {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
-                </p>
-                <p
-                  className="mt-1.5 text-[#C9A96E]"
-                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.75rem" }}
-                >
-                  {dailyCompletion.status === "won"
-                    ? `Solved in ${dailyCompletion.guessesUsed} ${
-                        dailyCompletion.guessesUsed === 1 ? "guess" : "guesses"
-                      }`
-                    : "Not solved"}
-                </p>
-                <div
-                  className="mt-6"
-                  style={{
-                    width: 24,
-                    height: 1,
-                    backgroundColor: "rgba(201, 169, 110, 0.4)",
-                  }}
-                  aria-hidden
-                />
+                <div className="mt-4 w-full border-t" style={{ borderColor: "#1e1e1e" }} />
               </div>
               <p
                 className="mt-8 font-normal italic leading-none text-[#c9a96e]"
