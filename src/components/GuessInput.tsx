@@ -30,7 +30,7 @@ export function GuessInput({
   onInputValueChange,
   remainingGuesses,
   disabled = false,
-  placeholder = "Search movies...",
+  placeholder = "Type a title — or leave blank for a hint",
   "aria-label": ariaLabel = "Guess the movie",
   showSubmitButton = true,
   submitInline = false,
