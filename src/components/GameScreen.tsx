@@ -889,7 +889,6 @@ export function GameScreen() {
                     onSubmit={handleGuessSubmit}
                     onInputValueChange={handleGuessInputActivity}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
-                    placeholder="Search movies..."
                     aria-label="Guess the movie"
                   />
                   {state.submitMessage && (
