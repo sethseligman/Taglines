@@ -835,6 +835,18 @@ export function GameScreen() {
                     </div>
                   </div>
                 )}
+                <div
+                  className="pointer-events-none absolute left-1/2 top-1/2 z-0"
+                  style={{
+                    width: "min(86vw, 620px)",
+                    height: "min(48vw, 300px)",
+                    transform: "translate(-50%, -50%)",
+                    background:
+                      "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
+                    filter: "blur(10px)",
+                  }}
+                  aria-hidden
+                />
                 <div className="relative z-10 w-full">
                   <HintReveal
                     movie={state.movie}
@@ -857,8 +869,8 @@ export function GameScreen() {
           <main
             className={
               isDesktop
-                ? `flex flex-1 flex-col px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
-                : `flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                ? `flex flex-1 flex-col justify-center px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                : `flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
             }
           >
             <div className="mx-auto flex w-full max-w-lg flex-col items-center">
@@ -889,6 +901,7 @@ export function GameScreen() {
                     onSubmit={handleGuessSubmit}
                     onInputValueChange={handleGuessInputActivity}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
+                    placeholder="Name a film..."
                     aria-label="Guess the movie"
                   />
                   {state.submitMessage && (
@@ -899,7 +912,6 @@ export function GameScreen() {
                       Did you mean <strong className="text-gold">{state.didYouMean}</strong>?
                     </p>
                   )}
-                  <p className="text-center text-xs text-muted">Type any movie title and press Guess</p>
                 </div>
 
                 <hr
