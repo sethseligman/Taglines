@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const KEY_SPLASHED = "taglines-splashed";
-const KEY_HTP_DISMISSED = "taglines-how-to-play-dismissed";
 
 const PF = '"Playfair Display", Georgia, "Times New Roman", serif';
 const DM = '"DM Sans", ui-sans-serif, system-ui, sans-serif';
@@ -16,10 +15,21 @@ const activeTileBg = "color-mix(in srgb, var(--gold) 12%, var(--background))";
 const activeTileBorder = "color-mix(in srgb, var(--gold) 35%, var(--border-soft))";
 const activeTileText = "color-mix(in srgb, var(--gold) 58%, var(--muted))";
 
+const HTP_X_MS_CARD = 150;
+const HTP_X_MS_TEXT_IN = 200;
+const HTP_X_MS_HOLD = 1200;
+const HTP_X_MS_CURTAIN = 200;
+
 export function SplashModal() {
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"splash" | "htp">("splash");
-  const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [htpCardExiting, setHtpCardExiting] = useState(false);
+  const [showtimeLayer, setShowtimeLayer] = useState(false);
+  const [showtimeTextVisible, setShowtimeTextVisible] = useState(false);
+  const [showtimeCurtainOut, setShowtimeCurtainOut] = useState(false);
+
+  const xExitTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const xExitStartedRef = useRef(false);
 
   /**
    * Read storage in one layout effect (no chained hydration flag).
@@ -35,20 +45,73 @@ export function SplashModal() {
     setOpen(true);
   }, []);
 
+  const clearXExitTimers = useCallback(() => {
+    xExitTimersRef.current.forEach(clearTimeout);
+    xExitTimersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => clearXExitTimers();
+  }, [clearXExitTimers]);
+
+  useEffect(() => {
+    if (!open) {
+      clearXExitTimers();
+      xExitStartedRef.current = false;
+      setHtpCardExiting(false);
+      setShowtimeLayer(false);
+      setShowtimeTextVisible(false);
+      setShowtimeCurtainOut(false);
+    }
+  }, [open, clearXExitTimers]);
+
+  const persistDismiss = useCallback((fromHtp: boolean) => {
+    try {
+      localStorage.setItem(KEY_SPLASHED, "true");
+      void fromHtp;
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const dismiss = useCallback(
     (opts?: { fromHtp?: boolean }) => {
-      try {
-        localStorage.setItem(KEY_SPLASHED, "true");
-        if (opts?.fromHtp && dontShowAgain) {
-          localStorage.setItem(KEY_HTP_DISMISSED, "true");
-        }
-      } catch {
-        // ignore
-      }
+      persistDismiss(Boolean(opts?.fromHtp));
       setOpen(false);
     },
-    [dontShowAgain]
+    [persistDismiss]
   );
+
+  const handleHtpXClose = useCallback(() => {
+    if (xExitStartedRef.current) return;
+    xExitStartedRef.current = true;
+    setHtpCardExiting(true);
+
+    const tShowtime = setTimeout(() => {
+      setShowtimeLayer(true);
+      setShowtimeTextVisible(false);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setShowtimeTextVisible(true);
+        });
+      });
+    }, HTP_X_MS_CARD);
+    xExitTimersRef.current.push(tShowtime);
+
+    const tCurtain = setTimeout(() => {
+      setShowtimeCurtainOut(true);
+    }, HTP_X_MS_CARD + HTP_X_MS_TEXT_IN + HTP_X_MS_HOLD);
+    xExitTimersRef.current.push(tCurtain);
+
+    const tDone = setTimeout(() => {
+      persistDismiss(true);
+      setPanel("splash");
+      setOpen(false);
+      xExitStartedRef.current = false;
+      clearXExitTimers();
+    }, HTP_X_MS_CARD + HTP_X_MS_TEXT_IN + HTP_X_MS_HOLD + HTP_X_MS_CURTAIN);
+    xExitTimersRef.current.push(tDone);
+  }, [persistDismiss, clearXExitTimers]);
 
   const goToHowToPlay = useCallback(() => {
     setPanel("htp");
@@ -133,7 +196,7 @@ export function SplashModal() {
             panel === "htp"
               ? "z-10 translate-y-0 opacity-100"
               : "pointer-events-none z-0 translate-y-1 opacity-0"
-          }`}
+          } ${htpCardExiting || showtimeLayer ? "pointer-events-none" : ""}`}
           style={{
             paddingLeft: "max(1rem, env(safe-area-inset-left))",
             paddingRight: "max(1rem, env(safe-area-inset-right))",
@@ -143,7 +206,9 @@ export function SplashModal() {
           aria-hidden={panel !== "htp"}
         >
           <div
-            className="relative w-full max-w-[390px] overflow-y-auto overscroll-contain rounded-[24px] border shadow-2xl"
+            className={`relative w-full max-w-[390px] overflow-y-auto overscroll-contain rounded-[24px] border shadow-2xl transition-opacity duration-150 ease-out ${
+              htpCardExiting ? "opacity-0" : "opacity-100"
+            }`}
             style={{
               maxHeight: "min(100dvh - 2rem, 100vh - 2rem)",
               background: "var(--surface)",
@@ -161,8 +226,9 @@ export function SplashModal() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => dismiss({ fromHtp: true })}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full border transition hover:opacity-90"
+                  onClick={handleHtpXClose}
+                  disabled={htpCardExiting || showtimeLayer}
+                  className="flex size-[44px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border transition hover:opacity-90 disabled:opacity-50"
                   style={{ borderColor: "var(--border-soft)", background: "var(--surface)" }}
                   aria-label="Close"
                 >
@@ -250,48 +316,33 @@ export function SplashModal() {
                 </StepBlock>
               </div>
 
-              <div className="mt-6 border-t pt-5" style={{ borderColor: dividerColor }}>
-                <label
-                  className="flex cursor-pointer items-start gap-3 rounded-md focus-within:outline-none focus-within:ring-2 focus-within:ring-gold/40"
-                  style={{ fontFamily: DM, fontSize: "0.85rem", color: "var(--foreground)" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={dontShowAgain}
-                    onChange={(e) => setDontShowAgain(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <span
-                    className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition"
-                    style={{
-                      borderColor: dontShowAgain ? "var(--gold)" : "var(--border-soft)",
-                      background: "var(--surface)",
-                    }}
-                    aria-hidden
-                  >
-                    <span
-                      className="size-2.5 rounded-[1px] transition"
-                      style={{
-                        background: "var(--gold)",
-                        opacity: dontShowAgain ? 1 : 0,
-                      }}
-                    />
-                  </span>
-                  <span className="leading-snug">Don&apos;t show this again</span>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => dismiss({ fromHtp: true })}
-                  className="mt-5 w-full rounded-[14px] py-[18px] font-semibold text-background transition hover:opacity-95 active:scale-[0.99]"
-                  style={{ fontFamily: DM, background: "var(--gold)", fontSize: "0.95rem" }}
-                >
-                  Let&apos;s play
-                </button>
-              </div>
             </div>
           </div>
         </div>
+
+        {showtimeLayer ? (
+          <div
+            className={`pointer-events-none fixed inset-0 z-[210] flex items-center justify-center transition-opacity duration-200 ease-out ${
+              showtimeCurtainOut ? "opacity-0" : "opacity-100"
+            }`}
+            style={{ background: "var(--background)" }}
+          >
+            <p
+              className={`px-6 text-center transition-opacity duration-200 ease-out ${
+                showtimeTextVisible ? "opacity-100" : "opacity-0"
+              }`}
+              style={{
+                fontFamily: PF,
+                fontSize: 36,
+                fontStyle: "italic",
+                fontWeight: 400,
+                color: "var(--gold)",
+              }}
+            >
+              It&apos;s showtime.
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
