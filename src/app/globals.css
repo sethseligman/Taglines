@@ -6,6 +6,8 @@
   --surface: #111111;
   --muted: #6b6860;
   --gold: #c9a96e;
+  --scrim: rgba(0, 0, 0, 0.85);
+  --border-soft: #2a2a2a;
 }
 
 @theme inline {
