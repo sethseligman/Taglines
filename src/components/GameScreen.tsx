@@ -106,10 +106,8 @@ export function GameScreen() {
   const [currentClueIndex, setCurrentClueIndex] = useState(0);
   const prevHintLevelForCluesRef = useRef(0);
 
-  /** Fixed header + tagline: height for scroll spacer; visualViewport offset for iOS keyboard. */
+  /** Header + tagline container; visualViewport offset kept for iOS keyboard behavior. */
   const topChromeRef = useRef<HTMLDivElement>(null);
-  const topChromeSpacerRef = useRef<HTMLDivElement>(null);
-  const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [visualViewportOffset, setVisualViewportOffset] = useState(0);
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -271,43 +269,6 @@ export function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (isDesktop) {
-      setVisualViewportOffset(0);
-      return;
-    }
-    const el = topChromeRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      setTopChromeHeight(el.getBoundingClientRect().height);
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    measure();
-
-    const spacerEl = topChromeSpacerRef.current;
-    let roSpacer: ResizeObserver | null = null;
-    if (spacerEl) {
-      roSpacer = new ResizeObserver(measure);
-      roSpacer.observe(spacerEl);
-    }
-
-    return () => {
-      ro.disconnect();
-      roSpacer?.disconnect();
-    };
-  }, [
-    movie.title,
-    mode,
-    dailyCompletion,
-    showFloatingYear,
-    state.status,
-    isDesktop,
-    state.hintLevel,
-    state.guessesUsed,
-    state.movie.officialTagline,
-  ]);
-
-  useEffect(() => {
     if (mode !== "daily") {
       setDailyCompletion(null);
       return;
@@ -465,24 +426,14 @@ export function GameScreen() {
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
 
-  const topChromeStyle: CSSProperties = isDesktop
-    ? {
-        position: "relative",
-        zIndex: 30,
-        background: "#080808",
-        paddingTop: "env(safe-area-inset-top, 0px)",
-      }
-    : {
-        position: "fixed",
-        left: 0,
-        right: 0,
-        top: 0,
-        zIndex: 30,
-        background: "#080808",
-        paddingTop: "env(safe-area-inset-top, 0px)",
-        transform: `translate3d(0, ${visualViewportOffset}px, 0)`,
-        willChange: "transform",
-      };
+  const topChromeStyle: CSSProperties = {
+    position: "relative",
+    zIndex: 30,
+    background: "#080808",
+    paddingTop: "env(safe-area-inset-top, 0px)",
+    transform: !isDesktop ? `translate3d(0, ${visualViewportOffset}px, 0)` : undefined,
+    willChange: !isDesktop ? "transform" : undefined,
+  };
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -885,15 +836,6 @@ export function GameScreen() {
               </div>
             </section>
           </div>
-
-          {!isDesktop && (
-            <div
-              ref={topChromeSpacerRef}
-              className="shrink-0"
-              style={{ height: Math.max(topChromeHeight, 1) }}
-              aria-hidden
-            />
-          )}
 
           <main
             className={
