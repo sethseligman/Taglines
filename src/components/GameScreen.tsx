@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
@@ -106,9 +105,6 @@ export function GameScreen() {
   const [currentClueIndex, setCurrentClueIndex] = useState(0);
   const prevHintLevelForCluesRef = useRef(0);
 
-  /** Header + tagline container; visualViewport offset kept for iOS keyboard behavior. */
-  const topChromeRef = useRef<HTMLDivElement>(null);
-  const [visualViewportOffset, setVisualViewportOffset] = useState(0);
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
   /** Tailwind `md` — desktop uses classic static layout; mobile keeps keyboard-optimized chrome. */
@@ -210,21 +206,6 @@ export function GameScreen() {
       submitMessage: null,
     });
   }, [dailyCompletion, movie]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport || isDesktop) return;
-    const vv = window.visualViewport;
-    const sync = () => {
-      setVisualViewportOffset(vv.offsetTop);
-    };
-    sync();
-    vv.addEventListener("resize", sync);
-    vv.addEventListener("scroll", sync);
-    return () => {
-      vv.removeEventListener("resize", sync);
-      vv.removeEventListener("scroll", sync);
-    };
-  }, [isDesktop]);
 
   useEffect(() => {
     if (!dailyCompletion?.movieTitle || !dailyCompletion.movieYear) {
@@ -425,15 +406,6 @@ export function GameScreen() {
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
-
-  const topChromeStyle: CSSProperties = {
-    position: "relative",
-    zIndex: 30,
-    background: "#080808",
-    paddingTop: "env(safe-area-inset-top, 0px)",
-    transform: !isDesktop ? `translate3d(0, ${visualViewportOffset}px, 0)` : undefined,
-    willChange: !isDesktop ? "transform" : undefined,
-  };
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -739,9 +711,15 @@ export function GameScreen() {
               : "relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden"
           }
         >
-          <div ref={topChromeRef} className="shrink-0" style={topChromeStyle}>
+          <main
+            className={
+              isDesktop
+                ? `flex flex-1 flex-col justify-center px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                : `flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+            }
+          >
             <header
-              className={`w-full shrink-0 px-5 md:px-8 ${motionPad} ${
+              className={`w-full shrink-0 ${motionPad} ${
                 relaxedVisual ? "pb-3 pt-4 md:pb-3 md:pt-5" : "pb-2 pt-3"
               }`}
             >
@@ -835,15 +813,6 @@ export function GameScreen() {
                 </div>
               </div>
             </section>
-          </div>
-
-          <main
-            className={
-              isDesktop
-                ? `flex flex-1 flex-col justify-center px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
-                : `flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
-            }
-          >
             <div className="mx-auto flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && (
               <>
