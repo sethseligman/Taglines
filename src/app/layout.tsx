@@ -1,11 +1,28 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { Geist_Mono } from "next/font/google";
+import { DM_Sans, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  adjustFontFallback: true,
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  adjustFontFallback: true,
 });
 
 export const metadata: Metadata = {
@@ -53,14 +70,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=DM+Sans:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={`${geistMono.variable} min-h-screen bg-background text-foreground antialiased`}>
+    <html
+      lang="en"
+      className={`dark ${geistMono.variable} ${playfair.variable} ${dmSans.variable}`}
+    >
+      <body className="min-h-screen bg-background text-foreground antialiased">
         {children}
         <Analytics />
       </body>

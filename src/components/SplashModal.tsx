@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 
 const KEY_SPLASHED = "taglines-splashed";
 
-const PF = '"Playfair Display", Georgia, "Times New Roman", serif';
-const DM = '"DM Sans", ui-sans-serif, system-ui, sans-serif';
+const PF = FONT_PLAYFAIR;
+const DM = FONT_DM;
 
 /** Dividers / rail tones derived from tokens only */
 const dividerColor = "color-mix(in srgb, var(--foreground) 7%, var(--background))";

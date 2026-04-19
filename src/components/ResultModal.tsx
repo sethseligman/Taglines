@@ -11,6 +11,7 @@ import {
   getWinCount,
   maybeUpdateStoredBestStreak,
 } from "@/lib/storage";
+import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 
 interface ResultModalProps {
   state: GameState;
@@ -18,8 +19,8 @@ interface ResultModalProps {
   onPlayAgain: () => void;
 }
 
-const DM = '"DM Sans", ui-sans-serif, system-ui, sans-serif';
-const PF = '"Playfair Display", Georgia, "Times New Roman", serif';
+const DM = FONT_DM;
+const PF = FONT_PLAYFAIR;
 
 interface TmdbMovieMeta {
   movieImdbId: string | null;
@@ -28,6 +29,14 @@ interface TmdbMovieMeta {
   cast: Array<{ name: string; imdbId: string | null }>;
 }
 
+function narratorLineForResult(status: "won" | "lost", guessesUsed: number): string {
+  if (status === "lost") return "Maybe next time.";
+  if (guessesUsed === 1) return "Flawless.";
+  if (guessesUsed === 2) return "One hint. No shame.";
+  if (guessesUsed === 3) return "You'll take it.";
+  if (guessesUsed === 4) return "That one was a fight.";
+  return "Survived.";
+}
 function formatCountdownToLocalMidnight(): string {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);

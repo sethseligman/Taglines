@@ -16,6 +16,7 @@ import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
+import { FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { narratorResultLine } from "@/lib/narratorResult";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
 import {
@@ -574,7 +575,7 @@ export function GameScreen() {
                       <div className="min-w-0 flex-1">
                         <p
                           className="font-bold leading-tight text-[#f0ede6]"
-                          style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.12rem", lineHeight: 1.15 }}
+                          style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
                         >
                           {dailyCompletion.movieTitle}
                         </p>
@@ -586,7 +587,7 @@ export function GameScreen() {
                         </p>
                         <p
                           className="mt-2.5 italic leading-snug text-[#d7d3c8]"
-                          style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.03rem" }}
+                          style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
                         >
                           {movie.officialTagline}
                         </p>
@@ -658,7 +659,7 @@ export function GameScreen() {
                     <div className="min-w-0 flex-1">
                       <p
                         className="font-bold leading-tight text-[#f0ede6]"
-                        style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.12rem", lineHeight: 1.15 }}
+                        style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
                       >
                         {dailyCompletion.movieTitle}
                       </p>
@@ -670,7 +671,7 @@ export function GameScreen() {
                       </p>
                       <p
                         className="mt-2.5 italic leading-snug text-[#d7d3c8]"
-                        style={{ fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif', fontSize: "1.03rem" }}
+                        style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
                       >
                         {movie.officialTagline}
                       </p>
@@ -681,7 +682,7 @@ export function GameScreen() {
               </div>
               <p
                 className="mt-8 font-normal italic leading-none text-[#c9a96e]"
-                style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "2.75rem" }}
+                style={{ fontFamily: FONT_PLAYFAIR, fontSize: "2.75rem" }}
               >
                 {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed)}
               </p>
@@ -817,7 +818,7 @@ export function GameScreen() {
                         className="game-floating-year select-none"
                         style={{
                           display: "inline-block",
-                          fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+                          fontFamily: FONT_PLAYFAIR,
                           fontStyle: "italic",
                           fontWeight: 700,
                           letterSpacing: "-0.05em",
