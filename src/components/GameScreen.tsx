@@ -108,6 +108,7 @@ export function GameScreen() {
 
   /** Fixed header + tagline: height for scroll spacer; visualViewport offset for iOS keyboard. */
   const topChromeRef = useRef<HTMLDivElement>(null);
+  const topChromeSpacerRef = useRef<HTMLDivElement>(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [visualViewportOffset, setVisualViewportOffset] = useState(0);
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
@@ -276,13 +277,35 @@ export function GameScreen() {
     }
     const el = topChromeRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
+    const measure = () => {
       setTopChromeHeight(el.getBoundingClientRect().height);
-    });
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setTopChromeHeight(el.getBoundingClientRect().height);
-    return () => ro.disconnect();
-  }, [movie.title, mode, dailyCompletion, showFloatingYear, state.status, isDesktop]);
+    measure();
+
+    const spacerEl = topChromeSpacerRef.current;
+    let roSpacer: ResizeObserver | null = null;
+    if (spacerEl) {
+      roSpacer = new ResizeObserver(measure);
+      roSpacer.observe(spacerEl);
+    }
+
+    return () => {
+      ro.disconnect();
+      roSpacer?.disconnect();
+    };
+  }, [
+    movie.title,
+    mode,
+    dailyCompletion,
+    showFloatingYear,
+    state.status,
+    isDesktop,
+    state.hintLevel,
+    state.guessesUsed,
+    state.movie.officialTagline,
+  ]);
 
   useEffect(() => {
     if (mode !== "daily") {
@@ -864,7 +887,12 @@ export function GameScreen() {
           </div>
 
           {!isDesktop && (
-            <div className="shrink-0" style={{ height: Math.max(topChromeHeight, 1) }} aria-hidden />
+            <div
+              ref={topChromeSpacerRef}
+              className="shrink-0"
+              style={{ height: Math.max(topChromeHeight, 1) }}
+              aria-hidden
+            />
           )}
 
           <main
