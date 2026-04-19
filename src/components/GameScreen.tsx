@@ -714,13 +714,13 @@ export function GameScreen() {
           <main
             className={
               isDesktop
-                ? `flex flex-1 flex-col justify-center px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
-                : `flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                ? `flex flex-1 flex-col justify-start px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
+                : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
             }
           >
             <header
               className={`w-full shrink-0 ${motionPad} ${
-                relaxedVisual ? "pb-3 pt-4 md:pb-3 md:pt-5" : "pb-2 pt-3"
+                relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
               }`}
             >
               <div className="mx-auto flex w-full max-w-lg items-center justify-between">
@@ -757,7 +757,7 @@ export function GameScreen() {
             <section className="relative mx-auto w-full max-w-lg px-1">
               <div
                 className={`relative ${motionPad} ${
-                  relaxedVisual ? "pb-5 pt-2 md:pb-6 md:pt-2" : "pb-2 pt-0.5 md:pb-4 md:pt-1"
+                  relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
                 }`}
               >
                 {showFloatingYear && (
@@ -813,7 +813,7 @@ export function GameScreen() {
                 </div>
               </div>
             </section>
-            <div className="mx-auto flex w-full max-w-lg flex-col items-center">
+            <div className="mx-auto mt-8 flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && (
               <>
                 <div
@@ -915,7 +915,6 @@ export function GameScreen() {
                   <div
                     className="flex w-full justify-center px-1"
                     style={{
-                      minHeight: 80,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
