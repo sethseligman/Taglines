@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const BEAT1_MS = 300;
 const FLIP_MS = 480;
-const FLIP_HOLD_MS = 600;
+const FLIP_HOLD_MS = 3000;
 const BEAT3_START_MS = BEAT1_MS + FLIP_MS + FLIP_HOLD_MS;
 const JOURNEY_MS = 600;
 const OVERLAY_FADE_IN_MS = 150;

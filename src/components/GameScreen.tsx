@@ -964,21 +964,6 @@ export function GameScreen() {
                                 }
                               }}
                             >
-                              <div
-                                className="shrink-0 px-1.5 pt-1.5"
-                                style={{
-                                  fontFamily: '"DM Sans", sans-serif',
-                                  fontSize: 9,
-                                  letterSpacing: "0.15em",
-                                  color: dim ? "#6B6860" : "#5A4E2E",
-                                }}
-                              >
-                                H{i + 1}
-                              </div>
-                              <div
-                                className="mx-1.5 shrink-0"
-                                style={{ height: 1, backgroundColor: "#2E2410" }}
-                              />
                               <p
                                 className="line-clamp-3 flex min-h-0 flex-1 items-center justify-center px-1.5 py-1.5 text-center"
                                 style={{
