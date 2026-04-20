@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  EXPANDED_HINT_CARD_HEIGHT as LARGE_H,
+  EXPANDED_HINT_CARD_WIDTH as LARGE_W,
+  getExpandedHintCardAnchor,
+} from "@/lib/expandedHintCardLayout";
 
 const BEAT1_MS = 300;
 const FLIP_MS = 480;
@@ -11,9 +16,6 @@ const OVERLAY_FADE_IN_MS = 150;
 const OVERLAY_FADE_OUT_MS = 500;
 const COMPLETE_MS = BEAT3_START_MS + JOURNEY_MS;
 
-const LARGE_W = 180;
-const LARGE_H = 240;
-
 interface WrongGuessAnimationProps {
   hintText: string;
   hintIndex: number;
@@ -21,16 +23,12 @@ interface WrongGuessAnimationProps {
   onComplete: () => void;
 }
 
-function centerBox(w: number, h: number) {
+function initialLargeCardBox() {
   if (typeof window === "undefined") {
-    return { top: 0, left: 0, w, h };
+    return { top: 0, left: 0, w: LARGE_W, h: LARGE_H };
   }
-  return {
-    top: (window.innerHeight - h) / 2,
-    left: (window.innerWidth - w) / 2,
-    w,
-    h,
-  };
+  const { top, left } = getExpandedHintCardAnchor();
+  return { top, left, w: LARGE_W, h: LARGE_H };
 }
 
 export function WrongGuessAnimation({
@@ -44,7 +42,7 @@ export function WrongGuessAnimation({
   const [enterScale, setEnterScale] = useState(1.15);
   const [flipDeg, setFlipDeg] = useState(0);
   const [flipTransition, setFlipTransition] = useState(false);
-  const [cardBox, setCardBox] = useState(() => centerBox(LARGE_W, LARGE_H));
+  const [cardBox, setCardBox] = useState(() => initialLargeCardBox());
   /** Beat 3 only: inner wrapper uses translate + scale; shell stays 180×240. */
   const [journeyStarted, setJourneyStarted] = useState(false);
   const [journeyMove, setJourneyMove] = useState(false);
@@ -75,7 +73,7 @@ export function WrongGuessAnimation({
       const destLeft = rect?.left ?? (window.innerWidth - tileW) / 2;
       const scaleX = tileW / LARGE_W;
       const scaleY = tileH / LARGE_H;
-      const { top: cy, left: cx } = centerBox(LARGE_W, LARGE_H);
+      const { top: cy, left: cx } = getExpandedHintCardAnchor();
 
       setCardBox({ top: cy, left: cx, w: LARGE_W, h: LARGE_H });
       setJourneyStarted(true);

@@ -30,6 +30,10 @@ import {
   getWinCount,
 } from "@/lib/storage";
 import { GuessInput } from "./GuessInput";
+import {
+  HintExpandedOverlay,
+  type HintExpandedOverlayHandle,
+} from "./HintExpandedOverlay";
 import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
 import { WrongGuessAnimation } from "./WrongGuessAnimation";
@@ -126,6 +130,8 @@ export function GameScreen() {
   } | null>(null);
   /** Hint tile slot hidden until WrongGuessAnimation onComplete (same layout ref for measurement). */
   const [animatingHintIndex, setAnimatingHintIndex] = useState<number | null>(null);
+  const hintExpandOverlayRef = useRef<HintExpandedOverlayHandle | null>(null);
+  const [expandedHintIndex, setExpandedHintIndex] = useState<number | null>(null);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -347,6 +353,10 @@ export function GameScreen() {
     }, 7000);
   }, [state.guessesUsed]);
 
+  const handleHintExpandClosed = useCallback(() => {
+    setExpandedHintIndex(null);
+  }, []);
+
   useLayoutEffect(() => {
     const len = state.guessHistory.length;
     if (len > prevGuessLenRef.current) {
@@ -356,6 +366,7 @@ export function GameScreen() {
         const hintText = getHintBodyForLevel(state.movie, state.hintLevel as HintLevel);
         wrongGuessAnimSeqRef.current += 1;
         const hintIndex = state.hintLevel - 1;
+        setExpandedHintIndex(null);
         setAnimatingHintIndex(hintIndex);
         setWrongGuessAnimation({
           id: wrongGuessAnimSeqRef.current,
@@ -433,7 +444,8 @@ export function GameScreen() {
   const dailyUnavailable =
     mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
 
-  const relaxedVisual = isDesktop || playLayoutRelaxed;
+  /** Keep relaxed spacing while hint overlay is open (tile click must not drive keyboard compact). */
+  const relaxedVisual = isDesktop || playLayoutRelaxed || expandedHintIndex !== null;
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
@@ -902,6 +914,7 @@ export function GameScreen() {
                       const active = revealed && i === currentClueIndex;
                       const dim = revealed && !active;
                       const isAnimatingSlot = animatingHintIndex === i;
+                      const blockHintExpand = Boolean(wrongGuessAnimation);
                       const hintBody = revealed
                         ? getHintBodyForLevel(state.movie, (i + 1) as HintLevel)
                         : "";
@@ -951,17 +964,22 @@ export function GameScreen() {
                               aria-label={`Show clue ${i + 1}`}
                               aria-current={active ? "true" : undefined}
                               className="absolute inset-0 z-[1] flex min-h-0 cursor-pointer flex-col overflow-hidden border-0 bg-transparent p-0 text-left outline-none"
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                setCurrentClueIndex(i);
-                              }}
                               onClick={() => {
-                                setCurrentClueIndex(i);
-                                if (!isDesktop) {
-                                  requestAnimationFrame(() => {
-                                    document.getElementById("guess-input")?.focus({ preventScroll: true });
-                                  });
+                                if (blockHintExpand) {
+                                  setCurrentClueIndex(i);
+                                  if (!isDesktop) {
+                                    requestAnimationFrame(() => {
+                                      document.getElementById("guess-input")?.focus({ preventScroll: true });
+                                    });
+                                  }
+                                  return;
                                 }
+                                if (expandedHintIndex === i) {
+                                  hintExpandOverlayRef.current?.close();
+                                  return;
+                                }
+                                setCurrentClueIndex(i);
+                                setExpandedHintIndex(i);
                               }}
                             >
                               <p
@@ -1077,6 +1095,15 @@ export function GameScreen() {
             onPlayAgain={dismissResultAndReturnToPlay}
           />
         )}
+        {expandedHintIndex !== null && state.status === "playing" ? (
+          <HintExpandedOverlay
+            ref={hintExpandOverlayRef}
+            key={expandedHintIndex}
+            hintText={getHintBodyForLevel(state.movie, (expandedHintIndex + 1) as HintLevel)}
+            hintTileRef={hintTileRefs[expandedHintIndex]!}
+            onClosed={handleHintExpandClosed}
+          />
+        ) : null}
         {wrongGuessAnimation ? (
           <WrongGuessAnimation
             key={wrongGuessAnimation.id}
