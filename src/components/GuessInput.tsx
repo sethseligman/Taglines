@@ -46,6 +46,7 @@ export function GuessInput({
   const [filtered, setFiltered] = useState<SuggestionCatalogItem[]>([]);
   const [showDuplicateFeedback, setShowDuplicateFeedback] = useState(false);
   const [shakeActive, setShakeActive] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const blurLayoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,6 +98,7 @@ export function GuessInput({
         clearTimeout(blurLayoutTimeoutRef.current);
         blurLayoutTimeoutRef.current = null;
       }
+      setOpen(false);
       onSubmit(trimmed);
       if (!trimmed) return;
       clearAfterSubmit();
@@ -185,7 +187,6 @@ export function GuessInput({
 
   const handleInputBlur = useCallback(() => {
     blurLayoutTimeoutRef.current = setTimeout(() => {
-      setOpen(false);
       onLayoutBreathingChange?.(true);
       blurLayoutTimeoutRef.current = null;
     }, 180);
@@ -236,6 +237,20 @@ export function GuessInput({
     }
   }, [showDropdown, highlightIndex]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (!containerRef.current?.contains(target)) {
+        setOpen(false);
+        onLayoutBreathingChange?.(true);
+      }
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, onLayoutBreathingChange]);
+
   const handleSelect = useCallback(
     (item: SuggestionCatalogItem) => {
       finishSubmit(item.title);
@@ -255,7 +270,7 @@ export function GuessInput({
         : `Guess · ${remainingGuesses} left`;
 
   const fieldBlock = (
-    <div className={submitInline ? "relative min-w-0 flex-1" : "relative w-full"}>
+    <div ref={containerRef} className={submitInline ? "relative min-w-0 flex-1" : "relative w-full"}>
       <input
         ref={inputRef}
         type="text"
