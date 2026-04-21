@@ -875,8 +875,12 @@ export function GameScreen() {
                 >
                   <div className="w-full">
                     <div className="flex w-full flex-col" style={{ gap: 12 }}>
-                      {Array.from({ length: state.hintLevel }, (_, i) => i)
-                        .filter((i) => i !== hiddenHintIndex)
+                      {[
+                        ...Array.from({ length: state.hintLevel }, (_, i) => i).filter(
+                          (i) => i !== hiddenHintIndex
+                        ),
+                      ]
+                        .reverse()
                         .map((i) => {
                           const hintBody = getHintBodyForLevel(state.movie, (i + 1) as HintLevel);
                           const isNewest = i === state.hintLevel - 1;
