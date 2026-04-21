@@ -479,10 +479,15 @@ export function GameScreen() {
     );
   }
 
-  if (mode === "daily" && dailyCompletion) {
+  if (mode === "daily" && dailyCompletion && !showResult) {
     const completionImdbUrl = completionTmdbMeta?.movieImdbId
       ? `https://www.imdb.com/title/${completionTmdbMeta.movieImdbId}`
       : null;
+    const completionGuesses = dailyCompletion.guessesUsed;
+    const completionHintsUsed = Math.max(completionGuesses - 1, 0);
+    const completionSolveSummary = `Solved in ${completionGuesses} ${
+      completionGuesses === 1 ? "guess" : "guesses"
+    }${completionHintsUsed > 0 ? ` · ${completionHintsUsed} hints used` : ""}`;
     const completionMetaLine =
       completionTmdbMeta?.imdbRating !== null && completionTmdbMeta?.imdbRating !== undefined
         ? `${dailyCompletion.movieYear} · ${dailyCompletion.movieGenre} · ⭐ ${completionTmdbMeta.imdbRating.toFixed(1)}`
@@ -671,9 +676,26 @@ export function GameScreen() {
               >
                 {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed)}
               </p>
-              <p className="mt-3 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
-                You've already played today
-              </p>
+              {dailyCompletion.status === "won" ? (
+                <>
+                  <p
+                    className="mt-6 uppercase text-[#6b6860]"
+                    style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.68rem", letterSpacing: "0.15em" }}
+                  >
+                    solved in
+                  </p>
+                  <p
+                    className="leading-none text-[#c9a96e]"
+                    style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
+                  >
+                    {dailyCompletion.guessesUsed}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-3 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
+                  {completionSolveSummary}
+                </p>
+              )}
               <p className="mt-2 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}>
                 Next tagline in {countdown}
               </p>
