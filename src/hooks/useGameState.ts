@@ -7,6 +7,7 @@ import type { HintLevel } from "@/types/movie";
 import { getDidYouMean, isGuessCorrect, normalizeForComparison } from "@/lib/answerNormalize";
 import {
   appendStoredResult,
+  getDailyCompletionResult,
   getLastPlayedDate,
   setDailyCompletionResult,
   getStoredStreak,
@@ -30,6 +31,15 @@ export interface GameState {
   submitMessage: string | null;
 }
 
+const DAILY_PROGRESS_KEY = "taglines-daily-progress";
+
+interface DailyProgressState {
+  dateKey: string;
+  guessesUsed: number;
+  guessHistory: string[];
+  hintLevel: HintLevel;
+}
+
 function isCorrectGuess(guess: string, movie: Movie): boolean {
   return isGuessCorrect(guess, movie.acceptedAnswers, movie.title);
 }
@@ -43,22 +53,8 @@ export function useGameState(
   submitGuess: (guess: string) => void;
   reset: () => void;
 } {
-  const [state, setState] = useState<GameState>(() => ({
-    movie,
-    hintLevel: 0,
-    guessesUsed: 0,
-    status: "playing",
-    guessHistory: [],
-    isDaily,
-    dateKey,
-    didYouMean: null,
-    submitMessage: null,
-  }));
-  const submitMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Reset internal state when movie/dateKey changes (e.g. new day or practice pick)
-  useEffect(() => {
-    setState({
+  const getInitialState = useCallback((): GameState => {
+    const baseState: GameState = {
       movie,
       hintLevel: 0,
       guessesUsed: 0,
@@ -68,8 +64,77 @@ export function useGameState(
       dateKey,
       didYouMean: null,
       submitMessage: null,
-    });
-  }, [movie.title, dateKey, isDaily]);
+    };
+    if (!isDaily || typeof window === "undefined") return baseState;
+    try {
+      const raw = localStorage.getItem(DAILY_PROGRESS_KEY);
+      if (!raw) return baseState;
+      const parsed = JSON.parse(raw) as Partial<DailyProgressState> | null;
+      if (!parsed) return baseState;
+      if (parsed.dateKey !== dateKey) return baseState;
+      if (getDailyCompletionResult(dateKey)) return baseState;
+      const guessesUsed = typeof parsed.guessesUsed === "number" ? parsed.guessesUsed : 0;
+      const hintLevel = typeof parsed.hintLevel === "number" ? parsed.hintLevel : 0;
+      const guessHistory = Array.isArray(parsed.guessHistory)
+        ? parsed.guessHistory.filter((g): g is string => typeof g === "string")
+        : [];
+      if (guessesUsed < 0 || guessesUsed >= MAX_GUESSES) return baseState;
+      if (hintLevel < 0 || hintLevel > 4) return baseState;
+      return {
+        ...baseState,
+        guessesUsed,
+        hintLevel: hintLevel as HintLevel,
+        guessHistory,
+      };
+    } catch {
+      return baseState;
+    }
+  }, [movie, isDaily, dateKey]);
+
+  const [state, setState] = useState<GameState>(() => getInitialState());
+  const submitMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset internal state when movie/dateKey changes (e.g. new day or practice pick)
+  useEffect(() => {
+    setState(getInitialState());
+  }, [getInitialState]);
+
+  useEffect(() => {
+    if (!state.isDaily || typeof window === "undefined") return;
+    if (state.status === "won" || state.status === "lost") {
+      localStorage.removeItem(DAILY_PROGRESS_KEY);
+      return;
+    }
+    if (state.guessesUsed < 1) return;
+    const progress: DailyProgressState = {
+      dateKey: state.dateKey,
+      guessesUsed: state.guessesUsed,
+      guessHistory: state.guessHistory,
+      hintLevel: state.hintLevel,
+    };
+    localStorage.setItem(DAILY_PROGRESS_KEY, JSON.stringify(progress));
+  }, [
+    state.isDaily,
+    state.status,
+    state.guessesUsed,
+    state.guessHistory,
+    state.hintLevel,
+    state.dateKey,
+  ]);
+
+  useEffect(() => {
+    if (!isDaily || typeof window === "undefined") return;
+    const stored = localStorage.getItem(DAILY_PROGRESS_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as Partial<DailyProgressState> | null;
+      if (!parsed || parsed.dateKey !== dateKey) {
+        localStorage.removeItem(DAILY_PROGRESS_KEY);
+      }
+    } catch {
+      localStorage.removeItem(DAILY_PROGRESS_KEY);
+    }
+  }, [isDaily, dateKey]);
 
   useEffect(() => {
     return () => {
@@ -237,6 +302,9 @@ export function useGameState(
       didYouMean: null,
       submitMessage: null,
     });
+    if (isDaily && typeof window !== "undefined") {
+      localStorage.removeItem(DAILY_PROGRESS_KEY);
+    }
   }, [movie, isDaily, dateKey]);
 
   return { state, submitGuess, reset };
