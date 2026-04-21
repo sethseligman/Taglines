@@ -42,6 +42,7 @@ export function GuessInput({
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [filtered, setFiltered] = useState<SuggestionCatalogItem[]>([]);
   const [showDuplicateFeedback, setShowDuplicateFeedback] = useState(false);
   const [shakeActive, setShakeActive] = useState(false);
@@ -52,6 +53,7 @@ export function GuessInput({
   const lastDuplicateSignalRef = useRef(duplicateSignal);
   const duplicateClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedSubmitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearDuplicateFeedback = useCallback(() => {
     if (duplicateClearTimerRef.current) {
@@ -149,6 +151,9 @@ export function GuessInput({
       clearDuplicateFeedback();
       if (blurLayoutTimeoutRef.current) {
         clearTimeout(blurLayoutTimeoutRef.current);
+      }
+      if (selectedSubmitTimerRef.current) {
+        clearTimeout(selectedSubmitTimerRef.current);
       }
     };
   }, [clearDuplicateFeedback]);
@@ -293,11 +298,25 @@ export function GuessInput({
               aria-selected={i === highlightIndex}
               onMouseDown={(e) => {
                 e.preventDefault();
-                handleSelect(item);
+                if (selectedSubmitTimerRef.current) {
+                  clearTimeout(selectedSubmitTimerRef.current);
+                  selectedSubmitTimerRef.current = null;
+                }
+                setSelectedIndex(i);
+                selectedSubmitTimerRef.current = setTimeout(() => {
+                  handleSelect(item);
+                  setSelectedIndex(null);
+                  selectedSubmitTimerRef.current = null;
+                }, 150);
               }}
               className={`cursor-pointer select-none px-5 py-3 text-left text-foreground transition touch-manipulation ${
                 i === highlightIndex ? "bg-gold/25 text-gold" : "hover:bg-white/10"
               }`}
+              style={
+                selectedIndex === i
+                  ? { background: "rgba(201, 169, 110, 0.15)", borderLeft: "2px solid #C9A96E" }
+                  : undefined
+              }
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="break-words">{item.title}</span>
