@@ -15,7 +15,7 @@ import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
 import { useGameState } from "@/hooks/useGameState";
-import { FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { getHintBodyForLevel } from "@/lib/hintContent";
 import { narratorResultLine } from "@/lib/narratorResult";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
@@ -428,6 +428,70 @@ export function GameScreen() {
   const activeHintIndex = displayedHintLevel >= 1 ? displayedHintLevel - 1 : null;
   const olderHintIndices = Array.from({ length: Math.max(displayedHintLevel - 1, 0) }, (_, i) => i);
 
+  const dpModeToggle = (
+    <div
+      className="flex items-center justify-center gap-0.5"
+      style={{
+        fontFamily: FONT_DM,
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: "1px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          if (!gameLocked) setMode("daily");
+        }}
+        className="cursor-pointer border-0 bg-transparent p-0 leading-none"
+        style={{
+          color: mode === "daily" ? "#C9A96E" : "#2E2E2E",
+          opacity: gameLocked && mode !== "daily" ? 0.4 : 1,
+          fontFamily: FONT_DM,
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: "1px",
+        }}
+        aria-pressed={mode === "daily"}
+        aria-label="Daily"
+      >
+        D
+      </button>
+      <span
+        className="select-none"
+        style={{
+          color: "#2E2E2E",
+          fontFamily: FONT_DM,
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: "1px",
+        }}
+        aria-hidden
+      >
+        ·
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          if (!gameLocked) setMode("practice");
+        }}
+        className="cursor-pointer border-0 bg-transparent p-0 leading-none"
+        style={{
+          color: mode === "practice" ? "#C9A96E" : "#2E2E2E",
+          opacity: gameLocked && mode !== "practice" ? 0.4 : 1,
+          fontFamily: FONT_DM,
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: "1px",
+        }}
+        aria-pressed={mode === "practice"}
+        aria-label="Practice"
+      >
+        P
+      </button>
+    </div>
+  );
+
   if ((loading && mode === "daily") || practiceLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center bg-background px-4 py-8">
@@ -500,30 +564,7 @@ export function GameScreen() {
                 <span>Tag</span>
                 <span className="text-gold">lines</span>
               </h1>
-              {!dailyCompletionJustAchieved ? (
-                <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!gameLocked) setMode("daily");
-                    }}
-                    className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground transition md:px-4 md:py-2 md:text-sm"
-                    style={{ opacity: 1 }}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!gameLocked) setMode("practice");
-                    }}
-                    className="rounded-md px-3 py-1.5 text-xs font-medium text-muted transition hover:text-foreground/80 md:px-4 md:py-2 md:text-sm"
-                    style={{ opacity: gameLocked ? 0.4 : 1 }}
-                  >
-                    Practice
-                  </button>
-                </div>
-              ) : null}
+              {!dailyCompletionJustAchieved ? dpModeToggle : null}
             </div>
           </header>
           <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
@@ -796,36 +837,7 @@ export function GameScreen() {
                   <span>Tag</span>
                   <span className="text-gold">lines</span>
                 </h1>
-                <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!gameLocked) setMode("daily");
-                    }}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
-                      mode === "daily"
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted hover:text-foreground/80"
-                    }`}
-                    style={{ opacity: gameLocked && mode !== "daily" ? 0.4 : 1 }}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!gameLocked) setMode("practice");
-                    }}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
-                      mode === "practice"
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted hover:text-foreground/80"
-                    }`}
-                    style={{ opacity: gameLocked && mode !== "practice" ? 0.4 : 1 }}
-                  >
-                    Practice
-                  </button>
-                </div>
+                {dpModeToggle}
               </div>
             </header>
             <section className="relative mx-auto w-full max-w-lg px-1">
