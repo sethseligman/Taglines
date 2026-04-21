@@ -919,11 +919,6 @@ export function GameScreen() {
                   {state.submitMessage && (
                     <p className="text-center text-sm text-gold/90">{state.submitMessage}</p>
                   )}
-                  {state.didYouMean && (
-                    <p className="text-center text-sm text-gold/90">
-                      Did you mean <strong className="text-gold">{state.didYouMean}</strong>?
-                    </p>
-                  )}
                 </div>
 
                 <hr
