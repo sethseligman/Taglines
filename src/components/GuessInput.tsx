@@ -300,7 +300,7 @@ export function GuessInput({
               }`}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="truncate">{item.title}</span>
+                <span className="break-words">{item.title}</span>
                 {item.year > 0 && (
                   <span className={`shrink-0 text-xs ${i === highlightIndex ? "text-gold/90" : "text-muted"}`}>
                     {item.year}
