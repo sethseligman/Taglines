@@ -105,6 +105,7 @@ export function GameScreen() {
   const yearFloatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrongGuessFlashSeqRef = useRef(0);
   const hintAccentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintRevealAfterFlashDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [wrongGuessFlash, setWrongGuessFlash] = useState<{ id: number } | null>(null);
   const [hiddenHintIndex, setHiddenHintIndex] = useState<number | null>(null);
   const [newestHintIndexForAccent, setNewestHintIndexForAccent] = useState<number | null>(null);
@@ -287,6 +288,10 @@ export function GameScreen() {
     setHiddenHintIndex(null);
     setNewestHintIndexForAccent(null);
     setShowPreviousHints(false);
+    if (hintRevealAfterFlashDelayRef.current) {
+      clearTimeout(hintRevealAfterFlashDelayRef.current);
+      hintRevealAfterFlashDelayRef.current = null;
+    }
   }, [movie.title, dateKey]);
 
   useEffect(() => {
@@ -329,9 +334,15 @@ export function GameScreen() {
   useLayoutEffect(() => {
     const len = state.guessHistory.length;
     if (len > prevGuessLenRef.current) {
+      const latestGuess = state.guessHistory[len - 1] ?? "";
+      const hasNonEmptyGuess = latestGuess.trim().length > 0;
       const wrongGuessLanded = state.status !== "won";
-      const shouldFlash = wrongGuessLanded && state.status === "playing";
+      const shouldFlash = wrongGuessLanded && state.status === "playing" && hasNonEmptyGuess;
       if (shouldFlash) {
+        if (hintRevealAfterFlashDelayRef.current) {
+          clearTimeout(hintRevealAfterFlashDelayRef.current);
+          hintRevealAfterFlashDelayRef.current = null;
+        }
         wrongGuessFlashSeqRef.current += 1;
         const newestHintIndex = state.hintLevel >= 1 ? state.hintLevel - 1 : null;
         setHiddenHintIndex(newestHintIndex);
@@ -347,6 +358,10 @@ export function GameScreen() {
       if (hintAccentTimerRef.current) {
         clearTimeout(hintAccentTimerRef.current);
         hintAccentTimerRef.current = null;
+      }
+      if (hintRevealAfterFlashDelayRef.current) {
+        clearTimeout(hintRevealAfterFlashDelayRef.current);
+        hintRevealAfterFlashDelayRef.current = null;
       }
     };
   }, []);
@@ -1080,8 +1095,16 @@ export function GameScreen() {
             onComplete={() => {
               const revealedIndex = hiddenHintIndex;
               setWrongGuessFlash(null);
-              setHiddenHintIndex(null);
-              if (revealedIndex !== null) {
+              if (revealedIndex === null) {
+                setHiddenHintIndex(null);
+                return;
+              }
+              if (hintRevealAfterFlashDelayRef.current) {
+                clearTimeout(hintRevealAfterFlashDelayRef.current);
+              }
+              hintRevealAfterFlashDelayRef.current = setTimeout(() => {
+                hintRevealAfterFlashDelayRef.current = null;
+                setHiddenHintIndex(null);
                 setNewestHintIndexForAccent(revealedIndex);
                 if (hintAccentTimerRef.current) {
                   clearTimeout(hintAccentTimerRef.current);
@@ -1090,7 +1113,7 @@ export function GameScreen() {
                   setNewestHintIndexForAccent(null);
                   hintAccentTimerRef.current = null;
                 }, 1500);
-              }
+              }, 300);
             }}
           />
         ) : null}
