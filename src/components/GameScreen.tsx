@@ -403,6 +403,7 @@ export function GameScreen() {
   const dismissResultAndReturnToPlay = useCallback(() => {
     setResultDismissed(false);
     if (mode === "practice") {
+      setPracticeMovie(null);
       getRandomPracticeMovie().then((m) => {
         setPracticeMovie(m ?? getLocalRandomMovie());
       });
