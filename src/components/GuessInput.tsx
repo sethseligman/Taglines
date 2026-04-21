@@ -49,6 +49,7 @@ export function GuessInput({
   const listRef = useRef<HTMLUListElement>(null);
   const blurLayoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRequestIdRef = useRef(0);
+  const lastDuplicateSignalRef = useRef(duplicateSignal);
   const duplicateClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -153,6 +154,8 @@ export function GuessInput({
   }, [clearDuplicateFeedback]);
 
   useEffect(() => {
+    if (duplicateSignal === lastDuplicateSignalRef.current) return;
+    lastDuplicateSignalRef.current = duplicateSignal;
     if (duplicateSignal <= 0) return;
     triggerDuplicateFeedback();
   }, [duplicateSignal, triggerDuplicateFeedback]);
@@ -243,7 +246,7 @@ export function GuessInput({
     remainingGuesses === undefined
       ? "Guess"
       : remainingGuesses === 1
-        ? "Guess · Last one"
+        ? "Guess · Last Try"
         : `Guess · ${remainingGuesses} left`;
 
   const fieldBlock = (
