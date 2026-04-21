@@ -412,7 +412,9 @@ export function GameScreen() {
 
   const isGameOver = state.status === "won" || state.status === "lost";
   const showResult = isGameOver && !resultDismissed;
-  const gameLocked = state.status === "playing" && state.guessesUsed > 0;
+  const gameLocked =
+    (mode === "daily" && !dailyCompletion && state.status === "playing") ||
+    (state.status === "playing" && state.guessesUsed > 0);
 
   useEffect(() => {
     if (!state.isDaily) return;
