@@ -108,6 +108,7 @@ export function GameScreen() {
   const [wrongGuessFlash, setWrongGuessFlash] = useState<{ id: number } | null>(null);
   const [hiddenHintIndex, setHiddenHintIndex] = useState<number | null>(null);
   const [newestHintIndexForAccent, setNewestHintIndexForAccent] = useState<number | null>(null);
+  const [showPreviousHints, setShowPreviousHints] = useState(false);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -285,7 +286,14 @@ export function GameScreen() {
     setWrongGuessFlash(null);
     setHiddenHintIndex(null);
     setNewestHintIndexForAccent(null);
+    setShowPreviousHints(false);
   }, [movie.title, dateKey]);
+
+  useEffect(() => {
+    if (state.hintLevel <= 1) {
+      setShowPreviousHints(false);
+    }
+  }, [state.hintLevel]);
 
   useEffect(() => {
     setPlayLayoutRelaxed(true);
@@ -413,6 +421,11 @@ export function GameScreen() {
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
+  const activeHintIndex = state.hintLevel >= 1 ? state.hintLevel - 1 : null;
+  const hideActiveHint = activeHintIndex !== null && hiddenHintIndex === activeHintIndex;
+  const olderHintIndices = Array.from({ length: Math.max(state.hintLevel - 1, 0) }, (_, i) => i).filter(
+    (i) => i !== hiddenHintIndex
+  );
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -825,7 +838,7 @@ export function GameScreen() {
               <>
                 <div
                   className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
-                    relaxedVisual ? "mb-12 gap-5 md:mb-14 md:gap-6" : "mb-8 gap-3"
+                    relaxedVisual ? "mb-9 gap-5 md:mb-11 md:gap-6" : "mb-6 gap-3"
                   }`}
                 >
                   {idleTooltipVisible && state.status === "playing" && (
@@ -864,7 +877,7 @@ export function GameScreen() {
 
                 <hr
                   className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${motionMargin} ${
-                    relaxedVisual ? "my-10 md:my-12" : "my-8"
+                    relaxedVisual ? "my-7 md:my-9" : "my-6"
                   }`}
                 />
 
@@ -875,36 +888,83 @@ export function GameScreen() {
                 >
                   <div className="w-full">
                     <div className="flex w-full flex-col" style={{ gap: 12 }}>
-                      {[
-                        ...Array.from({ length: state.hintLevel }, (_, i) => i).filter(
-                          (i) => i !== hiddenHintIndex
-                        ),
-                      ]
-                        .reverse()
-                        .map((i) => {
-                          const hintBody = getHintBodyForLevel(state.movie, (i + 1) as HintLevel);
-                          const isNewest = i === state.hintLevel - 1;
-                          const isEntrance = i === newestHintIndexForAccent;
-                          return (
-                            <p
-                              key={`${i}-${isEntrance ? "enter" : "rest"}`}
-                              style={{
-                                margin: 0,
-                                padding: "10px 0 10px 16px",
-                                borderLeft: isNewest ? "2px solid #C9A96E" : "1px solid #2E2410",
-                                opacity: isNewest ? 1 : 0.5,
-                                color: "#C9B87A",
-                                fontFamily: FONT_PLAYFAIR,
-                                fontStyle: "italic",
-                                fontSize: isDesktop ? 17 : 15,
-                                lineHeight: 1.6,
-                                animation: isEntrance ? "hintFadeUp 300ms ease-out" : undefined,
-                              }}
+                      {activeHintIndex !== null && !hideActiveHint ? (
+                        <>
+                          <p
+                            style={{
+                              margin: 0,
+                              color: "#6B6860",
+                              fontFamily: '"DM Sans", sans-serif',
+                              fontSize: isDesktop ? 12 : 11,
+                              lineHeight: 1.35,
+                              letterSpacing: "0.05em",
+                              textTransform: "uppercase",
+                              textAlign: "center",
+                            }}
+                          >
+                            Hint {state.hintLevel} of 4
+                          </p>
+                          <p
+                            key={state.hintLevel}
+                            style={{
+                              margin: 0,
+                              color: "#C9B87A",
+                              fontFamily: FONT_PLAYFAIR,
+                              fontStyle: "italic",
+                              fontSize: isDesktop ? 18 : 16,
+                              lineHeight: 1.6,
+                              textAlign: "center",
+                              animation: "hintFadeUp 300ms ease-out",
+                            }}
+                          >
+                            {getHintBodyForLevel(state.movie, state.hintLevel as HintLevel)}
+                          </p>
+                        </>
+                      ) : null}
+                      {olderHintIndices.length > 0 ? (
+                        <div className="flex w-full flex-col items-center" style={{ gap: 11 }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowPreviousHints((prev) => !prev)}
+                            className="transition hover:text-foreground/80"
+                            style={{
+                              marginTop: 16,
+                              fontFamily: '"DM Sans", sans-serif',
+                              fontSize: 12,
+                              color: "#6B6860",
+                              textAlign: "center",
+                              textDecoration: "none",
+                            }}
+                            aria-expanded={showPreviousHints}
+                          >
+                            {showPreviousHints ? "Hide hints" : "Revisit hints"}
+                          </button>
+                          {showPreviousHints ? (
+                            <div
+                              className="w-full border-t border-white/10 pt-3"
+                              style={{ display: "flex", flexDirection: "column", gap: 10, animation: "fadeIn 180ms ease-out" }}
                             >
-                              {hintBody}
-                            </p>
-                          );
-                        })}
+                              {olderHintIndices.map((i) => (
+                                <p
+                                  key={`older-${i}`}
+                                  style={{
+                                    margin: 0,
+                                    color: "#C9B87A",
+                                    opacity: 0.55,
+                                    fontFamily: FONT_PLAYFAIR,
+                                    fontStyle: "italic",
+                                    fontSize: isDesktop ? 14 : 13,
+                                    lineHeight: 1.4,
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  {getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
+                                </p>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </section>
