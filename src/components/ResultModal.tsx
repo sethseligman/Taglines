@@ -465,52 +465,56 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
             </div>
           </div>
 
-          <div
-            className={`mt-6 grid w-full grid-cols-4 border border-[#222] ${fadeInStagger()}`}
-            style={{ ...fadeInStyle(180), borderColor: "#222" }}
-          >
-            {[
-              { n: played, l: "Played" },
-              { n: `${winPct}%`, l: "Win %" },
-              { n: streak, l: "Streak" },
-              { n: bestStreak, l: "Best" },
-            ].map((cell, i) => (
+          {state.isDaily ? (
+            <>
               <div
-                key={cell.l}
-                className="flex flex-col items-center justify-center py-3 text-center"
-                style={{
-                  borderLeft: i > 0 ? "1px solid #222" : undefined,
-                }}
+                className={`mt-6 grid w-full grid-cols-4 border border-[#222] ${fadeInStagger()}`}
+                style={{ ...fadeInStyle(180), borderColor: "#222" }}
               >
-                <span className="font-bold text-[#f0ede6]" style={{ fontFamily: DM, fontSize: "1.4rem" }}>
-                  {cell.n}
-                </span>
-                <span
-                  className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
-                  style={{ fontFamily: DM, fontSize: "0.65rem" }}
-                >
-                  {cell.l}
-                </span>
+                {[
+                  { n: played, l: "Played" },
+                  { n: `${winPct}%`, l: "Win %" },
+                  { n: streak, l: "Streak" },
+                  { n: bestStreak, l: "Best" },
+                ].map((cell, i) => (
+                  <div
+                    key={cell.l}
+                    className="flex flex-col items-center justify-center py-3 text-center"
+                    style={{
+                      borderLeft: i > 0 ? "1px solid #222" : undefined,
+                    }}
+                  >
+                    <span className="font-bold text-[#f0ede6]" style={{ fontFamily: DM, fontSize: "1.4rem" }}>
+                      {cell.n}
+                    </span>
+                    <span
+                      className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
+                      style={{ fontFamily: DM, fontSize: "0.65rem" }}
+                    >
+                      {cell.l}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className={`mt-8 flex w-full justify-center ${fadeInStagger()}`} style={fadeInStyle(240)}>
-            <button
-              type="button"
-              onClick={handleShare}
-              className="flex w-full max-w-[320px] items-center justify-center gap-2 font-bold text-black transition active:scale-[0.99]"
-              style={{
-                fontFamily: DM,
-                height: 52,
-                backgroundColor: "#c9a96e",
-                borderRadius: 8,
-              }}
-            >
-              <ShareIcon />
-              {copied ? "Copied" : state.isDaily ? "Share today's result" : "Share your result"}
-            </button>
-          </div>
+              <div className={`mt-8 flex w-full justify-center ${fadeInStagger()}`} style={fadeInStyle(240)}>
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="flex w-full max-w-[320px] items-center justify-center gap-2 font-bold text-black transition active:scale-[0.99]"
+                  style={{
+                    fontFamily: DM,
+                    height: 52,
+                    backgroundColor: "#c9a96e",
+                    borderRadius: 8,
+                  }}
+                >
+                  <ShareIcon />
+                  {copied ? "Copied" : "Share today's result"}
+                </button>
+              </div>
+            </>
+          ) : null}
 
           <div className={`mt-4 flex w-full flex-col items-center gap-3 ${fadeInStagger()}`} style={fadeInStyle(300)}>
             <div className="flex w-full max-w-[320px] flex-row flex-wrap justify-center gap-2">

@@ -427,6 +427,20 @@ export function GameScreen() {
 
   const isGameOver = state.status === "won" || state.status === "lost";
   const showResult = isGameOver && !resultDismissed;
+  const gameLocked = state.status === "playing" && state.guessesUsed > 0;
+
+  useEffect(() => {
+    if (!state.isDaily) return;
+    if (!(state.status === "won" || state.status === "lost")) return;
+    console.log("[GameScreen] daily game ended", {
+      status: state.status,
+      resultDismissed,
+      showResult,
+      isGameOver,
+      guessesUsed: state.guessesUsed,
+      dateKey: state.dateKey,
+    });
+  }, [state.isDaily, state.status, resultDismissed, showResult, isGameOver, state.guessesUsed, state.dateKey]);
 
   const practiceLoading = mode === "practice" && practiceMovie === null;
   const dailyUnavailable =
@@ -508,15 +522,21 @@ export function GameScreen() {
               <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
                 <button
                   type="button"
-                  onClick={() => setMode("daily")}
+                  onClick={() => {
+                    if (!gameLocked) setMode("daily");
+                  }}
                   className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground transition md:px-4 md:py-2 md:text-sm"
+                  style={{ opacity: 1 }}
                 >
                   Daily
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMode("practice")}
+                  onClick={() => {
+                    if (!gameLocked) setMode("practice");
+                  }}
                   className="rounded-md px-3 py-1.5 text-xs font-medium text-muted transition hover:text-foreground/80 md:px-4 md:py-2 md:text-sm"
+                  style={{ opacity: gameLocked ? 0.4 : 1 }}
                 >
                   Practice
                 </button>
@@ -712,6 +732,16 @@ export function GameScreen() {
                   {copied ? "Copied" : "Share today's result"}
                 </button>
               </div>
+              <div className="mt-3 w-full text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode("practice")}
+                  className="transition hover:opacity-90"
+                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 13, color: "#6B6860" }}
+                >
+                  Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
+                </button>
+              </div>
             </div>
           </main>
         </div>
@@ -766,23 +796,29 @@ export function GameScreen() {
                 <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
                   <button
                     type="button"
-                    onClick={() => setMode("daily")}
+                    onClick={() => {
+                      if (!gameLocked) setMode("daily");
+                    }}
                     className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
                       mode === "daily"
                         ? "bg-white/10 text-foreground"
                         : "text-muted hover:text-foreground/80"
                     }`}
+                    style={{ opacity: gameLocked && mode !== "daily" ? 0.4 : 1 }}
                   >
                     Daily
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMode("practice")}
+                    onClick={() => {
+                      if (!gameLocked) setMode("practice");
+                    }}
                     className={`rounded-md px-3 py-1.5 text-xs font-medium transition md:px-4 md:py-2 md:text-sm ${
                       mode === "practice"
                         ? "bg-white/10 text-foreground"
                         : "text-muted hover:text-foreground/80"
                     }`}
+                    style={{ opacity: gameLocked && mode !== "practice" ? 0.4 : 1 }}
                   >
                     Practice
                   </button>
