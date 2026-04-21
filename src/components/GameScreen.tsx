@@ -7,8 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type RefObject,
 } from "react";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
@@ -30,13 +28,9 @@ import {
   getWinCount,
 } from "@/lib/storage";
 import { GuessInput } from "./GuessInput";
-import {
-  HintExpandedOverlay,
-  type HintExpandedOverlayHandle,
-} from "./HintExpandedOverlay";
 import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
-import { WrongGuessAnimation } from "./WrongGuessAnimation";
+import { WrongGuessFlash } from "./WrongGuessFlash";
 
 type Mode = "daily" | "practice";
 
@@ -109,29 +103,11 @@ export function GameScreen() {
   const [showFloatingYear, setShowFloatingYear] = useState(false);
   const yearFloatTriggeredRef = useRef(false);
   const yearFloatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hintTileRef0 = useRef<HTMLDivElement>(null);
-  const hintTileRef1 = useRef<HTMLDivElement>(null);
-  const hintTileRef2 = useRef<HTMLDivElement>(null);
-  const hintTileRef3 = useRef<HTMLDivElement>(null);
-  const hintTileRefs: RefObject<HTMLDivElement | null>[] = [
-    hintTileRef0,
-    hintTileRef1,
-    hintTileRef2,
-    hintTileRef3,
-  ];
-  const wrongGuessAnimSeqRef = useRef(0);
-  /** UI-only: which revealed clue (0 .. hintLevel-1) is shown. */
-  const [currentClueIndex, setCurrentClueIndex] = useState(0);
-  const prevHintLevelForCluesRef = useRef(0);
-  const [wrongGuessAnimation, setWrongGuessAnimation] = useState<{
-    id: number;
-    hintText: string;
-    hintIndex: number;
-  } | null>(null);
-  /** Hint tile slot hidden until WrongGuessAnimation onComplete (same layout ref for measurement). */
-  const [animatingHintIndex, setAnimatingHintIndex] = useState<number | null>(null);
-  const hintExpandOverlayRef = useRef<HintExpandedOverlayHandle | null>(null);
-  const [expandedHintIndex, setExpandedHintIndex] = useState<number | null>(null);
+  const wrongGuessFlashSeqRef = useRef(0);
+  const hintAccentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wrongGuessFlash, setWrongGuessFlash] = useState<{ id: number } | null>(null);
+  const [hiddenHintIndex, setHiddenHintIndex] = useState<number | null>(null);
+  const [newestHintIndexForAccent, setNewestHintIndexForAccent] = useState<number | null>(null);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -306,8 +282,9 @@ export function GameScreen() {
 
   useEffect(() => {
     setResultDismissed(false);
-    setCurrentClueIndex(0);
-    prevHintLevelForCluesRef.current = 0;
+    setWrongGuessFlash(null);
+    setHiddenHintIndex(null);
+    setNewestHintIndexForAccent(null);
   }, [movie.title, dateKey]);
 
   useEffect(() => {
@@ -317,18 +294,6 @@ export function GameScreen() {
   useEffect(() => {
     if (state.status !== "playing") setPlayLayoutRelaxed(true);
   }, [state.status]);
-
-  useEffect(() => {
-    const h = state.hintLevel;
-    if (h === 0) {
-      setCurrentClueIndex(0);
-    } else if (h > prevHintLevelForCluesRef.current) {
-      setCurrentClueIndex(h - 1);
-    } else {
-      setCurrentClueIndex((i) => Math.min(i, h - 1));
-    }
-    prevHintLevelForCluesRef.current = h;
-  }, [state.hintLevel]);
 
   useEffect(() => {
     prevGuessLenRef.current = 0;
@@ -353,30 +318,30 @@ export function GameScreen() {
     }, 7000);
   }, [state.guessesUsed]);
 
-  const handleHintExpandClosed = useCallback(() => {
-    setExpandedHintIndex(null);
-  }, []);
-
   useLayoutEffect(() => {
     const len = state.guessHistory.length;
     if (len > prevGuessLenRef.current) {
       const wrongGuessLanded = state.status !== "won";
-      const canAnimateHintReveal = wrongGuessLanded && state.status === "playing" && state.hintLevel >= 1;
-      if (canAnimateHintReveal) {
-        const hintText = getHintBodyForLevel(state.movie, state.hintLevel as HintLevel);
-        wrongGuessAnimSeqRef.current += 1;
-        const hintIndex = state.hintLevel - 1;
-        setExpandedHintIndex(null);
-        setAnimatingHintIndex(hintIndex);
-        setWrongGuessAnimation({
-          id: wrongGuessAnimSeqRef.current,
-          hintText,
-          hintIndex,
-        });
+      const shouldFlash = wrongGuessLanded && state.status === "playing";
+      if (shouldFlash) {
+        wrongGuessFlashSeqRef.current += 1;
+        const newestHintIndex = state.hintLevel >= 1 ? state.hintLevel - 1 : null;
+        setHiddenHintIndex(newestHintIndex);
+        setNewestHintIndexForAccent(null);
+        setWrongGuessFlash({ id: wrongGuessFlashSeqRef.current });
       }
     }
     prevGuessLenRef.current = len;
   }, [state.guessHistory.length, state.status, state.hintLevel, state.movie]);
+
+  useEffect(() => {
+    return () => {
+      if (hintAccentTimerRef.current) {
+        clearTimeout(hintAccentTimerRef.current);
+        hintAccentTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleGuessSubmit = useCallback(
     (value: string) => {
@@ -444,8 +409,7 @@ export function GameScreen() {
   const dailyUnavailable =
     mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
 
-  /** Keep relaxed spacing while hint overlay is open (tile click must not drive keyboard compact). */
-  const relaxedVisual = isDesktop || playLayoutRelaxed || expandedHintIndex !== null;
+  const relaxedVisual = isDesktop || playLayoutRelaxed;
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
@@ -886,6 +850,7 @@ export function GameScreen() {
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
                     placeholder="Name a film..."
                     aria-label="Guess the movie"
+                    disabled={Boolean(wrongGuessFlash)}
                   />
                   {state.submitMessage && (
                     <p className="text-center text-sm text-gold/90">{state.submitMessage}</p>
@@ -908,97 +873,39 @@ export function GameScreen() {
                     relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
                   }`}
                 >
-                  <div className="flex w-full gap-2">
-                    {[0, 1, 2, 3].map((i) => {
-                      const revealed = i < state.hintLevel;
-                      const active = revealed && i === currentClueIndex;
-                      const dim = revealed && !active;
-                      const isAnimatingSlot = animatingHintIndex === i;
-                      const blockHintExpand = Boolean(wrongGuessAnimation);
-                      const hintBody = revealed
-                        ? getHintBodyForLevel(state.movie, (i + 1) as HintLevel)
-                        : "";
-
-                      const shellBase: CSSProperties = !revealed
-                        ? {
-                            flex: "1 1 0%",
-                            minWidth: 0,
-                            aspectRatio: "3 / 4",
-                            borderRadius: 8,
-                            border: "1px solid rgba(255,255,255,0.06)",
-                            background: "transparent",
-                          }
-                        : dim
-                          ? {
-                              flex: "1 1 0%",
-                              minWidth: 0,
-                              aspectRatio: "3 / 4",
-                              borderRadius: 8,
-                              border: "1px solid #1A1A1A",
-                              background: "#111",
-                            }
-                          : {
-                              flex: "1 1 0%",
-                              minWidth: 0,
-                              aspectRatio: "3 / 4",
-                              borderRadius: 8,
-                              border: "1px solid #2E2410",
-                              background: "#1A1610",
-                            };
-
-                      const shell: CSSProperties = isAnimatingSlot
-                        ? { ...shellBase, opacity: 0 }
-                        : shellBase;
-
-                      return (
-                        <div
-                          key={i}
-                          ref={hintTileRefs[i]}
-                          className="relative min-h-0 min-w-0 shrink-0"
-                          style={shell}
-                          aria-hidden={!revealed || isAnimatingSlot}
-                        >
-                          {revealed && !isAnimatingSlot ? (
-                            <button
-                              type="button"
-                              aria-label={`Show clue ${i + 1}`}
-                              aria-current={active ? "true" : undefined}
-                              className="absolute inset-0 z-[1] flex min-h-0 cursor-pointer flex-col overflow-hidden border-0 bg-transparent p-0 text-left outline-none"
-                              onClick={() => {
-                                if (blockHintExpand) {
-                                  setCurrentClueIndex(i);
-                                  if (!isDesktop) {
-                                    requestAnimationFrame(() => {
-                                      document.getElementById("guess-input")?.focus({ preventScroll: true });
-                                    });
-                                  }
-                                  return;
-                                }
-                                if (expandedHintIndex === i) {
-                                  hintExpandOverlayRef.current?.close();
-                                  return;
-                                }
-                                setCurrentClueIndex(i);
-                                setExpandedHintIndex(i);
+                  <div className="w-full">
+                    <div className="flex w-full flex-col" style={{ gap: 12 }}>
+                      {Array.from({ length: state.hintLevel }, (_, i) => i)
+                        .filter((i) => i !== hiddenHintIndex)
+                        .map((i) => {
+                          const hintBody = getHintBodyForLevel(state.movie, (i + 1) as HintLevel);
+                          const isNewest = i === state.hintLevel - 1;
+                          const isEntrance = i === newestHintIndexForAccent;
+                          const accentColor = isEntrance ? "#C9A96E" : "#2E2410";
+                          return (
+                            <p
+                              key={`${i}-${isEntrance ? "enter" : "rest"}`}
+                              style={{
+                                margin: 0,
+                                padding: "10px 0 10px 16px",
+                                borderLeft: `2px solid ${accentColor}`,
+                                opacity: isNewest ? 1 : 0.75,
+                                color: "#C9B87A",
+                                fontFamily: FONT_PLAYFAIR,
+                                fontStyle: "italic",
+                                fontSize: isDesktop ? 17 : 15,
+                                lineHeight: 1.6,
+                                transform: isEntrance ? "translateY(0px)" : "translateY(0px)",
+                                animation: isEntrance
+                                  ? "hintFadeUp 300ms ease-out, hintAccentFade 1500ms ease-out"
+                                  : undefined,
                               }}
                             >
-                              <p
-                                className="line-clamp-3 flex min-h-0 flex-1 items-center justify-center px-1.5 py-1.5 text-center"
-                                style={{
-                                  fontFamily: FONT_PLAYFAIR,
-                                  fontSize: 11,
-                                  fontStyle: "italic",
-                                  color: dim ? "#6B6860" : "#A89060",
-                                  lineHeight: 1.35,
-                                }}
-                              >
-                                {hintBody}
-                              </p>
-                            </button>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                              {hintBody}
+                            </p>
+                          );
+                        })}
+                    </div>
                   </div>
                 </section>
               </>
@@ -1095,24 +1002,43 @@ export function GameScreen() {
             onPlayAgain={dismissResultAndReturnToPlay}
           />
         )}
-        {expandedHintIndex !== null && state.status === "playing" ? (
-          <HintExpandedOverlay
-            ref={hintExpandOverlayRef}
-            key={expandedHintIndex}
-            hintText={getHintBodyForLevel(state.movie, (expandedHintIndex + 1) as HintLevel)}
-            hintTileRef={hintTileRefs[expandedHintIndex]!}
-            onClosed={handleHintExpandClosed}
-          />
-        ) : null}
-        {wrongGuessAnimation ? (
-          <WrongGuessAnimation
-            key={wrongGuessAnimation.id}
-            hintText={wrongGuessAnimation.hintText}
-            hintIndex={wrongGuessAnimation.hintIndex}
-            hintTileRef={hintTileRefs[wrongGuessAnimation.hintIndex]!}
+        <style jsx global>{`
+          @keyframes hintFadeUp {
+            0% {
+              opacity: 0;
+              transform: translateY(8px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          @keyframes hintAccentFade {
+            0% {
+              border-left-color: #c9a96e;
+            }
+            100% {
+              border-left-color: #2e2410;
+            }
+          }
+        `}</style>
+        {wrongGuessFlash ? (
+          <WrongGuessFlash
+            key={wrongGuessFlash.id}
             onComplete={() => {
-              setWrongGuessAnimation(null);
-              setAnimatingHintIndex(null);
+              const revealedIndex = hiddenHintIndex;
+              setWrongGuessFlash(null);
+              setHiddenHintIndex(null);
+              if (revealedIndex !== null) {
+                setNewestHintIndexForAccent(revealedIndex);
+                if (hintAccentTimerRef.current) {
+                  clearTimeout(hintAccentTimerRef.current);
+                }
+                hintAccentTimerRef.current = setTimeout(() => {
+                  setNewestHintIndexForAccent(null);
+                  hintAccentTimerRef.current = null;
+                }, 1500);
+              }
             }}
           />
         ) : null}
