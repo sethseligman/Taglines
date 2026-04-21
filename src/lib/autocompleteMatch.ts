@@ -93,7 +93,8 @@ export function getPrecisionSuggestions(
     let score = 0;
 
     if (norm === normTitle) {
-      score = Math.max(score, 130);
+      const titleWordCount = normTitle.split(" ").filter(Boolean).length;
+      score = Math.max(score, titleWordCount > 2 ? 130 : 108);
     }
 
     // Starts-with (full or token-level) gets strong weighting after exact title.
@@ -123,6 +124,9 @@ export function getPrecisionSuggestions(
       const fuzzyScore = Math.round(similarity * 88); // up to 88
       score = Math.max(score, fuzzyScore);
     }
+
+    const popBonus = Math.round(Math.log1p(item.popularity) * 4);
+    score += popBonus;
 
     if (score >= MIN_SCORE_THRESHOLD) {
       scored.push({ item, score });
