@@ -409,6 +409,10 @@ export function GameScreen() {
     }
     reset();
   }, [mode, reset]);
+  const handleDailyResultPlayPractice = useCallback(() => {
+    dismissResultAndReturnToPlay();
+    setMode("practice");
+  }, [dismissResultAndReturnToPlay]);
 
   const isGameOver = state.status === "won" || state.status === "lost";
   const showResult = isGameOver && !resultDismissed;
@@ -674,7 +678,10 @@ export function GameScreen() {
                 className="mt-8 font-normal italic leading-none text-[#c9a96e]"
                 style={{ fontFamily: FONT_PLAYFAIR, fontSize: "2.75rem" }}
               >
-                {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed)}
+                {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed, {
+                  isDaily: true,
+                  dateKey: dailyCompletion.dateKey,
+                })}
               </p>
               {dailyCompletion.status === "won" ? (
                 <>
@@ -1110,6 +1117,7 @@ export function GameScreen() {
             state={state}
             onClose={dismissResultAndReturnToPlay}
             onPlayAgain={dismissResultAndReturnToPlay}
+            onPlayPractice={handleDailyResultPlayPractice}
           />
         )}
         <style jsx global>{`

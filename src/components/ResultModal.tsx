@@ -17,6 +17,7 @@ interface ResultModalProps {
   state: GameState;
   onClose: () => void;
   onPlayAgain: () => void;
+  onPlayPractice?: () => void;
 }
 
 const DM = FONT_DM;
@@ -29,14 +30,6 @@ interface TmdbMovieMeta {
   cast: Array<{ name: string; imdbId: string | null }>;
 }
 
-function narratorLineForResult(status: "won" | "lost", guessesUsed: number): string {
-  if (status === "lost") return "Maybe next time.";
-  if (guessesUsed === 1) return "Flawless.";
-  if (guessesUsed === 2) return "One hint. No shame.";
-  if (guessesUsed === 3) return "You'll take it.";
-  if (guessesUsed === 4) return "That one was a fight.";
-  return "Survived.";
-}
 function formatCountdownToLocalMidnight(): string {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
@@ -64,7 +57,7 @@ function ShareIcon() {
   );
 }
 
-export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
+export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: ResultModalProps) {
   const [copied, setCopied] = useState(false);
   const [posterError, setPosterError] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -85,8 +78,11 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
   const showPoster = movie.posterUrl && !posterError;
   const narrator = useMemo(() => {
     if (state.status === "playing") return "";
-    return narratorResultLine(state.status, state.guessesUsed);
-  }, [state.status, state.guessesUsed]);
+    return narratorResultLine(state.status, state.guessesUsed, {
+      isDaily: state.isDaily,
+      dateKey: state.dateKey,
+    });
+  }, [state.status, state.guessesUsed, state.isDaily, state.dateKey]);
 
   const metaLine = `${movie.year} · ${movie.genre}`;
   const imdbRating = tmdbMeta?.imdbRating ?? null;
@@ -517,19 +513,30 @@ export function ResultModal({ state, onClose, onPlayAgain }: ResultModalProps) {
           ) : null}
 
           <div className={`mt-4 flex w-full flex-col items-center gap-3 ${fadeInStagger()}`} style={fadeInStyle(300)}>
-            <div className="flex w-full max-w-[320px] flex-row flex-wrap justify-center gap-2">
-              <button type="button" onClick={onPlayAgain} className={pillClass} style={pillStyle}>
-                {state.isDaily ? "Play again tomorrow" : "Play again"}
-              </button>
+            {state.isDaily ? (
               <button
                 type="button"
-                onClick={state.isDaily ? onPlayAgain : onClose}
-                className={pillClass}
-                style={pillStyle}
+                onClick={() => (onPlayPractice ? onPlayPractice() : onClose())}
+                className="transition hover:opacity-90"
+                style={{ fontFamily: DM, fontSize: 13, color: "#6B6860" }}
               >
-                {state.isDaily ? "Practice mode" : "Close"}
+                Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
               </button>
-            </div>
+            ) : (
+              <div className="flex w-full max-w-[320px] flex-row flex-wrap justify-center gap-2">
+                <button type="button" onClick={onPlayAgain} className={pillClass} style={pillStyle}>
+                  Play again
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={pillClass}
+                  style={pillStyle}
+                >
+                  Close
+                </button>
+              </div>
+            )}
             {state.isDaily ? (
               <p className="text-center text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.75rem" }}>
                 Next tagline in {countdown}
