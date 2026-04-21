@@ -100,15 +100,12 @@ export function GameScreen() {
 
   const stageRef = useRef<HTMLDivElement>(null);
   const prevGuessLenRef = useRef(0);
+  const holdHintUntilFlashCompleteRef = useRef(false);
   const [showFloatingYear, setShowFloatingYear] = useState(false);
   const yearFloatTriggeredRef = useRef(false);
   const yearFloatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrongGuessFlashSeqRef = useRef(0);
-  const hintAccentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hintRevealAfterFlashDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [wrongGuessFlash, setWrongGuessFlash] = useState<{ id: number } | null>(null);
-  const [hiddenHintIndex, setHiddenHintIndex] = useState<number | null>(null);
-  const [newestHintIndexForAccent, setNewestHintIndexForAccent] = useState<number | null>(null);
+  const [wrongGuessFlash, setWrongGuessFlash] = useState(false);
+  const [displayedHintLevel, setDisplayedHintLevel] = useState(0);
   const [showPreviousHints, setShowPreviousHints] = useState(false);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
@@ -284,15 +281,16 @@ export function GameScreen() {
 
   useEffect(() => {
     setResultDismissed(false);
-    setWrongGuessFlash(null);
-    setHiddenHintIndex(null);
-    setNewestHintIndexForAccent(null);
+    setWrongGuessFlash(false);
+    setDisplayedHintLevel(0);
+    holdHintUntilFlashCompleteRef.current = false;
     setShowPreviousHints(false);
-    if (hintRevealAfterFlashDelayRef.current) {
-      clearTimeout(hintRevealAfterFlashDelayRef.current);
-      hintRevealAfterFlashDelayRef.current = null;
-    }
   }, [movie.title, dateKey]);
+
+  useEffect(() => {
+    if (wrongGuessFlash || holdHintUntilFlashCompleteRef.current) return;
+    setDisplayedHintLevel(state.hintLevel);
+  }, [state.hintLevel, wrongGuessFlash]);
 
   useEffect(() => {
     if (state.hintLevel <= 1) {
@@ -339,32 +337,12 @@ export function GameScreen() {
       const wrongGuessLanded = state.status !== "won";
       const shouldFlash = wrongGuessLanded && state.status === "playing" && hasNonEmptyGuess;
       if (shouldFlash) {
-        if (hintRevealAfterFlashDelayRef.current) {
-          clearTimeout(hintRevealAfterFlashDelayRef.current);
-          hintRevealAfterFlashDelayRef.current = null;
-        }
-        wrongGuessFlashSeqRef.current += 1;
-        const newestHintIndex = state.hintLevel >= 1 ? state.hintLevel - 1 : null;
-        setHiddenHintIndex(newestHintIndex);
-        setNewestHintIndexForAccent(null);
-        setWrongGuessFlash({ id: wrongGuessFlashSeqRef.current });
+        holdHintUntilFlashCompleteRef.current = true;
+        setWrongGuessFlash(true);
       }
     }
     prevGuessLenRef.current = len;
   }, [state.guessHistory.length, state.status, state.hintLevel, state.movie]);
-
-  useEffect(() => {
-    return () => {
-      if (hintAccentTimerRef.current) {
-        clearTimeout(hintAccentTimerRef.current);
-        hintAccentTimerRef.current = null;
-      }
-      if (hintRevealAfterFlashDelayRef.current) {
-        clearTimeout(hintRevealAfterFlashDelayRef.current);
-        hintRevealAfterFlashDelayRef.current = null;
-      }
-    };
-  }, []);
 
   const handleGuessSubmit = useCallback(
     (value: string) => {
@@ -450,11 +428,8 @@ export function GameScreen() {
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
-  const activeHintIndex = state.hintLevel >= 1 ? state.hintLevel - 1 : null;
-  const hideActiveHint = activeHintIndex !== null && hiddenHintIndex === activeHintIndex;
-  const olderHintIndices = Array.from({ length: Math.max(state.hintLevel - 1, 0) }, (_, i) => i).filter(
-    (i) => i !== hiddenHintIndex
-  );
+  const activeHintIndex = displayedHintLevel >= 1 ? displayedHintLevel - 1 : null;
+  const olderHintIndices = Array.from({ length: Math.max(displayedHintLevel - 1, 0) }, (_, i) => i);
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -934,7 +909,7 @@ export function GameScreen() {
                 >
                   <div className="w-full">
                     <div className="flex w-full flex-col" style={{ gap: 12 }}>
-                      {activeHintIndex !== null && !hideActiveHint ? (
+                      {activeHintIndex !== null ? (
                         <>
                           <p
                             style={{
@@ -948,10 +923,10 @@ export function GameScreen() {
                               textAlign: "center",
                             }}
                           >
-                            Hint {state.hintLevel} of 4
+                            Hint {displayedHintLevel} of 4
                           </p>
                           <p
-                            key={state.hintLevel}
+                            key={displayedHintLevel}
                             style={{
                               margin: 0,
                               color: "#C9B87A",
@@ -963,7 +938,7 @@ export function GameScreen() {
                               animation: "hintFadeUp 300ms ease-out",
                             }}
                           >
-                            {getHintBodyForLevel(state.movie, state.hintLevel as HintLevel)}
+                            {getHintBodyForLevel(state.movie, displayedHintLevel as HintLevel)}
                           </p>
                         </>
                       ) : null}
@@ -1122,29 +1097,10 @@ export function GameScreen() {
         `}</style>
         {wrongGuessFlash ? (
           <WrongGuessFlash
-            key={wrongGuessFlash.id}
             onComplete={() => {
-              const revealedIndex = hiddenHintIndex;
-              setWrongGuessFlash(null);
-              if (revealedIndex === null) {
-                setHiddenHintIndex(null);
-                return;
-              }
-              if (hintRevealAfterFlashDelayRef.current) {
-                clearTimeout(hintRevealAfterFlashDelayRef.current);
-              }
-              hintRevealAfterFlashDelayRef.current = setTimeout(() => {
-                hintRevealAfterFlashDelayRef.current = null;
-                setHiddenHintIndex(null);
-                setNewestHintIndexForAccent(revealedIndex);
-                if (hintAccentTimerRef.current) {
-                  clearTimeout(hintAccentTimerRef.current);
-                }
-                hintAccentTimerRef.current = setTimeout(() => {
-                  setNewestHintIndexForAccent(null);
-                  hintAccentTimerRef.current = null;
-                }, 1500);
-              }, 300);
+              setWrongGuessFlash(false);
+              setDisplayedHintLevel(state.hintLevel);
+              holdHintUntilFlashCompleteRef.current = false;
             }}
           />
         ) : null}
