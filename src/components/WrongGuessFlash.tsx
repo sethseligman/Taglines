@@ -58,7 +58,7 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
         aria-hidden
         style={{
           position: "fixed",
-          top: "50%",
+          top: "40%",
           left: "50%",
           zIndex: 51,
           pointerEvents: "none",

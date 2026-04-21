@@ -881,24 +881,20 @@ export function GameScreen() {
                           const hintBody = getHintBodyForLevel(state.movie, (i + 1) as HintLevel);
                           const isNewest = i === state.hintLevel - 1;
                           const isEntrance = i === newestHintIndexForAccent;
-                          const accentColor = isEntrance ? "#C9A96E" : "#2E2410";
                           return (
                             <p
                               key={`${i}-${isEntrance ? "enter" : "rest"}`}
                               style={{
                                 margin: 0,
                                 padding: "10px 0 10px 16px",
-                                borderLeft: `2px solid ${accentColor}`,
-                                opacity: isNewest ? 1 : 0.75,
+                                borderLeft: isNewest ? "2px solid #C9A96E" : "1px solid #2E2410",
+                                opacity: isNewest ? 1 : 0.5,
                                 color: "#C9B87A",
                                 fontFamily: FONT_PLAYFAIR,
                                 fontStyle: "italic",
                                 fontSize: isDesktop ? 17 : 15,
                                 lineHeight: 1.6,
-                                transform: isEntrance ? "translateY(0px)" : "translateY(0px)",
-                                animation: isEntrance
-                                  ? "hintFadeUp 300ms ease-out, hintAccentFade 1500ms ease-out"
-                                  : undefined,
+                                animation: isEntrance ? "hintFadeUp 300ms ease-out" : undefined,
                               }}
                             >
                               {hintBody}
@@ -1011,14 +1007,6 @@ export function GameScreen() {
             100% {
               opacity: 1;
               transform: translateY(0);
-            }
-          }
-          @keyframes hintAccentFade {
-            0% {
-              border-left-color: #c9a96e;
-            }
-            100% {
-              border-left-color: #2e2410;
             }
           }
         `}</style>
