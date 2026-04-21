@@ -106,6 +106,7 @@ export function GameScreen() {
   const yearFloatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [wrongGuessFlash, setWrongGuessFlash] = useState(false);
   const [displayedHintLevel, setDisplayedHintLevel] = useState(0);
+  const [duplicateSignal, setDuplicateSignal] = useState(0);
   const [showPreviousHints, setShowPreviousHints] = useState(false);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
@@ -291,6 +292,12 @@ export function GameScreen() {
     if (wrongGuessFlash || holdHintUntilFlashCompleteRef.current) return;
     setDisplayedHintLevel(state.hintLevel);
   }, [state.hintLevel, wrongGuessFlash]);
+
+  useEffect(() => {
+    if (state.submitMessage === "Already guessed") {
+      setDuplicateSignal((n) => n + 1);
+    }
+  }, [state.submitMessage]);
 
   useEffect(() => {
     if (state.hintLevel <= 1) {
@@ -890,10 +897,8 @@ export function GameScreen() {
                     placeholder="Name a film..."
                     aria-label="Guess the movie"
                     disabled={Boolean(wrongGuessFlash)}
+                    duplicateSignal={duplicateSignal}
                   />
-                  {state.submitMessage && (
-                    <p className="text-center text-sm text-gold/90">{state.submitMessage}</p>
-                  )}
                 </div>
 
                 <hr

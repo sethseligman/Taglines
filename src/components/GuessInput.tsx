@@ -23,6 +23,8 @@ interface GuessInputProps {
    * Lets the parent add breathing room when the keyboard is not active.
    */
   onLayoutBreathingChange?: (relaxed: boolean) => void;
+  /** Incrementing signal from parent to trigger duplicate feedback animation. */
+  duplicateSignal?: number;
 }
 
 export function GuessInput({
@@ -35,15 +37,48 @@ export function GuessInput({
   showSubmitButton = true,
   submitInline = false,
   onLayoutBreathingChange,
+  duplicateSignal = 0,
 }: GuessInputProps) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [filtered, setFiltered] = useState<SuggestionCatalogItem[]>([]);
+  const [showDuplicateFeedback, setShowDuplicateFeedback] = useState(false);
+  const [shakeActive, setShakeActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const blurLayoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRequestIdRef = useRef(0);
+  const duplicateClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shakeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearDuplicateFeedback = useCallback(() => {
+    if (duplicateClearTimerRef.current) {
+      clearTimeout(duplicateClearTimerRef.current);
+      duplicateClearTimerRef.current = null;
+    }
+    if (shakeResetTimerRef.current) {
+      clearTimeout(shakeResetTimerRef.current);
+      shakeResetTimerRef.current = null;
+    }
+    setShowDuplicateFeedback(false);
+    setShakeActive(false);
+  }, []);
+
+  const triggerDuplicateFeedback = useCallback(() => {
+    clearDuplicateFeedback();
+    setValue("");
+    setShowDuplicateFeedback(true);
+    setShakeActive(true);
+    shakeResetTimerRef.current = setTimeout(() => {
+      setShakeActive(false);
+      shakeResetTimerRef.current = null;
+    }, 400);
+    duplicateClearTimerRef.current = setTimeout(() => {
+      setShowDuplicateFeedback(false);
+      duplicateClearTimerRef.current = null;
+    }, 2000);
+  }, [clearDuplicateFeedback]);
 
   const clearAfterSubmit = useCallback(() => {
     setValue("");
@@ -110,13 +145,20 @@ export function GuessInput({
 
   useEffect(() => {
     return () => {
+      clearDuplicateFeedback();
       if (blurLayoutTimeoutRef.current) {
         clearTimeout(blurLayoutTimeoutRef.current);
       }
     };
-  }, []);
+  }, [clearDuplicateFeedback]);
+
+  useEffect(() => {
+    if (duplicateSignal <= 0) return;
+    triggerDuplicateFeedback();
+  }, [duplicateSignal, triggerDuplicateFeedback]);
 
   const handleInputFocus = useCallback(() => {
+    clearDuplicateFeedback();
     if (blurLayoutTimeoutRef.current) {
       clearTimeout(blurLayoutTimeoutRef.current);
       blurLayoutTimeoutRef.current = null;
@@ -131,7 +173,7 @@ export function GuessInput({
     window.setTimeout(() => {
       el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
     }, 160);
-  }, [onLayoutBreathingChange]);
+  }, [onLayoutBreathingChange, clearDuplicateFeedback]);
 
   const handleInputBlur = useCallback(() => {
     blurLayoutTimeoutRef.current = setTimeout(() => {
@@ -194,8 +236,8 @@ export function GuessInput({
   );
 
   const inputClassName = submitInline
-    ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
-    : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground placeholder:text-muted outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
+    ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
+    : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
 
   const submitButtonLabel =
     remainingGuesses === undefined
@@ -220,7 +262,7 @@ export function GuessInput({
         onBlur={handleInputBlur}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        placeholder={placeholder}
+        placeholder={showDuplicateFeedback ? "Already guessed" : placeholder}
         aria-label={ariaLabel}
         aria-autocomplete="list"
         aria-expanded={showDropdown}
@@ -229,7 +271,9 @@ export function GuessInput({
         id="guess-input"
         autoComplete="off"
         inputMode="search"
-        className={inputClassName}
+        className={`${inputClassName} ${showDuplicateFeedback ? "placeholder:text-[#C0392B]" : "placeholder:text-muted"} ${
+          shakeActive ? "guess-input-shake" : ""
+        }`}
       />
       {showDropdown && (
         <ul
@@ -264,6 +308,29 @@ export function GuessInput({
           ))}
         </ul>
       )}
+      <style jsx global>{`
+        @keyframes inputShake {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          20% {
+            transform: translateX(-6px);
+          }
+          40% {
+            transform: translateX(6px);
+          }
+          60% {
+            transform: translateX(-4px);
+          }
+          80% {
+            transform: translateX(4px);
+          }
+        }
+        .guess-input-shake {
+          animation: inputShake 400ms ease-in-out;
+        }
+      `}</style>
     </div>
   );
 
