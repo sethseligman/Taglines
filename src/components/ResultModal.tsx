@@ -230,6 +230,16 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
         style={{ maxHeight: "min(100dvh - 2rem, 100vh - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
+        {revealed ? (
+          <header className="mb-4 w-full px-1">
+            <div className="flex items-center justify-start">
+              <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                <span>Tag</span>
+                <span className="text-gold">lines</span>
+              </h1>
+            </div>
+          </header>
+        ) : null}
         <h2 id="result-title" className="sr-only">
           Game result
         </h2>

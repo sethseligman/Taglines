@@ -96,14 +96,12 @@ export function GameScreen() {
   const [copied, setCopied] = useState(false);
   const [completionPosterError, setCompletionPosterError] = useState(false);
   const [completionTmdbMeta, setCompletionTmdbMeta] = useState<TmdbMovieMeta | null>(null);
+  const [dailyCompletionJustAchieved, setDailyCompletionJustAchieved] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
   const stageRef = useRef<HTMLDivElement>(null);
   const prevGuessLenRef = useRef(0);
   const holdHintUntilFlashCompleteRef = useRef(false);
-  const [showFloatingYear, setShowFloatingYear] = useState(false);
-  const yearFloatTriggeredRef = useRef(false);
-  const yearFloatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [wrongGuessFlash, setWrongGuessFlash] = useState(false);
   const [displayedHintLevel, setDisplayedHintLevel] = useState(0);
   const [duplicateSignal, setDuplicateSignal] = useState(0);
@@ -256,9 +254,11 @@ export function GameScreen() {
   useEffect(() => {
     if (mode !== "daily") {
       setDailyCompletion(null);
+      setDailyCompletionJustAchieved(false);
       return;
     }
     setDailyCompletion(getDailyCompletionResult(dateKey));
+    setDailyCompletionJustAchieved(false);
   }, [mode, dateKey]);
 
   useEffect(() => {
@@ -266,6 +266,7 @@ export function GameScreen() {
     const isOver = state.status === "won" || state.status === "lost";
     if (!isOver) return;
     setDailyCompletion(getDailyCompletionResult(dateKey));
+    setDailyCompletionJustAchieved(true);
   }, [mode, state.status, state.guessesUsed, dateKey]);
 
   useEffect(() => {
@@ -286,6 +287,7 @@ export function GameScreen() {
     setDisplayedHintLevel(0);
     holdHintUntilFlashCompleteRef.current = false;
     setShowPreviousHints(false);
+    setDailyCompletionJustAchieved(false);
   }, [movie.title, dateKey]);
 
   useEffect(() => {
@@ -316,25 +318,6 @@ export function GameScreen() {
   useEffect(() => {
     prevGuessLenRef.current = 0;
   }, [movie.title, dateKey]);
-
-  useEffect(() => {
-    yearFloatTriggeredRef.current = false;
-    setShowFloatingYear(false);
-    if (yearFloatTimeoutRef.current) {
-      clearTimeout(yearFloatTimeoutRef.current);
-      yearFloatTimeoutRef.current = null;
-    }
-  }, [movie.title, dateKey]);
-
-  useEffect(() => {
-    if (state.guessesUsed !== 2 || yearFloatTriggeredRef.current) return;
-    yearFloatTriggeredRef.current = true;
-    setShowFloatingYear(true);
-    yearFloatTimeoutRef.current = setTimeout(() => {
-      setShowFloatingYear(false);
-      yearFloatTimeoutRef.current = null;
-    }, 7000);
-  }, [state.guessesUsed]);
 
   useLayoutEffect(() => {
     const len = state.guessHistory.length;
@@ -507,34 +490,40 @@ export function GameScreen() {
           }}
         />
         <div className="relative z-10 flex min-h-screen flex-col">
-          <header className="w-full shrink-0 px-5 pt-6 pb-2 md:px-8">
+          <header
+            className={`w-full shrink-0 ${motionPad} ${
+              relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
+            }`}
+          >
             <div className="mx-auto flex w-full max-w-lg items-center justify-between">
               <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
                 <span>Tag</span>
                 <span className="text-gold">lines</span>
               </h1>
-              <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!gameLocked) setMode("daily");
-                  }}
-                  className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground transition md:px-4 md:py-2 md:text-sm"
-                  style={{ opacity: 1 }}
-                >
-                  Daily
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!gameLocked) setMode("practice");
-                  }}
-                  className="rounded-md px-3 py-1.5 text-xs font-medium text-muted transition hover:text-foreground/80 md:px-4 md:py-2 md:text-sm"
-                  style={{ opacity: gameLocked ? 0.4 : 1 }}
-                >
-                  Practice
-                </button>
-              </div>
+              {!dailyCompletionJustAchieved ? (
+                <div className="flex rounded-lg border border-white/10 bg-[#0f0f0f] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!gameLocked) setMode("daily");
+                    }}
+                    className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground transition md:px-4 md:py-2 md:text-sm"
+                    style={{ opacity: 1 }}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!gameLocked) setMode("practice");
+                    }}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium text-muted transition hover:text-foreground/80 md:px-4 md:py-2 md:text-sm"
+                    style={{ opacity: gameLocked ? 0.4 : 1 }}
+                  >
+                    Practice
+                  </button>
+                </div>
+              ) : null}
             </div>
           </header>
           <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
@@ -845,34 +834,6 @@ export function GameScreen() {
                   relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
                 }`}
               >
-                {showFloatingYear && (
-                  <div
-                    className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
-                    aria-hidden
-                  >
-                    <div className="-translate-y-2 md:-translate-y-3">
-                      <span
-                        className="game-floating-year select-none"
-                        style={{
-                          display: "inline-block",
-                          fontFamily: FONT_PLAYFAIR,
-                          fontStyle: "italic",
-                          fontWeight: 700,
-                          letterSpacing: "-0.05em",
-                          lineHeight: 0.88,
-                          whiteSpace: "nowrap",
-                          color: "rgba(201, 169, 110, 0.3)",
-                          textShadow:
-                            "0 0 100px rgba(201, 169, 110, 0.45), 0 0 36px rgba(201, 169, 110, 0.28), 0 2px 16px rgba(0, 0, 0, 0.65)",
-                          fontSize: "clamp(4.75rem, min(62vw, 10rem), 10rem)",
-                          animation: "yearDrift 7s ease-in-out forwards",
-                        }}
-                      >
-                        {state.movie.year}
-                      </span>
-                    </div>
-                  </div>
-                )}
                 <div
                   className="pointer-events-none absolute left-1/2 top-1/2 z-0"
                   style={{
