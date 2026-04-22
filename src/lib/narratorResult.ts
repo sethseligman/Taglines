@@ -1,4 +1,4 @@
-import { getNarratorLine } from "@/lib/narratorLines";
+import { narratorLines } from "@/lib/narratorLines";
 
 const narratorLineCache = new Map<string, string>();
 const DAILY_NARRATOR_KEY_PREFIX = "taglines-daily-narrator-line-";
@@ -6,6 +6,16 @@ const DAILY_NARRATOR_KEY_PREFIX = "taglines-daily-narrator-line-";
 interface NarratorResultOptions {
   isDaily?: boolean;
   dateKey?: string;
+}
+
+function pickFromNarratorPools(status: "won" | "lost", guessesUsed: number): string {
+  if (status === "lost") {
+    const pool = narratorLines[0];
+    return pool[Math.floor(Math.random() * pool.length)] ?? "Tomorrow.";
+  }
+  const n = Math.min(5, Math.max(1, guessesUsed)) as 1 | 2 | 3 | 4 | 5;
+  const pool = narratorLines[n];
+  return pool[Math.floor(Math.random() * pool.length)] ?? "Survived.";
 }
 
 /** Big headline after a round (result modal + daily completion). */
@@ -31,7 +41,7 @@ export function narratorResultLine(
     }
   }
 
-  const picked = getNarratorLine(status, guessesUsed);
+  const picked = pickFromNarratorPools(status, guessesUsed);
   narratorLineCache.set(key, picked);
   if (dailyKey && typeof window !== "undefined") {
     try {

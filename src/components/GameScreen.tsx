@@ -555,7 +555,7 @@ export function GameScreen() {
         />
         <div className="relative z-10 flex min-h-screen flex-col">
           <header
-            className={`w-full shrink-0 ${motionPad} ${
+            className={`w-full shrink-0 px-5 md:px-8 ${motionPad} ${
               relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
             }`}
           >
