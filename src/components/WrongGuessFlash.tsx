@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const THINK_MS = 500;
 const SLAM_MS = 100;
@@ -16,18 +17,24 @@ interface WrongGuessFlashProps {
 export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
   const [phase, setPhase] = useState<"idle" | "slam" | "hold" | "fade">("idle");
   const timersRef = useRef<number[]>([]);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     timersRef.current.push(window.setTimeout(() => setPhase("slam"), THINK_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("hold"), THINK_MS + SLAM_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("fade"), FADE_START_MS));
-    timersRef.current.push(window.setTimeout(onComplete, COMPLETE_MS));
+    timersRef.current.push(
+      window.setTimeout(() => {
+        onCompleteRef.current();
+      }, COMPLETE_MS)
+    );
 
     return () => {
       timersRef.current.forEach((t) => clearTimeout(t));
       timersRef.current = [];
     };
-  }, [onComplete]);
+  }, []);
 
   const scale = phase === "idle" ? 1.3 : 1;
   const opacity = phase === "idle" ? 0 : phase === "fade" ? 0 : 1;
@@ -38,7 +45,7 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
         ? `opacity ${FADE_MS}ms ease`
         : "none";
 
-  return (
+  const mark = (
     <>
       <span
         aria-hidden
@@ -46,10 +53,10 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
           position: "fixed",
           top: "40%",
           left: "50%",
-          zIndex: 51,
+          zIndex: 10050,
           pointerEvents: "none",
           fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
-          fontSize: 196,
+          fontSize: 420,
           lineHeight: 1,
           color: "#C0392B",
           transform: `translate(-50%, -50%) scale(${scale})`,
@@ -88,4 +95,8 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
       `}</style>
     </>
   );
+  if (typeof document === "undefined") {
+    return mark;
+  }
+  return createPortal(mark, document.body);
 }

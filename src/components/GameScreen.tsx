@@ -32,6 +32,10 @@ import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
 import { WrongGuessFlash } from "./WrongGuessFlash";
 
+const CAROUSEL_MANUAL_MS = 320;
+const CAROUSEL_EASING_DEFAULT = "cubic-bezier(0.25, 0, 0.15, 1)";
+const CAROUSEL_EASING_SETTLE = "cubic-bezier(0.2, 0, 0, 1)";
+
 type Mode = "daily" | "practice";
 
 interface TmdbMovieMeta {
@@ -101,11 +105,27 @@ export function GameScreen() {
 
   const stageRef = useRef<HTMLDivElement>(null);
   const prevGuessLenRef = useRef(0);
+  /** When false, the next layout pass only seeds prevGuessLen (restored or new game), no ✕ flash. */
+  const guessLengthBaselineReadyRef = useRef(false);
   const holdHintUntilFlashCompleteRef = useRef(false);
   const [wrongGuessFlash, setWrongGuessFlash] = useState(false);
   const [displayedHintLevel, setDisplayedHintLevel] = useState(0);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [exitingCarouselIndex, setExitingCarouselIndex] = useState<number | null>(null);
+  const [carouselTransitionMs, setCarouselTransitionMs] = useState(500);
+  const [carouselTransitionEasing, setCarouselTransitionEasing] = useState(CAROUSEL_EASING_DEFAULT);
+  const [introSliding, setIntroSliding] = useState(false);
   const [duplicateSignal, setDuplicateSignal] = useState(0);
-  const [showPreviousHints, setShowPreviousHints] = useState(false);
+  const skipCarouselSyncAfterFlashRef = useRef(false);
+  const wrongGuessCompleteRef = useRef({ hintLevel: 0, carouselIndex: 0 });
+  const carouselAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const carouselSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const introSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevDisplayedHintLevelRef = useRef(0);
+  const prevSyncedHintLevelRef = useRef(0);
+  const previousCarouselIndexRef = useRef(0);
+  const exitingDirectionRef = useRef(1);
+  const [carouselDirection, setCarouselDirection] = useState(1);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -182,7 +202,12 @@ export function GameScreen() {
     return { movie: pm, dateKey: "practice", isDaily: false };
   }, [mode, dailyPayload, practiceMovie, dateKeyForDaily]);
 
+  /** Only changes for a new play session — not when the daily film object loads (title) for the same date. */
+  const hintSessionResetKey = mode === "daily" ? `daily:${dateKey}` : `practice:${movie.title}`;
+
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
+  const gameStatusRef = useRef(state.status);
+  gameStatusRef.current = state.status;
   const [idleTooltipVisible, setIdleTooltipVisible] = useState(false);
   const [idleTooltipMessage, setIdleTooltipMessage] = useState("");
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -265,6 +290,13 @@ export function GameScreen() {
     if (mode !== "daily") return;
     const isOver = state.status === "won" || state.status === "lost";
     if (!isOver) return;
+    if (state.status === "lost") {
+      const timeoutId = window.setTimeout(() => {
+        setDailyCompletion(getDailyCompletionResult(dateKey));
+        setDailyCompletionJustAchieved(true);
+      }, 1300);
+      return () => window.clearTimeout(timeoutId);
+    }
     setDailyCompletion(getDailyCompletionResult(dateKey));
     setDailyCompletionJustAchieved(true);
   }, [mode, state.status, state.guessesUsed, dateKey]);
@@ -285,15 +317,76 @@ export function GameScreen() {
     setResultDismissed(false);
     setWrongGuessFlash(false);
     setDisplayedHintLevel(0);
+    setCarouselIndex(0);
     holdHintUntilFlashCompleteRef.current = false;
-    setShowPreviousHints(false);
+    if (carouselAdvanceTimeoutRef.current) {
+      clearTimeout(carouselAdvanceTimeoutRef.current);
+      carouselAdvanceTimeoutRef.current = null;
+    }
+    if (carouselSlideTimeoutRef.current) {
+      clearTimeout(carouselSlideTimeoutRef.current);
+      carouselSlideTimeoutRef.current = null;
+    }
+    if (introSlideTimeoutRef.current) {
+      clearTimeout(introSlideTimeoutRef.current);
+      introSlideTimeoutRef.current = null;
+    }
+    skipCarouselSyncAfterFlashRef.current = false;
+    setExitingCarouselIndex(null);
+    exitingDirectionRef.current = 1;
+    setCarouselDirection(1);
+    setCarouselTransitionMs(500);
+    setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+    setIntroSliding(false);
+    prevDisplayedHintLevelRef.current = 0;
+    prevSyncedHintLevelRef.current = 0;
+    previousCarouselIndexRef.current = 0;
     setDailyCompletionJustAchieved(false);
-  }, [movie.title, dateKey]);
+  }, [hintSessionResetKey]);
+
+  useLayoutEffect(() => {
+    guessLengthBaselineReadyRef.current = false;
+  }, [hintSessionResetKey]);
 
   useEffect(() => {
     if (wrongGuessFlash || holdHintUntilFlashCompleteRef.current) return;
     setDisplayedHintLevel(state.hintLevel);
-  }, [state.hintLevel, wrongGuessFlash]);
+    if (!skipCarouselSyncAfterFlashRef.current) {
+      if (state.hintLevel !== prevSyncedHintLevelRef.current) {
+        const targetIndex = Math.max(0, state.hintLevel - 1);
+        if (targetIndex > carouselIndex) {
+          if (carouselAdvanceTimeoutRef.current) {
+            clearTimeout(carouselAdvanceTimeoutRef.current);
+            carouselAdvanceTimeoutRef.current = null;
+          }
+          let nextIndex = carouselIndex + 1;
+          const runStep = () => {
+            const isFinalStep = nextIndex === targetIndex;
+            exitingDirectionRef.current = 1;
+            setCarouselDirection(1);
+            setCarouselTransitionEasing(isFinalStep ? CAROUSEL_EASING_SETTLE : CAROUSEL_EASING_DEFAULT);
+            setCarouselTransitionMs(isFinalStep ? 500 : 120);
+            setCarouselIndex(nextIndex);
+            if (isFinalStep) {
+              carouselAdvanceTimeoutRef.current = null;
+              return;
+            }
+            nextIndex += 1;
+            carouselAdvanceTimeoutRef.current = setTimeout(runStep, 120);
+          };
+          runStep();
+        } else if (targetIndex !== carouselIndex) {
+          // New hint unlocks should always advance like film moving forward.
+          exitingDirectionRef.current = 1;
+          setCarouselDirection(1);
+          setCarouselTransitionEasing(CAROUSEL_EASING_SETTLE);
+          setCarouselTransitionMs(500);
+          setCarouselIndex(targetIndex);
+        }
+      }
+    }
+    prevSyncedHintLevelRef.current = state.hintLevel;
+  }, [state.hintLevel, wrongGuessFlash, carouselIndex]);
 
   useEffect(() => {
     if (state.submitMessage === "Already guessed") {
@@ -302,10 +395,32 @@ export function GameScreen() {
   }, [state.submitMessage]);
 
   useEffect(() => {
-    if (state.hintLevel <= 1) {
-      setShowPreviousHints(false);
+    const prev = prevDisplayedHintLevelRef.current;
+    if (prev === 0 && displayedHintLevel > 0) {
+      setIntroSliding(true);
+      if (introSlideTimeoutRef.current) {
+        clearTimeout(introSlideTimeoutRef.current);
+      }
+      introSlideTimeoutRef.current = setTimeout(() => {
+        setIntroSliding(false);
+        introSlideTimeoutRef.current = null;
+      }, 500);
     }
-  }, [state.hintLevel]);
+    prevDisplayedHintLevelRef.current = displayedHintLevel;
+  }, [displayedHintLevel]);
+
+  useEffect(() => {
+    if (carouselIndex === previousCarouselIndexRef.current) return;
+    setExitingCarouselIndex(previousCarouselIndexRef.current);
+    if (carouselSlideTimeoutRef.current) {
+      clearTimeout(carouselSlideTimeoutRef.current);
+    }
+    carouselSlideTimeoutRef.current = setTimeout(() => {
+      setExitingCarouselIndex(null);
+      carouselSlideTimeoutRef.current = null;
+    }, carouselTransitionMs);
+    previousCarouselIndexRef.current = carouselIndex;
+  }, [carouselIndex, carouselTransitionMs, carouselTransitionEasing]);
 
   useEffect(() => {
     setPlayLayoutRelaxed(true);
@@ -315,24 +430,25 @@ export function GameScreen() {
     if (state.status !== "playing") setPlayLayoutRelaxed(true);
   }, [state.status]);
 
-  useEffect(() => {
-    prevGuessLenRef.current = 0;
-  }, [movie.title, dateKey]);
-
   useLayoutEffect(() => {
     const len = state.guessHistory.length;
+    if (!guessLengthBaselineReadyRef.current) {
+      guessLengthBaselineReadyRef.current = true;
+      prevGuessLenRef.current = len;
+      return;
+    }
     if (len > prevGuessLenRef.current) {
       const latestGuess = state.guessHistory[len - 1] ?? "";
       const hasNonEmptyGuess = latestGuess.trim().length > 0;
-      const wrongGuessLanded = state.status !== "won";
-      const shouldFlash = wrongGuessLanded && state.status === "playing" && hasNonEmptyGuess;
+      const wrongGuessLanded = gameStatusRef.current !== "won";
+      const shouldFlash = wrongGuessLanded && hasNonEmptyGuess;
       if (shouldFlash) {
         holdHintUntilFlashCompleteRef.current = true;
         setWrongGuessFlash(true);
       }
     }
     prevGuessLenRef.current = len;
-  }, [state.guessHistory.length, state.status, state.hintLevel, state.movie]);
+  }, [state.guessHistory.length]);
 
   const handleGuessSubmit = useCallback(
     (value: string) => {
@@ -398,8 +514,51 @@ export function GameScreen() {
     setMode("practice");
   }, [dismissResultAndReturnToPlay]);
 
+  wrongGuessCompleteRef.current = { hintLevel: state.hintLevel, carouselIndex };
+  const handleWrongGuessFlashComplete = useCallback(() => {
+    if (carouselAdvanceTimeoutRef.current) {
+      clearTimeout(carouselAdvanceTimeoutRef.current);
+      carouselAdvanceTimeoutRef.current = null;
+    }
+    setWrongGuessFlash(false);
+    skipCarouselSyncAfterFlashRef.current = true;
+    const { hintLevel, carouselIndex: startIndex } = wrongGuessCompleteRef.current;
+    setDisplayedHintLevel(hintLevel);
+    carouselAdvanceTimeoutRef.current = setTimeout(() => {
+      const targetIndex = Math.max(0, hintLevel - 1);
+      if (targetIndex <= startIndex) {
+        exitingDirectionRef.current = 1;
+        setCarouselDirection(1);
+        setCarouselTransitionEasing(CAROUSEL_EASING_SETTLE);
+        setCarouselTransitionMs(500);
+        setCarouselIndex(targetIndex);
+        skipCarouselSyncAfterFlashRef.current = false;
+        carouselAdvanceTimeoutRef.current = null;
+        return;
+      }
+      let nextIndex = startIndex + 1;
+      const runStep = () => {
+        const isFinalStep = nextIndex === targetIndex;
+        exitingDirectionRef.current = 1;
+        setCarouselDirection(1);
+        setCarouselTransitionEasing(isFinalStep ? CAROUSEL_EASING_SETTLE : CAROUSEL_EASING_DEFAULT);
+        setCarouselTransitionMs(isFinalStep ? 500 : 120);
+        setCarouselIndex(nextIndex);
+        if (isFinalStep) {
+          skipCarouselSyncAfterFlashRef.current = false;
+          carouselAdvanceTimeoutRef.current = null;
+          return;
+        }
+        nextIndex += 1;
+        carouselAdvanceTimeoutRef.current = setTimeout(runStep, 120);
+      };
+      runStep();
+    }, 400);
+    holdHintUntilFlashCompleteRef.current = false;
+  }, []);
+
   const isGameOver = state.status === "won" || state.status === "lost";
-  const showResult = isGameOver && !resultDismissed;
+  const showResult = isGameOver && !resultDismissed && !wrongGuessFlash;
   const gameLocked =
     (mode === "daily" && !dailyCompletion && state.status === "playing") ||
     (state.status === "playing" && state.guessesUsed > 0);
@@ -425,9 +584,6 @@ export function GameScreen() {
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
-  const activeHintIndex = displayedHintLevel >= 1 ? displayedHintLevel - 1 : null;
-  const olderHintIndices = Array.from({ length: Math.max(displayedHintLevel - 1, 0) }, (_, i) => i);
-
   const dpModeToggle = (
     <div
       className="flex items-center justify-center gap-0.5"
@@ -862,10 +1018,10 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className={`w-full [&_p]:!italic ${motionMargin} ${
+                    className={`w-full !py-8 md:!py-12 [&_p]:!italic ${motionMargin} ${
                       relaxedVisual
-                        ? "[&_p]:!text-[1.45rem] [&_p]:!leading-[1.45] md:[&_p]:!text-[1.85rem] md:[&_p]:!leading-[1.52] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-8"
-                        : "[&_p]:!text-[1.38rem] [&_p]:!leading-[1.38] md:[&_p]:!text-[1.75rem] md:[&_p]:!leading-[1.5] [&>div:last-child]:!mt-3 md:[&>div:last-child]:!mt-6"
+                        ? "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
+                        : "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
                     }`}
                   />
                 </div>
@@ -918,85 +1074,209 @@ export function GameScreen() {
                   }`}
                 >
                   <div className="w-full">
-                    <div className="flex w-full flex-col" style={{ gap: 12 }}>
-                      {activeHintIndex !== null ? (
-                        <>
-                          <p
-                            style={{
-                              margin: 0,
-                              color: "#6B6860",
-                              fontFamily: '"DM Sans", sans-serif',
-                              fontSize: isDesktop ? 12 : 11,
-                              lineHeight: 1.35,
-                              letterSpacing: "0.05em",
-                              textTransform: "uppercase",
-                              textAlign: "center",
-                            }}
-                          >
-                            Hint {displayedHintLevel} of 4
-                          </p>
-                          <p
-                            key={displayedHintLevel}
-                            style={{
-                              margin: 0,
-                              color: "#C9B87A",
-                              fontFamily: FONT_PLAYFAIR,
-                              fontStyle: "italic",
-                              fontSize: isDesktop ? 18 : 16,
-                              lineHeight: 1.6,
-                              textAlign: "center",
-                              animation: "hintFadeUp 300ms ease-out",
-                            }}
-                          >
-                            {getHintBodyForLevel(state.movie, displayedHintLevel as HintLevel)}
-                          </p>
-                        </>
-                      ) : null}
-                      {olderHintIndices.length > 0 ? (
-                        <div className="flex w-full flex-col items-center" style={{ gap: 11 }}>
+                    {displayedHintLevel >= 1 ? (
+                      <div className="flex w-full flex-col" style={{ gap: 12 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            color: "#6B6860",
+                            fontFamily: '"DM Sans", sans-serif',
+                            fontSize: isDesktop ? 12 : 11,
+                            lineHeight: 1.35,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            textAlign: "center",
+                          }}
+                        >
+                          Hint {carouselIndex + 1}
+                        </p>
+                        <div className="relative w-full" style={{ margin: "0 22px" }}>
                           <button
                             type="button"
-                            onClick={() => setShowPreviousHints((prev) => !prev)}
-                            className="transition hover:text-foreground/80"
-                            style={{
-                              marginTop: 16,
-                              fontFamily: '"DM Sans", sans-serif',
-                              fontSize: 12,
-                              color: "#6B6860",
-                              textAlign: "center",
-                              textDecoration: "none",
+                            onClick={() => {
+                              exitingDirectionRef.current = -1;
+                              setCarouselDirection(-1);
+                              setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+                              setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+                              setCarouselIndex((c) => c - 1);
                             }}
-                            aria-expanded={showPreviousHints}
+                            aria-label="Previous hint"
+                            className="flex shrink-0 items-center justify-center"
+                            style={{
+                              position: "absolute",
+                              left: -18,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              width: 28,
+                              height: 28,
+                              borderRadius: 9999,
+                              border: "1px solid #2A2A2A",
+                              background: "transparent",
+                              padding: 0,
+                              cursor: "pointer",
+                              visibility: carouselIndex === 0 ? "hidden" : "visible",
+                              zIndex: 5,
+                            }}
                           >
-                            {showPreviousHints ? "Hide hints" : "Revisit hints"}
-                          </button>
-                          {showPreviousHints ? (
-                            <div
-                              className="w-full border-t border-white/10 pt-3"
-                              style={{ display: "flex", flexDirection: "column", gap: 10, animation: "fadeIn 180ms ease-out" }}
+                            <svg
+                              width="9"
+                              height="14"
+                              viewBox="0 0 9 14"
+                              fill="none"
+                              aria-hidden
                             >
-                              {olderHintIndices.map((i) => (
-                                <p
-                                  key={`older-${i}`}
+                              <path
+                                d="M7.5 1L1.5 7l6 6"
+                                stroke="#6B6860"
+                                strokeWidth="1.4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              exitingDirectionRef.current = 1;
+                              setCarouselDirection(1);
+                              setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+                              setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+                              setCarouselIndex((c) => c + 1);
+                            }}
+                            aria-label="Next hint"
+                            className="flex shrink-0 items-center justify-center"
+                            style={{
+                              position: "absolute",
+                              right: -18,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              width: 28,
+                              height: 28,
+                              borderRadius: 9999,
+                              border: "1px solid #2A2A2A",
+                              background: "transparent",
+                              padding: 0,
+                              cursor: "pointer",
+                              visibility: carouselIndex === displayedHintLevel - 1 ? "hidden" : "visible",
+                              zIndex: 5,
+                            }}
+                          >
+                            <svg
+                              width="9"
+                              height="14"
+                              viewBox="0 0 9 14"
+                              fill="none"
+                              aria-hidden
+                            >
+                              <path
+                                d="M1.5 1L7.5 7l-6 6"
+                                stroke="#6B6860"
+                                strokeWidth="1.4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          <div className="w-full">
+                            <div
+                              style={{
+                                width: "100%",
+                                height: 10,
+                                background:
+                                  "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                animation:
+                                  exitingCarouselIndex !== null || introSliding
+                                    ? `perforationRoll ${carouselTransitionMs}ms linear`
+                                    : undefined,
+                              }}
+                            />
+                            <div className="relative w-full overflow-hidden" style={{ height: 180, minHeight: 180 }}>
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: 180,
+                                  minHeight: 180,
+                                  background: "#141410",
+                                  borderTop: "3px solid #2A2410",
+                                  borderBottom: "3px solid #2A2410",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
                                   style={{
-                                    margin: 0,
-                                    color: "#C9B87A",
-                                    opacity: 0.55,
-                                    fontFamily: FONT_PLAYFAIR,
-                                    fontStyle: "italic",
-                                    fontSize: isDesktop ? 14 : 13,
-                                    lineHeight: 1.4,
-                                    textAlign: "center",
+                                    display: "flex",
+                                    width: "100%",
+                                    transform: `translateX(-${carouselIndex * 100}%)`,
+                                    transition: `transform ${carouselTransitionMs}ms ${carouselTransitionEasing}`,
                                   }}
                                 >
-                                  {getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
-                                </p>
-                              ))}
+                                  {Array.from({ length: displayedHintLevel }, (_, i) => (
+                                    <div
+                                      key={`hint-strip-${i}`}
+                                      style={{
+                                        flex: "0 0 100%",
+                                        padding: "32px 28px",
+                                        height: 180,
+                                        minHeight: 180,
+                                        overflow: "hidden",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      <p
+                                        style={{
+                                          margin: 0,
+                                          color: "#C9B87A",
+                                          fontFamily: FONT_PLAYFAIR,
+                                          fontStyle: "italic",
+                                          fontSize: isDesktop ? 18 : 16,
+                                          lineHeight: 1.6,
+                                          textAlign: "center",
+                                        }}
+                                      >
+                                        {getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                          ) : null}
+                            <div
+                              style={{
+                                width: "100%",
+                                height: 10,
+                                background:
+                                  "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                animation:
+                                  exitingCarouselIndex !== null || introSliding
+                                    ? `perforationRoll ${carouselTransitionMs}ms linear`
+                                    : undefined,
+                              }}
+                            />
+                          </div>
                         </div>
-                      ) : null}
-                    </div>
+                        {displayedHintLevel > 1 ? (
+                          <div
+                            className="flex w-full items-center justify-center"
+                            style={{ gap: 8 }}
+                            aria-hidden
+                          >
+                            {Array.from({ length: displayedHintLevel }, (_, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  width: 6,
+                                  height: 4,
+                                  borderRadius: 1,
+                                  background: i === carouselIndex ? "#C9A96E" : "#2E2410",
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </section>
               </>
@@ -1105,16 +1385,48 @@ export function GameScreen() {
               transform: translateY(0);
             }
           }
+          @keyframes hintFrameSlideIn {
+            0% {
+              transform: translateX(100%);
+            }
+            100% {
+              transform: translateX(0);
+            }
+          }
+          @keyframes hintFrameSlideOut {
+            0% {
+              transform: translateX(0);
+            }
+            100% {
+              transform: translateX(-100%);
+            }
+          }
+          @keyframes hintFrameSlideInFromLeft {
+            0% {
+              transform: translateX(-100%);
+            }
+            100% {
+              transform: translateX(0);
+            }
+          }
+          @keyframes hintFrameSlideOutToRight {
+            0% {
+              transform: translateX(0);
+            }
+            100% {
+              transform: translateX(100%);
+            }
+          }
+          @keyframes perforationRoll {
+            0% {
+              background-position: 0 0;
+            }
+            100% {
+              background-position: -22px 0;
+            }
+          }
         `}</style>
-        {wrongGuessFlash ? (
-          <WrongGuessFlash
-            onComplete={() => {
-              setWrongGuessFlash(false);
-              setDisplayedHintLevel(state.hintLevel);
-              holdHintUntilFlashCompleteRef.current = false;
-            }}
-          />
-        ) : null}
+        {wrongGuessFlash ? <WrongGuessFlash onComplete={handleWrongGuessFlashComplete} /> : null}
         </div>
       </div>
     </div>
