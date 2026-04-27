@@ -1090,7 +1090,7 @@ export function GameScreen() {
                         >
                           Hint {carouselIndex + 1}
                         </p>
-                        <div className="relative w-full" style={{ margin: "0 22px" }}>
+                        <div className="relative w-full" style={{ padding: "0 22px" }}>
                           <button
                             type="button"
                             onClick={() => {
