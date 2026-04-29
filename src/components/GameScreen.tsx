@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type TouchEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -134,6 +135,8 @@ export function GameScreen() {
   const prevDisplayedHintLevelRef = useRef(0);
   const prevSyncedHintLevelRef = useRef(0);
   const previousCarouselIndexRef = useRef(0);
+  const hintSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hintSwipeLockedRef = useRef(false);
   const exitingDirectionRef = useRef(1);
   const [carouselDirection, setCarouselDirection] = useState(1);
   const [stripMotionMode, setStripMotionMode] = useState<"idle" | "engaging" | "paused">("idle");
@@ -681,6 +684,59 @@ export function GameScreen() {
     }, 400);
     holdHintUntilFlashCompleteRef.current = false;
   }, [state.movie]);
+
+  const handleHintTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    hintSwipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    hintSwipeLockedRef.current = false;
+  }, []);
+
+  const handleHintTouchMove = useCallback(
+    (e: TouchEvent<HTMLDivElement>) => {
+      if (!hintSwipeStartRef.current || hintSwipeLockedRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - hintSwipeStartRef.current.x;
+      const dy = touch.clientY - hintSwipeStartRef.current.y;
+
+      // Only capture deliberate horizontal swipes; let vertical scroll pass through.
+      if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        e.preventDefault();
+      }
+    },
+    []
+  );
+
+  const handleHintTouchEnd = useCallback(
+    (e: TouchEvent<HTMLDivElement>) => {
+      if (!hintSwipeStartRef.current || hintSwipeLockedRef.current) return;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const dx = touch.clientX - hintSwipeStartRef.current.x;
+      const dy = touch.clientY - hintSwipeStartRef.current.y;
+
+      hintSwipeStartRef.current = null;
+
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      hintSwipeLockedRef.current = true;
+
+      if (dx < 0 && carouselIndex < displayedHintLevel - 1) {
+        exitingDirectionRef.current = 1;
+        setCarouselDirection(1);
+        setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+        setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+        setCarouselIndex((c) => c + 1);
+      } else if (dx > 0 && carouselIndex > 0) {
+        exitingDirectionRef.current = -1;
+        setCarouselDirection(-1);
+        setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+        setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+        setCarouselIndex((c) => c - 1);
+      }
+    },
+    [carouselIndex, displayedHintLevel]
+  );
 
   const isGameOver = state.status === "won" || state.status === "lost";
   const showResult = isGameOver && !resultDismissed && !wrongGuessFlash;
@@ -1233,7 +1289,17 @@ export function GameScreen() {
                         >
                           Hint {carouselIndex + 1}
                         </p>
-                        <div className="relative w-full" style={{ padding: "0 22px" }}>
+                        <div
+                          className="relative w-full"
+                          style={{ padding: "0 22px", touchAction: "pan-y" }}
+                          onTouchStart={handleHintTouchStart}
+                          onTouchMove={handleHintTouchMove}
+                          onTouchEnd={handleHintTouchEnd}
+                          onTouchCancel={() => {
+                            hintSwipeStartRef.current = null;
+                            hintSwipeLockedRef.current = false;
+                          }}
+                        >
                           <button
                             type="button"
                             onClick={() => {
