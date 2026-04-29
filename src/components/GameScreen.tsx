@@ -207,13 +207,9 @@ export function GameScreen() {
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
 
-  /** Full-screen tagline intro once per puzzle/session (`hintSessionResetKey`), playing-only. */
+  /** Guess/hints UI hidden briefly on new session; tagline stays in normal layout (`hintSessionResetKey`), playing-only. */
   const introShownForKeyRef = useRef<string | null>(null);
   const [taglineIntroActive, setTaglineIntroActive] = useState(false);
-
-  const skipTaglineIntro = useCallback(() => {
-    setTaglineIntroActive(false);
-  }, []);
 
   useLayoutEffect(() => {
     const gameplayUiReady =
@@ -239,7 +235,7 @@ export function GameScreen() {
     setTaglineIntroActive(true);
   }, [hintSessionResetKey, state.status, mode, loading, practiceMovie]);
 
-  /** Auto-dismiss intro on a timer — separate from layout so `loading`/deps churn does not clear the timeout. */
+  /** End intro phase (guess UI hidden) on a timer — separate from layout so `loading`/deps churn does not clear the timeout. */
   useEffect(() => {
     if (!taglineIntroActive) return;
     const id = window.setTimeout(() => setTaglineIntroActive(false), 3500);
@@ -1023,35 +1019,8 @@ export function GameScreen() {
                 : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${taglineIntroActive ? "overflow-hidden" : ""}`
             }
           >
-            {taglineIntroActive && state.status === "playing" ? (
-              <button
-                type="button"
-                onClick={skipTaglineIntro}
-                aria-label="Continue"
-                className="fixed inset-0 z-[85] flex cursor-default touch-manipulation flex-col items-center justify-center border-0 bg-[#080808] px-6 pb-[max(env(safe-area-inset-bottom),1rem)] pt-[max(env(safe-area-inset-top),1rem)] outline-none focus-visible:ring-2 focus-visible:ring-gold/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808]"
-              >
-                <span className="pointer-events-none mx-auto max-h-[min(70vh,560px)] max-w-[min(92vw,36rem)] overflow-y-auto text-center font-tagline-display italic leading-[1.12] text-foreground break-words hyphens-auto motion-safe:transition-opacity motion-safe:duration-500 motion-safe:ease-out"
-                  style={{
-                    fontSize: "clamp(1.65rem, 6.5vw, 2.9rem)",
-                    textShadow:
-                      "0 0 40px rgba(201,169,110,0.12), 0 0 80px rgba(201,169,110,0.05)",
-                  }}
-                >
-                  {getHintBodyForLevel(state.movie, 0)}
-                </span>
-                <span
-                  className="pointer-events-none mx-auto mt-8 block"
-                  style={{
-                    width: 24,
-                    height: 1,
-                    backgroundColor: "rgba(201, 169, 110, 0.4)",
-                  }}
-                  aria-hidden
-                />
-              </button>
-            ) : null}
             <header
-              className={`relative z-[80] w-full shrink-0 ${motionPad} ${
+              className={`w-full shrink-0 ${motionPad} ${
                 relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
               }`}
             >
@@ -1063,44 +1032,40 @@ export function GameScreen() {
                 {dpModeToggle}
               </div>
             </header>
-            {!taglineIntroActive ? (
-              <section className="relative mx-auto w-full max-w-lg px-1 motion-safe:animate-[fadeIn_0.65s_ease-out_both] motion-reduce:animate-none">
+            <section className="relative mx-auto w-full max-w-lg px-1">
+              <div
+                className={`relative ${motionPad} ${
+                  relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
+                }`}
+              >
                 <div
-                  className={`relative ${motionPad} ${
-                    relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
-                  }`}
-                >
-                  <div
-                    className="pointer-events-none absolute left-1/2 top-1/2 z-0"
-                    style={{
-                      width: "min(86vw, 620px)",
-                      height: "min(48vw, 300px)",
-                      transform: "translate(-50%, -50%)",
-                      background:
-                        "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
-                      filter: "blur(10px)",
-                    }}
-                    aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-1/2 z-0"
+                  style={{
+                    width: "min(86vw, 620px)",
+                    height: "min(48vw, 300px)",
+                    transform: "translate(-50%, -50%)",
+                    background:
+                      "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
+                    filter: "blur(10px)",
+                  }}
+                  aria-hidden
+                />
+                <div className="relative z-10 w-full">
+                  <HintReveal
+                    movie={state.movie}
+                    hintLevel={0}
+                    className={`w-full !py-8 md:!py-12 [&_p]:!italic ${motionMargin} ${
+                      relaxedVisual
+                        ? "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
+                        : "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
+                    }`}
                   />
-                  <div className="relative z-10 w-full">
-                    <HintReveal
-                      movie={state.movie}
-                      hintLevel={0}
-                      className={`w-full !py-8 md:!py-12 [&_p]:!italic ${motionMargin} ${
-                        relaxedVisual
-                          ? "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
-                          : "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
-                      }`}
-                    />
-                  </div>
                 </div>
-              </section>
-            ) : null}
-            <div
-              className={`mx-auto flex w-full max-w-lg flex-col items-center ${taglineIntroActive ? "mt-0" : "mt-8"}`}
-            >
+              </div>
+            </section>
+            <div className="mx-auto mt-8 flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && !taglineIntroActive && (
-              <>
+              <div className="motion-safe:animate-[fadeIn_0.55s_ease-out_both] motion-reduce:animate-none flex w-full flex-col items-center">
                 <div
                   className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
                     relaxedVisual ? "mb-9 gap-5 md:mb-11 md:gap-6" : "mb-6 gap-3"
@@ -1126,7 +1091,7 @@ export function GameScreen() {
                     onSubmit={handleGuessSubmit}
                     onInputValueChange={handleGuessInputActivity}
                     onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
-                    placeholder="Name a film..."
+                    placeholder="Name the film..."
                     aria-label="Guess the movie"
                     disabled={Boolean(wrongGuessFlash)}
                     duplicateSignal={duplicateSignal}
@@ -1391,10 +1356,7 @@ export function GameScreen() {
                     ) : null}
                   </div>
                 </section>
-              </>
-            )}
-
-            {state.guessHistory.length > 0 && state.status === "playing" && !taglineIntroActive && (
+              {state.guessHistory.length > 0 ? (
               <div
                 className={`${motionMargin} ${relaxedVisual ? "mt-12 md:mt-14" : "mt-8"}`}
                 style={{
@@ -1474,8 +1436,10 @@ export function GameScreen() {
                   </div>
                 ))}
               </div>
+            ) : null}
+              </div>
             )}
-          </div>
+            </div>
         </main>
 
         {showResult && (

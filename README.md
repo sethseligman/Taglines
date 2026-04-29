@@ -27,6 +27,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Answer normalization** — Ignores capitalization and punctuation; handles “Part I”/“Part 1” and leading “The”; accepts configured aliases.
 - **Admin** — `/admin`: create/edit movies, taglines, accepted aliases, and daily schedule (password-protected via `ADMIN_SECRET`).
 - **Share** — Emoji-style results (e.g. 🎬 Taglines ✅ ❌ ❌ ✅).
+- **Opening beat** — At the start of each new puzzle session (daily or practice), the tagline stays in the usual layout while guess input, hints strip, and guess history are withheld for about 3.5 seconds, then they fade in together. This phase runs once per session key (not on every React update). Users with **prefers-reduced-motion** get the normal layout immediately with no timed delay.
 
 ## Supabase Setup
 
