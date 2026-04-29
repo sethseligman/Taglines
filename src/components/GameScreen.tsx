@@ -35,6 +35,9 @@ import { WrongGuessFlash } from "./WrongGuessFlash";
 const CAROUSEL_MANUAL_MS = 320;
 const CAROUSEL_EASING_DEFAULT = "cubic-bezier(0.25, 0, 0.15, 1)";
 const CAROUSEL_EASING_SETTLE = "cubic-bezier(0.2, 0, 0, 1)";
+const WRONG_GUESS_SLIDE_OUT_MS = 450;
+const WRONG_GUESS_BLANK_MS = 1000;
+const WRONG_GUESS_FADE_IN_MS = 1200;
 
 type Mode = "daily" | "practice";
 type IntroPhase = "lightsDown" | "taglineReveal" | "ready";
@@ -125,11 +128,18 @@ export function GameScreen() {
   const carouselAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const carouselSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const introSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stripIdleResumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintRevealGateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintRevealFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevDisplayedHintLevelRef = useRef(0);
   const prevSyncedHintLevelRef = useRef(0);
   const previousCarouselIndexRef = useRef(0);
   const exitingDirectionRef = useRef(1);
   const [carouselDirection, setCarouselDirection] = useState(1);
+  const [stripMotionMode, setStripMotionMode] = useState<"idle" | "engaging" | "paused">("idle");
+  const [hintRevealPhase, setHintRevealPhase] = useState<"normal" | "slideOut" | "blank" | "fadingIn">("normal");
+  const [cinematicFocusActive, setCinematicFocusActive] = useState(false);
+  const [slideOutHintText, setSlideOutHintText] = useState("");
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -411,6 +421,18 @@ export function GameScreen() {
       clearTimeout(introSlideTimeoutRef.current);
       introSlideTimeoutRef.current = null;
     }
+    if (stripIdleResumeTimeoutRef.current) {
+      clearTimeout(stripIdleResumeTimeoutRef.current);
+      stripIdleResumeTimeoutRef.current = null;
+    }
+    if (hintRevealGateTimeoutRef.current) {
+      clearTimeout(hintRevealGateTimeoutRef.current);
+      hintRevealGateTimeoutRef.current = null;
+    }
+    if (hintRevealFadeTimeoutRef.current) {
+      clearTimeout(hintRevealFadeTimeoutRef.current);
+      hintRevealFadeTimeoutRef.current = null;
+    }
     skipCarouselSyncAfterFlashRef.current = false;
     setExitingCarouselIndex(null);
     exitingDirectionRef.current = 1;
@@ -418,6 +440,10 @@ export function GameScreen() {
     setCarouselTransitionMs(500);
     setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
     setIntroSliding(false);
+    setStripMotionMode("idle");
+    setHintRevealPhase("normal");
+    setCinematicFocusActive(false);
+    setSlideOutHintText("");
     prevDisplayedHintLevelRef.current = 0;
     prevSyncedHintLevelRef.current = 0;
     previousCarouselIndexRef.current = 0;
@@ -518,10 +544,8 @@ export function GameScreen() {
       return;
     }
     if (len > prevGuessLenRef.current) {
-      const latestGuess = state.guessHistory[len - 1] ?? "";
-      const hasNonEmptyGuess = latestGuess.trim().length > 0;
       const wrongGuessLanded = gameStatusRef.current !== "won";
-      const shouldFlash = wrongGuessLanded && hasNonEmptyGuess;
+      const shouldFlash = wrongGuessLanded;
       if (shouldFlash) {
         holdHintUntilFlashCompleteRef.current = true;
         setWrongGuessFlash(true);
@@ -602,40 +626,61 @@ export function GameScreen() {
     }
     setWrongGuessFlash(false);
     skipCarouselSyncAfterFlashRef.current = true;
+    setStripMotionMode("engaging");
+    setHintRevealPhase("normal");
+    setCinematicFocusActive(true);
     const { hintLevel, carouselIndex: startIndex } = wrongGuessCompleteRef.current;
+    const firstHintReveal = hintLevel <= 1 || startIndex < 0;
+    if (firstHintReveal) {
+      // Prevent first-hint text flash: gate starts blank immediately.
+      setHintRevealPhase("blank");
+    }
     setDisplayedHintLevel(hintLevel);
     carouselAdvanceTimeoutRef.current = setTimeout(() => {
       const targetIndex = Math.max(0, hintLevel - 1);
-      if (targetIndex <= startIndex) {
-        exitingDirectionRef.current = 1;
-        setCarouselDirection(1);
-        setCarouselTransitionEasing(CAROUSEL_EASING_SETTLE);
-        setCarouselTransitionMs(500);
-        setCarouselIndex(targetIndex);
-        skipCarouselSyncAfterFlashRef.current = false;
-        carouselAdvanceTimeoutRef.current = null;
-        return;
-      }
-      let nextIndex = startIndex + 1;
-      const runStep = () => {
-        const isFinalStep = nextIndex === targetIndex;
-        exitingDirectionRef.current = 1;
-        setCarouselDirection(1);
-        setCarouselTransitionEasing(isFinalStep ? CAROUSEL_EASING_SETTLE : CAROUSEL_EASING_DEFAULT);
-        setCarouselTransitionMs(isFinalStep ? 500 : 120);
-        setCarouselIndex(nextIndex);
-        if (isFinalStep) {
-          skipCarouselSyncAfterFlashRef.current = false;
-          carouselAdvanceTimeoutRef.current = null;
-          return;
-        }
-        nextIndex += 1;
-        carouselAdvanceTimeoutRef.current = setTimeout(runStep, 120);
+      const finishWithFadeIn = () => {
+        setHintRevealPhase("fadingIn");
+        if (hintRevealFadeTimeoutRef.current) clearTimeout(hintRevealFadeTimeoutRef.current);
+        hintRevealFadeTimeoutRef.current = setTimeout(() => {
+          setHintRevealPhase("normal");
+          setStripMotionMode("paused");
+          setCinematicFocusActive(false);
+          setSlideOutHintText("");
+          hintRevealFadeTimeoutRef.current = null;
+        }, WRONG_GUESS_FADE_IN_MS);
       };
-      runStep();
+
+      const hasExistingHint = startIndex >= 0 && hintLevel > 1;
+      if (!hasExistingHint || targetIndex <= startIndex) {
+        setHintRevealPhase("blank");
+        setCarouselTransitionMs(0);
+        setCarouselIndex(targetIndex);
+        if (hintRevealGateTimeoutRef.current) clearTimeout(hintRevealGateTimeoutRef.current);
+        hintRevealGateTimeoutRef.current = setTimeout(() => {
+          hintRevealGateTimeoutRef.current = null;
+          finishWithFadeIn();
+        }, WRONG_GUESS_BLANK_MS);
+      } else {
+        setSlideOutHintText(getHintBodyForLevel(state.movie, (hintLevel - 1) as HintLevel));
+        setHintRevealPhase("slideOut");
+        if (hintRevealGateTimeoutRef.current) clearTimeout(hintRevealGateTimeoutRef.current);
+        hintRevealGateTimeoutRef.current = setTimeout(() => {
+          hintRevealGateTimeoutRef.current = null;
+          setHintRevealPhase("blank");
+          setCarouselTransitionMs(0);
+          setCarouselIndex(targetIndex);
+          if (hintRevealFadeTimeoutRef.current) clearTimeout(hintRevealFadeTimeoutRef.current);
+          hintRevealFadeTimeoutRef.current = setTimeout(() => {
+            hintRevealFadeTimeoutRef.current = null;
+            finishWithFadeIn();
+          }, WRONG_GUESS_BLANK_MS);
+        }, WRONG_GUESS_SLIDE_OUT_MS);
+      }
+      skipCarouselSyncAfterFlashRef.current = false;
+      carouselAdvanceTimeoutRef.current = null;
     }, 400);
     holdHintUntilFlashCompleteRef.current = false;
-  }, []);
+  }, [state.movie]);
 
   const isGameOver = state.status === "won" || state.status === "lost";
   const showResult = isGameOver && !resultDismissed && !wrongGuessFlash;
@@ -664,6 +709,12 @@ export function GameScreen() {
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
+  const sprocketsRunning =
+    cinematicFocusActive ||
+    stripMotionMode === "engaging" ||
+    hintRevealPhase === "slideOut" ||
+    hintRevealPhase === "blank" ||
+    hintRevealPhase === "fadingIn";
   const dpModeToggle = (
     <div
       className="flex items-center justify-center gap-0.5"
@@ -1077,7 +1128,7 @@ export function GameScreen() {
               </div>
             </header>
             <section
-              className="relative mx-auto w-full max-w-lg px-1"
+              className="relative z-30 mx-auto w-full max-w-lg px-1"
               style={
                 introPhase === "lightsDown"
                   ? { opacity: 0 }
@@ -1277,9 +1328,10 @@ export function GameScreen() {
                                 height: 10,
                                 background:
                                   "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                backgroundSize: "22px 10px",
                                 animation:
-                                  exitingCarouselIndex !== null || introSliding
-                                    ? `perforationRoll ${carouselTransitionMs}ms linear`
+                                  sprocketsRunning
+                                    ? "perforationRoll 260ms steps(22, end) infinite"
                                     : undefined,
                               }}
                             >
@@ -1297,7 +1349,7 @@ export function GameScreen() {
                                   userSelect: "none",
                                 }}
                               >
-                                TL · {state.movie.title.slice(0, 6).toUpperCase()} · 35MM
+                                A · KU 22 9611 1802 · 35MM
                               </span>
                             </div>
                             <div className="relative w-full overflow-hidden" style={{ height: 180, minHeight: 180 }}>
@@ -1336,6 +1388,7 @@ export function GameScreen() {
                                       }}
                                     >
                                       <p
+                                        key={`hint-text-${i}`}
                                         style={{
                                           margin: 0,
                                           color: "#C9B87A",
@@ -1344,6 +1397,17 @@ export function GameScreen() {
                                           fontSize: isDesktop ? 18 : 16,
                                           lineHeight: 1.6,
                                           textAlign: "center",
+                                          opacity:
+                                            i === carouselIndex &&
+                                            (hintRevealPhase === "slideOut" ||
+                                              hintRevealPhase === "blank" ||
+                                              hintRevealPhase === "fadingIn")
+                                              ? 0
+                                              : 1,
+                                          animation:
+                                            i === carouselIndex && hintRevealPhase === "fadingIn"
+                                              ? `hintTextSettleFade ${WRONG_GUESS_FADE_IN_MS}ms ease-out both`
+                                              : undefined,
                                         }}
                                       >
                                         {getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
@@ -1351,6 +1415,49 @@ export function GameScreen() {
                                     </div>
                                   ))}
                                 </div>
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    background: "#141410",
+                                    opacity: hintRevealPhase === "blank" ? 1 : hintRevealPhase === "fadingIn" ? 0 : 0,
+                                    transition:
+                                      hintRevealPhase === "fadingIn"
+                                        ? `opacity ${WRONG_GUESS_FADE_IN_MS}ms ease-out`
+                                        : undefined,
+                                    pointerEvents: "none",
+                                  }}
+                                  aria-hidden
+                                />
+                                {hintRevealPhase === "slideOut" ? (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      inset: 0,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      padding: "32px 28px",
+                                      pointerEvents: "none",
+                                      animation: `hintSlideOutLeft ${WRONG_GUESS_SLIDE_OUT_MS}ms ease-in both`,
+                                    }}
+                                    aria-hidden
+                                  >
+                                    <p
+                                      style={{
+                                        margin: 0,
+                                        color: "#C9B87A",
+                                        fontFamily: FONT_PLAYFAIR,
+                                        fontStyle: "italic",
+                                        fontSize: isDesktop ? 18 : 16,
+                                        lineHeight: 1.6,
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      {slideOutHintText}
+                                    </p>
+                                  </div>
+                                ) : null}
                                 <div
                                   style={{
                                     position: "absolute",
@@ -1381,9 +1488,10 @@ export function GameScreen() {
                                 height: 10,
                                 background:
                                   "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                backgroundSize: "22px 10px",
                                 animation:
-                                  exitingCarouselIndex !== null || introSliding
-                                    ? `perforationRoll ${carouselTransitionMs}ms linear`
+                                  sprocketsRunning
+                                    ? "perforationRoll 260ms steps(22, end) infinite"
                                     : undefined,
                               }}
                             />
@@ -1498,6 +1606,16 @@ export function GameScreen() {
             </div>
         </main>
 
+        {cinematicFocusActive && state.status === "playing" ? (
+          <div
+            className="pointer-events-none fixed inset-0 z-20"
+            style={{
+              background: "rgba(0,0,0,0.3)",
+            }}
+            aria-hidden
+          />
+        ) : null}
+
         {showResult && (
           <ResultModal
             state={state}
@@ -1562,7 +1680,25 @@ export function GameScreen() {
               background-position: 0 0;
             }
             100% {
-              background-position: -22px 0;
+              background-position: -44px 0;
+            }
+          }
+          @keyframes hintTextSettleFade {
+            0% {
+              opacity: 0;
+            }
+            100% {
+              opacity: 1;
+            }
+          }
+          @keyframes hintSlideOutLeft {
+            0% {
+              transform: translateX(0);
+              opacity: 1;
+            }
+            100% {
+              transform: translateX(-100%);
+              opacity: 0;
             }
           }
         `}</style>
