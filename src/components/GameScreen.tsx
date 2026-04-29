@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  type TouchEvent,
+  type PointerEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -136,6 +136,7 @@ export function GameScreen() {
   const prevSyncedHintLevelRef = useRef(0);
   const previousCarouselIndexRef = useRef(0);
   const hintSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hintSwipePointerIdRef = useRef<number | null>(null);
   const hintSwipeLockedRef = useRef(false);
   const exitingDirectionRef = useRef(1);
   const [carouselDirection, setCarouselDirection] = useState(1);
@@ -685,20 +686,19 @@ export function GameScreen() {
     holdHintUntilFlashCompleteRef.current = false;
   }, [state.movie]);
 
-  const handleHintTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    hintSwipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  const handleHintPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse") return;
+    hintSwipePointerIdRef.current = e.pointerId;
+    hintSwipeStartRef.current = { x: e.clientX, y: e.clientY };
     hintSwipeLockedRef.current = false;
   }, []);
 
-  const handleHintTouchMove = useCallback(
-    (e: TouchEvent<HTMLDivElement>) => {
+  const handleHintPointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (hintSwipePointerIdRef.current !== e.pointerId) return;
       if (!hintSwipeStartRef.current || hintSwipeLockedRef.current) return;
-      const touch = e.touches[0];
-      if (!touch) return;
-      const dx = touch.clientX - hintSwipeStartRef.current.x;
-      const dy = touch.clientY - hintSwipeStartRef.current.y;
+      const dx = e.clientX - hintSwipeStartRef.current.x;
+      const dy = e.clientY - hintSwipeStartRef.current.y;
 
       // Only capture deliberate horizontal swipes; let vertical scroll pass through.
       if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.2) {
@@ -708,15 +708,15 @@ export function GameScreen() {
     []
   );
 
-  const handleHintTouchEnd = useCallback(
-    (e: TouchEvent<HTMLDivElement>) => {
+  const handleHintPointerUp = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (hintSwipePointerIdRef.current !== e.pointerId) return;
       if (!hintSwipeStartRef.current || hintSwipeLockedRef.current) return;
-      const touch = e.changedTouches[0];
-      if (!touch) return;
-      const dx = touch.clientX - hintSwipeStartRef.current.x;
-      const dy = touch.clientY - hintSwipeStartRef.current.y;
+      const dx = e.clientX - hintSwipeStartRef.current.x;
+      const dy = e.clientY - hintSwipeStartRef.current.y;
 
       hintSwipeStartRef.current = null;
+      hintSwipePointerIdRef.current = null;
 
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
       hintSwipeLockedRef.current = true;
@@ -1292,11 +1292,12 @@ export function GameScreen() {
                         <div
                           className="relative w-full"
                           style={{ padding: "0 22px", touchAction: "pan-y" }}
-                          onTouchStart={handleHintTouchStart}
-                          onTouchMove={handleHintTouchMove}
-                          onTouchEnd={handleHintTouchEnd}
-                          onTouchCancel={() => {
+                          onPointerDown={handleHintPointerDown}
+                          onPointerMove={handleHintPointerMove}
+                          onPointerUp={handleHintPointerUp}
+                          onPointerCancel={() => {
                             hintSwipeStartRef.current = null;
+                            hintSwipePointerIdRef.current = null;
                             hintSwipeLockedRef.current = false;
                           }}
                         >
