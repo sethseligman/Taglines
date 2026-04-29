@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 
 const KEY_SPLASHED = "taglines-splashed";
+const SPLASH_DISMISSED_EVENT = "taglines:splash-dismissed";
 
 const PF = FONT_PLAYFAIR;
 const DM = FONT_DM;
@@ -22,6 +23,11 @@ const HTP_X_MS_HOLD = 1200;
 const HTP_X_MS_CURTAIN = 200;
 
 export function SplashModal() {
+  const notifySplashDismissed = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event(SPLASH_DISMISSED_EVENT));
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"splash" | "htp">("splash");
   const [htpCardExiting, setHtpCardExiting] = useState(false);
@@ -78,9 +84,10 @@ export function SplashModal() {
   const dismiss = useCallback(
     (opts?: { fromHtp?: boolean }) => {
       persistDismiss(Boolean(opts?.fromHtp));
+      notifySplashDismissed();
       setOpen(false);
     },
-    [persistDismiss]
+    [notifySplashDismissed, persistDismiss]
   );
 
   const handleHtpXClose = useCallback(() => {
@@ -107,6 +114,7 @@ export function SplashModal() {
     const tDone = setTimeout(() => {
       persistDismiss(true);
       setPanel("splash");
+      notifySplashDismissed();
       setOpen(false);
       xExitStartedRef.current = false;
       clearXExitTimers();

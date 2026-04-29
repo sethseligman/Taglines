@@ -37,6 +37,9 @@ const CAROUSEL_EASING_DEFAULT = "cubic-bezier(0.25, 0, 0.15, 1)";
 const CAROUSEL_EASING_SETTLE = "cubic-bezier(0.2, 0, 0, 1)";
 
 type Mode = "daily" | "practice";
+type IntroPhase = "lightsDown" | "taglineReveal" | "ready";
+const KEY_SPLASHED = "taglines-splashed";
+const SPLASH_DISMISSED_EVENT = "taglines:splash-dismissed";
 
 interface TmdbMovieMeta {
   movieImdbId: string | null;
@@ -101,6 +104,7 @@ export function GameScreen() {
   const [completionPosterError, setCompletionPosterError] = useState(false);
   const [completionTmdbMeta, setCompletionTmdbMeta] = useState<TmdbMovieMeta | null>(null);
   const [dailyCompletionJustAchieved, setDailyCompletionJustAchieved] = useState(false);
+  const [splashDismissed, setSplashDismissed] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -209,18 +213,34 @@ export function GameScreen() {
 
   /** Guess/hints UI hidden briefly on new session; tagline stays in normal layout (`hintSessionResetKey`), playing-only. */
   const introShownForKeyRef = useRef<string | null>(null);
-  const [taglineIntroActive, setTaglineIntroActive] = useState(false);
+  const introPhaseStartedAtRef = useRef(0);
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("lightsDown");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (localStorage.getItem(KEY_SPLASHED)) {
+        setSplashDismissed(true);
+        return;
+      }
+    } catch {
+      // If storage is unavailable, defer until splash emits dismissal event.
+    }
+    const onDismiss = () => setSplashDismissed(true);
+    window.addEventListener(SPLASH_DISMISSED_EVENT, onDismiss);
+    return () => window.removeEventListener(SPLASH_DISMISSED_EVENT, onDismiss);
+  }, []);
 
   useLayoutEffect(() => {
     const gameplayUiReady =
       !((mode === "daily" && loading) || (mode === "practice" && practiceMovie === null));
 
-    if (!gameplayUiReady) {
+    if (!gameplayUiReady || !splashDismissed) {
       return;
     }
 
     if (state.status !== "playing") {
-      setTaglineIntroActive(false);
+      setIntroPhase("ready");
       return;
     }
     if (introShownForKeyRef.current === hintSessionResetKey) return;
@@ -228,19 +248,43 @@ export function GameScreen() {
     introShownForKeyRef.current = hintSessionResetKey;
 
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setTaglineIntroActive(false);
+      setIntroPhase("ready");
       return;
     }
 
-    setTaglineIntroActive(true);
-  }, [hintSessionResetKey, state.status, mode, loading, practiceMovie]);
+    introPhaseStartedAtRef.current = Date.now();
+    setIntroPhase("lightsDown");
+  }, [hintSessionResetKey, state.status, mode, loading, practiceMovie, splashDismissed]);
 
-  /** End intro phase (guess UI hidden) on a timer — separate from layout so `loading`/deps churn does not clear the timeout. */
+  /** Intro sequence: lights down -> tagline reveal -> ready (input fades in). */
   useEffect(() => {
-    if (!taglineIntroActive) return;
-    const id = window.setTimeout(() => setTaglineIntroActive(false), 2800);
+    if (introPhase !== "lightsDown") return;
+    introPhaseStartedAtRef.current = Date.now();
+    const id = window.setTimeout(() => setIntroPhase("taglineReveal"), 800);
     return () => clearTimeout(id);
-  }, [taglineIntroActive]);
+  }, [introPhase]);
+
+  useEffect(() => {
+    if (introPhase !== "taglineReveal") return;
+    introPhaseStartedAtRef.current = Date.now();
+    const id = window.setTimeout(() => setIntroPhase("ready"), 2800);
+    return () => clearTimeout(id);
+  }, [introPhase]);
+
+  useEffect(() => {
+    if (introPhase === "ready" || state.status !== "playing") return;
+    const skipIntro = () => {
+      // Ignore the opening tap/click that started the session.
+      if (Date.now() - introPhaseStartedAtRef.current < 250) return;
+      setIntroPhase("ready");
+    };
+    window.addEventListener("pointerdown", skipIntro, { passive: true });
+    window.addEventListener("keydown", skipIntro);
+    return () => {
+      window.removeEventListener("pointerdown", skipIntro);
+      window.removeEventListener("keydown", skipIntro);
+    };
+  }, [introPhase, state.status]);
 
   const gameStatusRef = useRef(state.status);
   gameStatusRef.current = state.status;
@@ -1015,8 +1059,8 @@ export function GameScreen() {
           <main
             className={
               isDesktop
-                ? `flex flex-1 flex-col justify-start px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${taglineIntroActive ? "overflow-hidden" : ""}`
-                : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${taglineIntroActive ? "overflow-hidden" : ""}`
+                ? `flex flex-1 flex-col justify-start px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
+                : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
             }
           >
             <header
@@ -1035,9 +1079,11 @@ export function GameScreen() {
             <section
               className="relative mx-auto w-full max-w-lg px-1"
               style={
-                taglineIntroActive
-                  ? { animation: "taglineCinematicReveal 1200ms ease-out 300ms both" }
-                  : undefined
+                introPhase === "lightsDown"
+                  ? { opacity: 0 }
+                  : introPhase === "taglineReveal"
+                    ? { animation: "taglineCinematicReveal 600ms ease-out both" }
+                    : undefined
               }
             >
               <div
@@ -1054,8 +1100,8 @@ export function GameScreen() {
                     background:
                       "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
                     filter: "blur(10px)",
-                    animation: taglineIntroActive
-                      ? "taglineCinematicReveal 1400ms ease-out 600ms both"
+                    animation: introPhase === "taglineReveal"
+                      ? "taglineCinematicReveal 700ms ease-out 180ms both"
                       : undefined,
                   }}
                   aria-hidden
@@ -1074,7 +1120,7 @@ export function GameScreen() {
               </div>
             </section>
             <div className="mx-auto mt-8 flex w-full max-w-lg flex-col items-center">
-            {state.status === "playing" && !taglineIntroActive && (
+            {state.status === "playing" && introPhase === "ready" && (
               <div className="motion-safe:animate-[fadeIn_0.8s_ease-out_200ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
                 <div
                   className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
@@ -1451,33 +1497,6 @@ export function GameScreen() {
             )}
             </div>
         </main>
-
-        {taglineIntroActive && state.status === "playing" ? (
-          <div className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center bg-black px-6">
-            <div className="mx-auto w-full max-w-[min(92vw,44rem)] text-center motion-safe:animate-[fadeIn_950ms_ease-out_both] motion-reduce:animate-none">
-              <p
-                className="font-tagline-display text-foreground"
-                style={{
-                  fontStyle: "italic",
-                  fontSize: "clamp(1.65rem, 6.8vw, 3rem)",
-                  lineHeight: 1.16,
-                  textShadow: "0 0 40px rgba(201,169,110,0.12), 0 0 80px rgba(201,169,110,0.05)",
-                }}
-              >
-                {getHintBodyForLevel(state.movie, 0)}
-              </p>
-              <div
-                className="mx-auto mt-8"
-                style={{
-                  width: 24,
-                  height: 1,
-                  backgroundColor: "rgba(201, 169, 110, 0.4)",
-                }}
-                aria-hidden
-              />
-            </div>
-          </div>
-        ) : null}
 
         {showResult && (
           <ResultModal
