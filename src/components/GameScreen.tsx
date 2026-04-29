@@ -1442,6 +1442,33 @@ export function GameScreen() {
             </div>
         </main>
 
+        {taglineIntroActive && state.status === "playing" ? (
+          <div className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center bg-black px-6">
+            <div className="mx-auto w-full max-w-[min(92vw,44rem)] text-center motion-safe:animate-[fadeIn_950ms_ease-out_both] motion-reduce:animate-none">
+              <p
+                className="font-tagline-display text-foreground"
+                style={{
+                  fontStyle: "italic",
+                  fontSize: "clamp(1.65rem, 6.8vw, 3rem)",
+                  lineHeight: 1.16,
+                  textShadow: "0 0 40px rgba(201,169,110,0.12), 0 0 80px rgba(201,169,110,0.05)",
+                }}
+              >
+                {getHintBodyForLevel(state.movie, 0)}
+              </p>
+              <div
+                className="mx-auto mt-8"
+                style={{
+                  width: 24,
+                  height: 1,
+                  backgroundColor: "rgba(201, 169, 110, 0.4)",
+                }}
+                aria-hidden
+              />
+            </div>
+          </div>
+        ) : null}
+
         {showResult && (
           <ResultModal
             state={state}
