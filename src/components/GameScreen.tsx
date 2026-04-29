@@ -238,7 +238,7 @@ export function GameScreen() {
   /** End intro phase (guess UI hidden) on a timer — separate from layout so `loading`/deps churn does not clear the timeout. */
   useEffect(() => {
     if (!taglineIntroActive) return;
-    const id = window.setTimeout(() => setTaglineIntroActive(false), 3500);
+    const id = window.setTimeout(() => setTaglineIntroActive(false), 2800);
     return () => clearTimeout(id);
   }, [taglineIntroActive]);
 
@@ -1032,7 +1032,14 @@ export function GameScreen() {
                 {dpModeToggle}
               </div>
             </header>
-            <section className="relative mx-auto w-full max-w-lg px-1">
+            <section
+              className="relative mx-auto w-full max-w-lg px-1"
+              style={
+                taglineIntroActive
+                  ? { animation: "taglineCinematicReveal 1200ms ease-out 300ms both" }
+                  : undefined
+              }
+            >
               <div
                 className={`relative ${motionPad} ${
                   relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
@@ -1047,6 +1054,9 @@ export function GameScreen() {
                     background:
                       "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
                     filter: "blur(10px)",
+                    animation: taglineIntroActive
+                      ? "taglineCinematicReveal 1400ms ease-out 600ms both"
+                      : undefined,
                   }}
                   aria-hidden
                 />
@@ -1065,7 +1075,7 @@ export function GameScreen() {
             </section>
             <div className="mx-auto mt-8 flex w-full max-w-lg flex-col items-center">
             {state.status === "playing" && !taglineIntroActive && (
-              <div className="motion-safe:animate-[fadeIn_0.55s_ease-out_both] motion-reduce:animate-none flex w-full flex-col items-center">
+              <div className="motion-safe:animate-[fadeIn_0.8s_ease-out_200ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
                 <div
                   className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
                     relaxedVisual ? "mb-9 gap-5 md:mb-11 md:gap-6" : "mb-6 gap-3"
@@ -1486,6 +1496,14 @@ export function GameScreen() {
             100% {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+          @keyframes taglineCinematicReveal {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
             }
           }
           @keyframes hintFrameSlideIn {
