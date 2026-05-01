@@ -1195,7 +1195,7 @@ export function GameScreen() {
             >
               <div
                 className={`relative ${motionPad} ${
-                  relaxedVisual ? "pb-5 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
+                  relaxedVisual ? "pb-3 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
                 }`}
               >
                 <div
@@ -1217,21 +1217,17 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className={`w-full !py-8 md:!py-12 [&_p]:!italic ${motionMargin} ${
-                      relaxedVisual
-                        ? "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
-                        : "[&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-8 md:[&>div:last-child]:!mt-10"
-                    }`}
+                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:![font-size:clamp(1.15rem,min(5.25vw,0.95rem+3.25vh),2.45rem)] [&_p]:!leading-[1.06] md:[&_p]:![font-size:2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
                   />
                 </div>
               </div>
             </section>
-            <div className="mx-auto mt-8 flex w-full max-w-lg flex-col items-center">
+            <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center md:mt-8">
             {state.status === "playing" && introPhase === "ready" && (
               <div className="motion-safe:animate-[fadeIn_0.8s_ease-out_200ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
                 <div
                   className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
-                    relaxedVisual ? "mb-9 gap-5 md:mb-11 md:gap-6" : "mb-6 gap-3"
+                    relaxedVisual ? "mb-6 gap-4 md:mb-11 md:gap-6" : "mb-4 gap-3 md:mb-6"
                   }`}
                 >
                   {idleTooltipVisible && state.status === "playing" && (
@@ -1263,13 +1259,13 @@ export function GameScreen() {
 
                 <hr
                   className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${motionMargin} ${
-                    relaxedVisual ? "my-7 md:my-9" : "my-6"
+                    relaxedVisual ? "my-4 md:my-9" : "my-4 md:my-6"
                   }`}
                 />
 
                 <section
-                  className={`flex w-full max-w-md shrink-0 flex-col items-stretch ${motionGap} ${
-                    relaxedVisual ? "gap-5 md:gap-6" : "gap-3"
+                  className={`flex w-full max-w-md shrink-0 flex-col items-stretch scroll-mt-6 ${motionGap} ${
+                    relaxedVisual ? "gap-3 md:gap-6" : "gap-2 md:gap-3"
                   }`}
                 >
                   <div className="w-full">
