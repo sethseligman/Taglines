@@ -1217,7 +1217,7 @@ export function GameScreen() {
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:![font-size:clamp(1.15rem,min(5.25vw,0.95rem+3.25vh),2.45rem)] [&_p]:!leading-[1.06] md:[&_p]:![font-size:2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
+                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
                   />
                 </div>
               </div>
