@@ -1,8 +1,12 @@
 /**
- * Bulk-load AI hints into movies.hint_1..hint_4 from scripts/hints.json.
+ * Bulk-load AI hints into movies.hint_1..hint_4 from JSON or CSV.
  *
  * Usage:
  *   npx tsx scripts/loadHints.ts
+ *   npx tsx scripts/loadHints.ts "scripts/HINT GENERATOR/taglines_hints_output.csv"
+ *
+ * Default source: scripts/hints.json
+ * CSV columns: title, year, hint_1, hint_2, hint_3, hint_4
  *
  * Required env (loads .env from project root if present):
  *   NEXT_PUBLIC_SUPABASE_URL
@@ -35,7 +39,84 @@ function loadEnv(): void {
   });
 }
 
-function readHintsFile(): HintRow[] {
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!;
+    if (c === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += c;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function readHintsFromCsv(filePath: string): HintRow[] {
+  const raw = readFileSync(filePath, "utf8");
+  const lines = raw.trim().split("\n");
+  if (lines.length < 2) {
+    throw new Error("CSV is empty or has no data rows");
+  }
+  const headers = parseCsvLine(lines[0]!);
+  const titleIdx = headers.indexOf("title");
+  const yearIdx = headers.indexOf("year");
+  const h1 = headers.indexOf("hint_1");
+  const h2 = headers.indexOf("hint_2");
+  const h3 = headers.indexOf("hint_3");
+  const h4 = headers.indexOf("hint_4");
+  if (titleIdx < 0 || yearIdx < 0 || h1 < 0 || h2 < 0 || h3 < 0 || h4 < 0) {
+    throw new Error(
+      "CSV must include columns: title, year, hint_1, hint_2, hint_3, hint_4"
+    );
+  }
+
+  const out: HintRow[] = [];
+  for (let lineNum = 1; lineNum < lines.length; lineNum++) {
+    const line = lines[lineNum]!;
+    if (!line.trim()) continue;
+    const values = parseCsvLine(line);
+    const yearNum = Number(values[yearIdx]);
+    const row: Partial<HintRow> = {
+      title: values[titleIdx]?.replace(/^"|"$/g, "") ?? "",
+      year: yearNum,
+      hint_1: values[h1] ?? "",
+      hint_2: values[h2] ?? "",
+      hint_3: values[h3] ?? "",
+      hint_4: values[h4] ?? "",
+    };
+    const idx = lineNum + 1;
+    if (!row.title?.trim()) throw new Error(`Row ${idx}: missing title`);
+    if (!Number.isFinite(yearNum)) throw new Error(`Row ${idx}: invalid year`);
+    for (const k of ["hint_1", "hint_2", "hint_3", "hint_4"] as const) {
+      if (typeof row[k] !== "string") {
+        throw new Error(`Row ${idx}: missing '${k}'`);
+      }
+    }
+    out.push({
+      title: row.title.trim(),
+      year: yearNum,
+      hint_1: row.hint_1!.trim(),
+      hint_2: row.hint_2!.trim(),
+      hint_3: row.hint_3!.trim(),
+      hint_4: row.hint_4!.trim(),
+    });
+  }
+  return out;
+}
+
+function readHintsFromJson(): HintRow[] {
   const hintsPath = resolve(process.cwd(), "scripts", "hints.json");
   if (!existsSync(hintsPath)) {
     throw new Error(`Missing hints file at ${hintsPath}`);
@@ -86,6 +167,21 @@ function readHintsFile(): HintRow[] {
       hint_4: (r.hint_4 as string).trim(),
     };
   });
+}
+
+function readHintsFile(): HintRow[] {
+  const arg = process.argv[2];
+  if (arg) {
+    const p = resolve(process.cwd(), arg);
+    if (!existsSync(p)) {
+      throw new Error(`File not found: ${p}`);
+    }
+    if (p.toLowerCase().endsWith(".csv")) {
+      return readHintsFromCsv(p);
+    }
+    throw new Error("When passing an argument, use a path to a .csv file (or omit for hints.json)");
+  }
+  return readHintsFromJson();
 }
 
 async function main(): Promise<void> {

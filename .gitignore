@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Hint generator local resume state
+scripts/HINT GENERATOR/taglines_progress.json

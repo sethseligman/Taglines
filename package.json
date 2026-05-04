@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:suggestions": "tsx scripts/buildSuggestionCatalog.ts"
+    "build:suggestions": "tsx scripts/buildSuggestionCatalog.ts",
+    "load:hints": "tsx scripts/loadHints.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
