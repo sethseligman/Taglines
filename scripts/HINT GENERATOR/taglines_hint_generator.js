@@ -71,7 +71,7 @@ const STEP_COOLDOWN_MS =
 const SKIP_CRITIC = /^1|true|yes$/i.test(String(process.env.HINT_GEN_SKIP_CRITIC || ""));
 const INPUT_CSV = path.join(
   __dirname,
-  "Supabase Snippet Primary Movie Taglines Lookup.csv"
+  "Supabase Snippet Primary Movie Taglines Lookup_with_directors.csv"
 );
 const OUTPUT_CSV = path.join(__dirname, "taglines_hints_output.csv");
 const PROGRESS_FILE = path.join(__dirname, "taglines_progress.json"); // resume if interrupted
@@ -111,27 +111,65 @@ That person is:
 - Roger Ebert — genuine authority, real love of film, earned opinions
 - David Spade — dry roast, economy of language, punchline lands and moves on
 - Conan O'Brien — warmth underneath the absurdism, timing, never mean-spirited
-All three simultaneously. Every hint. Every movie. The narrator has seen everything, expects the player to have seen everything, and is mildly disappointed when they haven't. Not cruel. The disappointment is fond. The enjoyment of delivering these hints must be audible in every sentence.
+All three simultaneously. Every hint. Every movie.
 
-THE ARC — MANDATORY
-All four hints for one movie must read as a single personality evolving. Not clues getting easier — emotions escalating.
+THE CORE PRINCIPLE — READ THIS TWICE
+The narrator is not a film encyclopedia. The narrator is a person with opinions.
+Every hint must contain a TAKE on the film, not a REPORT about it.
+If a sentence could appear in a Wikipedia article unchanged, it is a failure.
+The narrator's attitude — amusement, eye-roll, reverence, exasperation, fondness, contempt — must be visible in every hint.
 
-H1 — Smug withholding. The narrator knows. The player doesn't. The clue is oblique. The narrator is savoring the puzzle. Somewhere in H1 or H2, anchor the film in time or authorship — the decade, a cultural moment, a filmmaker's signature, a famous actor described without naming them. Use judgment. Do NOT stamp the year mechanically into every H1.
+THE ARC — WHO THE NARRATOR IS TALKING TO
 
-H2 — Mild surprise. The player didn't get it. The narrator recalibrates. More specific, still indirect. The narrator's mild surprise at the player's continued presence is now audible.
+H1 — Narrator thinks out loud about the film. Player overhears. The narrator has a TAKE — an opinion, a wry observation, a reaction. The film is the subject. The player is not yet addressed.
 
-H3 — Turn directly to the player. Address them personally. The film becomes secondary. The player's failure is the subject. Use the H3 opener assigned to this movie exactly as written. Do not change it, paraphrase it, or deviate from it.
+H2 — Same target as H1, narrowed. The take sharpens. Mild surprise the player didn't get it yet may be audible but is not the subject. Still about the film, with attitude.
 
-H4 — Last card, played with flair. Near-giveaway. Fast. Decisive. The narrator enjoys delivering it. The answer should burst out of the sentence rather than be described. Must have personality. A plot summary is a failure.
+H3 — STRUCTURAL PIVOT. The narrator turns and addresses the player directly. The film becomes secondary. The player is the subject. Begin H3 with the assigned opener verbatim — no edits, no paraphrase.
 
-HARD RULES
+H4 — The reveal, landed with flair. Not a description. A punchline. A specific image, quote, or detail that bursts the answer out of the sentence. The narrator enjoys delivering it.
+
+THE YEAR / DIRECTOR / ACTOR HANDLE — MANDATORY IN H1 OR H2
+Somewhere in H1 or H2, the player must get a handle to triangulate from:
+- The decade or year, plainly stated
+- A famous actor described WITHOUT naming them
+- A director's signature WITHOUT naming them
+- A cultural moment that locates the film in time
+
+The handle is information the player needs. It is not optional. But it must be embedded in a sentence that has a TAKE — not announced as a fact.
+
+WIKIPEDIA TEST — APPLY TO EVERY H1 AND H2
+After writing H1 and H2, ask: could this sentence appear in a Wikipedia article unchanged? If yes, rewrite. The narrator's attitude must be visible.
+
+Bad H1 (reports): "In 1980, audiences learned that checking into a hotel can come with axe-wielding writers, creepy twins, and a need to second-guess your winter vacation plans."
+
+Better H1 (has a take): "1980. The era of jogging suits and Pac-Man gives us a haunted hotel where the wallpaper has opinions and the typewriter has more to say than the man using it."
+
+Same year. Same film. The second one has attitude.
+
+HARD RULES — VIOLATIONS WILL BE CAUGHT MECHANICALLY
+
+CHARACTER LIMIT — STRICTLY ENFORCED
+- Each hint must be 160 characters or fewer. This is a hard ceiling.
+- No minimum. A 50-character hint that lands is better than a 160-character hint that meanders.
+- If a hint exceeds 160 characters, cut ruthlessly. The punchline stays. The setup gets trimmed.
+- Count includes all punctuation and spaces.
+
+- Never write the movie title in any hint. Not as a quote, not as a pun, not as a reveal. The Critic will string-match.
+- Never write the director's name in any hint. The Critic will string-match.
+- Never write any cast member's name in any hint. The Critic will string-match.
+- Never reference the tagline in any hint.
+- Never use phrases like "a certain director" or "a particular filmmaker" to describe the director. If you can't name them (you can't), describe the film's signature without referencing authorship.
+- Character first names are forbidden in H1 and H2. Only use character names in H3 or H4, and only when they help triangulate.
+- One reference per hint. One joke, one image, one point. Do not stack multiple references in a single hint.
 - One sentence per hint. Two only if the second is a punchline.
-- Never name the director, cast, or title directly.
-- Never reference the tagline.
-- H4 must be funny or cutting. Never purely descriptive.
+- H4 must be funny, cutting, or specific. Never a plot summary. Never a list of plot beats with no attitude.
 - If the movie title appears in the tagline, note [TAGLINE CONFLICT] after that movie's hints.
 
-QUALITY STANDARD — HOLD EVERY HINT AGAINST THESE
+H3 OPENER RULE
+H3 must begin with the exact opener assigned to that movie in the batch input. Verbatim. No edits. The opener marks the structural pivot from "thinking about the film" to "talking to the player."
+
+QUALITY EXAMPLES — HOLD EVERY HINT AGAINST THESE
 
 A Quiet Place (2018)
 H1: A 2018 film built its entire tension around the involuntary sounds a human body makes, which is either brilliant filmmaking or an indictment of how loudly you eat.
@@ -151,17 +189,40 @@ H2: A woman arrives at an all-male newsroom to do the same job and the men respo
 H3: You haven't gotten this, which tells me either you've never seen it or you've blocked it out because you've quoted it too many times and it's lost all meaning.
 H4: San Diego. Ron Burgundy. "I'm kind of a big deal." A man who will read literally anything off a teleprompter. Literally. Anything.
 
-KNOWN FAILURE MODES — AVOID THESE
-- Stamping the year mechanically into every H1 with no personality around it
-- H3 opening with anything other than the exact assigned opener
-- H4 that just describes the plot
-- Hints that sound like a Wikipedia summary
-- Voice that starts strong and gets generic by movie 7-8
-- H2 that's just a slightly easier version of H1 with no emotional escalation
+Fight Club (1999)
+H1: A 1999 film insisted that what young men in white-collar jobs really needed was to start hitting each other in basements, and a generation of moviegoers found this surprisingly persuasive.
+H2: An insomniac office worker meets a soap salesman and within twenty minutes they've started a movement, which is either a critique of late-stage capitalism or proof of what happens when you stop sleeping.
+H3: At this point I have to ask — are we going to keep pretending none of us know the first rule?
+H4: An entire generation thought this movie was about how cool it would be to start a basement boxing club. The movie was not, in fact, about that.
 
-SELF-CHECK BEFORE OUTPUTTING
-Read every H4. If more than one reads like a plot summary, rewrite before returning.
-Read every H3 opener. Confirm each matches the assigned opener exactly.
+The Sixth Sense (1999)
+H1: A 1999 thriller built its entire reputation on a final reveal so well-executed that for two years afterward, nobody could discuss it at parties without someone shushing them.
+H2: A child psychologist takes on a young patient who keeps reporting visitors that no one else can see, and the resulting therapy sessions get less professional and more cosmic.
+H3: I want you to think carefully about what you actually know — particularly about wedding rings, color symbolism, and which characters in this film actually order their own dinner.
+H4: The kid sees dead people. There — half the work is done. Now connect the second half and stop letting me carry this.
+
+The Hangover (2009)
+H1: Las Vegas bachelor parties were already a gamble, but this one raised the stakes to include a tiger, a missing tooth, and the kind of morning-after that makes you reconsider friendship.
+H2: When your best clue to the previous night is a polaroid and a baby, you've either had the time of your life or committed several felonies.
+H3: You've seen this. The rooftop, the chapel, the Mike Tyson cameo — if none of this is ringing bells, check your own photo roll.
+H4: What happens in Vegas was supposed to stay there, but the groom didn't, and now three idiots are retracing their steps through one very expensive mistake.
+
+KNOWN FAILURE MODES — DO NOT DO THESE
+- Stamping the year as a Wikipedia opener with no take ("In 1980, audiences...")
+- H4 that names the title, even celebratorily ("it's Beetlejuice!")
+- H4 that lists plot beats with no punchline
+- Hints that are clever about the film instead of having a take on it
+- Sentences that don't parse — incoherent wordplay, stretched metaphors, mixed images
+- H2 that's a slightly easier H1 with no escalation of attitude
+- Voice that gets generic by the third or fourth movie in a batch
+
+SELF-CHECK BEFORE OUTPUTTING — RUN ON EVERY MOVIE
+1. Does H1 have a take, or is it reporting? Wikipedia test.
+2. Does H2 sharpen the take, or is it a softer H1?
+3. Does H3 begin with the assigned opener verbatim?
+4. Does H4 have personality, or is it a plot summary?
+5. Is the year/director/actor handle present in H1 or H2, embedded in attitude (not announced as fact)?
+6. Have I named the title, director, or any cast member anywhere? If yes, rewrite.
 
 OUTPUT FORMAT — CRITICAL: follow this exactly, one movie per block
 MOVIE: [Title]
@@ -174,35 +235,46 @@ H4: [hint]
 // ── CRITIC AGENT PROMPT ───────────────────────────────────────────────────────
 const CRITIC_SYSTEM = `You are the quality control agent for Taglines hint batches. You do not write. You do not rewrite. You evaluate and report. Your job is to catch drift before it compounds.
 
-You receive a completed batch of hints from the Writer Agent plus the original batch input. You run a mechanical checklist against every hint. You return either BATCH APPROVED or a specific failure list.
+You receive a completed batch of hints from the Writer Agent plus the original batch input. You run a checklist against every hint. You return either BATCH APPROVED or a specific failure list.
+
+CRITICAL: Be strict. If you are uncertain whether a hint passes or fails, FLAG IT. The cost of flagging a borderline hint is one rewrite. The cost of approving a bad hint is shipping bad voice.
 
 THE CHECKLIST — RUN FOR EVERY MOVIE
 
+CHARACTER COUNT CHECK — RUN ON EVERY HINT
+- Count the characters in each hint (H1, H2, H3, H4). Include all punctuation and spaces.
+- If any hint exceeds 160 characters → FLAG with the character count.
+- This is a hard limit. No exceptions.
+
 H1 CHECKS
-- Does H1 stamp the year mechanically with no personality? (e.g. "This 1987 film...") → FLAG
-- Does H1 name the director, cast member, or film title directly? → FLAG
+- WIKIPEDIA TEST: Could this sentence appear unchanged in a Wikipedia article? If yes → FLAG. The narrator must have a visible take.
+- Does H1 read as a report of facts rather than an opinion about the film? → FLAG
+- Does H1 stamp the year as a header ("In 1980,..." / "In 1972,...") without earning it through attitude in the same sentence? → FLAG
+- Is H1 incoherent — wordplay that doesn't parse, stretched metaphors, mixed images? → FLAG
 - Does H1 reference the tagline? → FLAG
-- Does H1 read like a Wikipedia opening sentence? → FLAG
 
 H2 CHECKS
-- Is H2 just a slightly easier restatement of H1 with no emotional escalation? → FLAG
-- Does H2 name the director, cast member, or film title directly? → FLAG
+- WIKIPEDIA TEST: same as H1. → FLAG if it reads as reporting.
+- Does H2 sharpen the take from H1, or is it just a slightly easier restatement? → FLAG if no escalation of attitude.
 - Does H2 reference the tagline? → FLAG
 
+H1+H2 HANDLE CHECK
+- Does at least one of H1 or H2 give the player a handle to triangulate from — year, decade, an actor described not named, a director's signature, a cultural moment? → FLAG if the player has no era or authorship anchor across H1 and H2.
+
 H3 CHECKS
-- Does H3 open with the EXACT opener assigned in the batch input? If not → FLAG and state assigned vs used
-- Does H3 address the player personally? If it's still describing the film → FLAG
-- Does H3 open with the same phrase as any other H3 in this batch? → FLAG both
+- Does H3 begin with the EXACT opener assigned in the batch input? → FLAG and state assigned vs used.
+- Does H3 actually pivot to addressing the player, or does it slip back into describing the film after the opener? → FLAG if the rest of H3 is film description with no second-person engagement.
+- Does any other H3 in this batch open with the same phrase? → FLAG both.
 
 H4 CHECKS
-- Does H4 read like a plot summary? → FLAG
-- Is H4 purely descriptive with no personality, humor, or cut? → FLAG
-- Does H4 name the director, cast member, or film title directly? → FLAG
-- Could H4 apply to three other movies? (too generic) → FLAG
+- Does H4 have personality — humor, a cut, a punchline, a specific image? → FLAG if purely descriptive.
+- Does H4 read like a list of plot beats with no attitude? → FLAG.
+- Does H4 announce the title celebratorily ("it's [Title]!" / "you're guessing [Title]!" / "the answer is [Title]!")? → FLAG. This is a hard violation.
+- Could H4 apply to three other movies? Too generic? → FLAG.
 
-ARC CHECKS
-- Do the four hints read as one personality escalating, or four disconnected facts? → FLAG if disconnected
-- Does the voice stay consistent, or go generic by H3/H4? → FLAG if it drops off
+ARC CHECK
+- Do the four hints read as one personality at different distances from the player (thinking aloud → thinking aloud → turning to the player → landing the reveal), or four disconnected facts? → FLAG if disconnected.
+- Does the voice stay consistent, or go generic by H3 or H4? → FLAG if it drops off.
 
 OUTPUT FORMAT — CRITICAL: use exactly one of these two formats and nothing else.
 
@@ -217,13 +289,13 @@ FAILED_MOVIES: [Title1], [Title2]
 [Title] — H[#]: [specific problem]
 [Title] — H[#]: [specific problem]
 
-Do not add any other commentary. Do not rewrite. Do not suggest fixes. Just evaluate and report.`;
+Do not add other commentary. Do not rewrite. Do not suggest fixes. Evaluate and report.`;
 
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
 function parseCSV(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
-  const lines = content.trim().split("\n");
-  const headers = parseCSVLine(lines[0]);
+  const lines = content.trim().split(/\r?\n/);
+  const headers = parseCSVLine(lines[0]).map((h) => h.trim());
   return lines.slice(1).map((line) => {
     const values = parseCSVLine(line);
     return headers.reduce((obj, header, i) => {
@@ -241,13 +313,13 @@ function parseCSVLine(line) {
     if (line[i] === '"') {
       inQuotes = !inQuotes;
     } else if (line[i] === "," && !inQuotes) {
-      result.push(current.trim());
+      result.push(current.trim().replace(/\r$/, ""));
       current = "";
     } else {
       current += line[i];
     }
   }
-  result.push(current.trim());
+  result.push(current.trim().replace(/\r$/, ""));
   return result;
 }
 
@@ -415,7 +487,7 @@ function buildBatchInput(movies, batchNumber) {
 
   movies.forEach((movie, i) => {
     const opener = H3_OPENERS[(openerOffset + i) % H3_OPENERS.length];
-    input += `${i + 1}. ${movie.title} (${movie.year}) | Genre: ${movie.genre} | Cast: ${movie.cast_hint} | Plot: ${movie.plot_hint} | Tagline: ${movie.tagline_text} | H3 OPENER: ${opener}\n`;
+    input += `${i + 1}. ${movie.title} (${movie.year}) | Genre: ${movie.genre} | Cast: ${movie.cast_hint}${movie.director ? ` | Director: ${movie.director}` : ""} | Plot: ${movie.plot_hint} | Tagline: ${movie.tagline_text} | H3 OPENER: ${opener}\n`;
   });
 
   return input;
@@ -566,6 +638,193 @@ function parseCriticOutput(output) {
   return { approved, failedMovies };
 }
 
+// ── MECHANICAL PRE-FLIGHT CHECK ───────────────────────────────────────────────
+// Runs BEFORE the LLM Critic. Catches hard-rule violations the LLM keeps missing.
+// Returns { passed: boolean, failures: Array<{title, hint, reason}> }
+
+/** Lowercase — words that are never treated as distinctive title tokens for mechanical ban. */
+const MECHANICAL_TITLE_COMMON_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "and",
+  "or",
+  "but",
+  "with",
+  "from",
+  "by",
+  // Often title-cased but safe as ordinary vocabulary in hints (e.g. "A Space Odyssey")
+  "space",
+]);
+
+/** Lowercase tokens that must always be forbidden as title-word matches (short franchise names, etc.). */
+const MECHANICAL_DISTINCTIVE_TITLE_NAMES = new Set([
+  // Add as needed, e.g. "mcfly"
+]);
+
+function stripMechanicalTitleToken(token) {
+  return token.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "");
+}
+
+/**
+ * Title words to ban in hints (whole title string is always banned separately).
+ * A token is banned if ANY: len >= 7, distinctive list, or proper-noun-like and not a common word.
+ */
+function mechanicalForbiddenTitleWords(title) {
+  if (!title) return [];
+  const seen = new Set();
+  const out = [];
+  for (const raw of title.split(/\s+/)) {
+    const token = stripMechanicalTitleToken(raw);
+    if (!token) continue;
+    const lower = token.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+
+    if (MECHANICAL_DISTINCTIVE_TITLE_NAMES.has(lower)) {
+      out.push(token);
+      continue;
+    }
+    if (token.length >= 7) {
+      out.push(token);
+      continue;
+    }
+    const letterIdx = token.search(/[A-Za-z]/);
+    if (letterIdx === -1) continue;
+    const firstLetter = token[letterIdx];
+    const isCapitalizedProperShape =
+      firstLetter === firstLetter.toUpperCase() &&
+      firstLetter !== firstLetter.toLowerCase() &&
+      !MECHANICAL_TITLE_COMMON_WORDS.has(lower);
+    if (isCapitalizedProperShape) {
+      out.push(token);
+    }
+  }
+  return out;
+}
+
+function mechanicalPreflight(parsedHints, movies) {
+  const failures = [];
+
+  for (let i = 0; i < movies.length; i++) {
+    const movie = movies[i];
+    const hints = parsedHints[i];
+    if (!hints) continue;
+
+    /** @type {{ str: string; kind: string }[]} */
+    const forbidden = [];
+
+    if (movie.title) {
+      forbidden.push({ str: movie.title, kind: "title" });
+      mechanicalForbiddenTitleWords(movie.title).forEach((w) =>
+        forbidden.push({ str: w, kind: "title-word" })
+      );
+    }
+
+    if (movie.director) {
+      movie.director.split(/[,;]/).forEach((d) => {
+        const name = d.trim();
+        if (name) {
+          forbidden.push({ str: name, kind: "director" });
+          const lastName = name.split(/\s+/).pop();
+          if (lastName && lastName.length >= 3) {
+            forbidden.push({ str: lastName, kind: "director-lastname" });
+          }
+        }
+      });
+    }
+
+    if (movie.cast_hint) {
+      movie.cast_hint.split(/[,;]/).forEach((c) => {
+        const name = c.trim();
+        if (!name) return;
+        forbidden.push({ str: name, kind: "cast" });
+        const lastName = name.split(/\s+/).pop();
+        if (lastName && lastName.length >= 4) {
+          forbidden.push({ str: lastName, kind: "cast-lastname" });
+        }
+      });
+    }
+
+    ["hint_1", "hint_2", "hint_3", "hint_4"].forEach((key, idx) => {
+      const hintText = hints[key] || "";
+      if (!hintText) return;
+
+      forbidden.forEach(({ str, kind }) => {
+        if (!str) return;
+        const lowerStr = str.toLowerCase();
+        const pattern = new RegExp(
+          `\\b${lowerStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+          "i"
+        );
+        if (pattern.test(hintText)) {
+          failures.push({
+            title: movie.title,
+            hint: `H${idx + 1}`,
+            reason: `Forbidden ${kind} string found: "${str}"`,
+          });
+        }
+      });
+    });
+  }
+
+  return {
+    passed: failures.length === 0,
+    failures,
+  };
+}
+
+// ── CHARACTER COUNT CHECK ────────────────────────────────────────────────────
+// Enforces 160-character limit per hint. Returns same shape as mechanicalPreflight.
+
+function characterCountCheck(parsedHints, movies) {
+  const failures = [];
+  const CHAR_LIMIT = 160;
+
+  for (let i = 0; i < movies.length; i++) {
+    const movie = movies[i];
+    const hints = parsedHints[i];
+    if (!hints) continue;
+
+    ["hint_1", "hint_2", "hint_3", "hint_4"].forEach((key, idx) => {
+      const hintText = hints[key] || "";
+      if (!hintText) return;
+
+      const charCount = hintText.length;
+      if (charCount > CHAR_LIMIT) {
+        failures.push({
+          title: movie.title,
+          hint: `H${idx + 1}`,
+          reason: `Exceeds ${CHAR_LIMIT} char limit (${charCount} chars)`,
+        });
+      }
+    });
+  }
+
+  return {
+    passed: failures.length === 0,
+    failures,
+  };
+}
+
+function formatHintsAsWriterOutput(hintRows, movies) {
+  return hintRows
+    .map((h, idx) => {
+      const m = movies[idx];
+      if (h && (h.hint_1 || h.hint_2 || h.hint_3 || h.hint_4)) {
+        return `MOVIE: ${h.title}\nH1: ${h.hint_1}\nH2: ${h.hint_2}\nH3: ${h.hint_3}\nH4: ${h.hint_4}\n---`;
+      }
+      return `MOVIE: ${m.title}\nH1:\nH2:\nH3:\nH4:\n---`;
+    })
+    .join("\n");
+}
+
 // ── BUILD REWRITE REQUEST ─────────────────────────────────────────────────────
 function buildRewriteRequest(failedMovies, allMovies, batchNumber, criticFeedback) {
   const openerOffset = ((batchNumber - 1) * BATCH_SIZE) % H3_OPENERS.length;
@@ -580,7 +839,7 @@ function buildRewriteRequest(failedMovies, allMovies, batchNumber, criticFeedbac
     if (movieIndex >= 0) {
       const movie = allMovies[movieIndex];
       const opener = H3_OPENERS[(openerOffset + movieIndex) % H3_OPENERS.length];
-      request += `MOVIE: ${movie.title} (${movie.year})\nGenre: ${movie.genre}\nCast: ${movie.cast_hint}\nPlot: ${movie.plot_hint}\nTagline: ${movie.tagline_text}\nH3 OPENER: ${opener}\n\n---\n\n`;
+      request += `MOVIE: ${movie.title} (${movie.year})\nGenre: ${movie.genre}\nCast: ${movie.cast_hint}\n${movie.director ? `Director: ${movie.director}\n` : ""}Plot: ${movie.plot_hint}\nTagline: ${movie.tagline_text}\nH3 OPENER: ${opener}\n\n---\n\n`;
     }
   });
 
@@ -633,10 +892,80 @@ async function processBatch(movies, batchNumber) {
       continue;
     }
 
-    const parsedHints = parseWriterOutput(writerOutput, movies);
+    let parsedHints = parseWriterOutput(writerOutput, movies);
     lastPerMovie = mergeRewritesIntoBatch(parsedHints, [], movies);
-    const got = parsedHints.filter(Boolean).length;
+    let got = parsedHints.filter(Boolean).length;
     console.log(`  ✓ Writer returned ${got}/${movies.length} movies (title-aligned)`);
+
+    const MAX_MECHANICAL_ROUNDS = 3;
+    let mechanicalRound = 0;
+    while (mechanicalRound < MAX_MECHANICAL_ROUNDS) {
+      const preflightResult = mechanicalPreflight(parsedHints, movies);
+      const charCheckResult = characterCountCheck(parsedHints, movies);
+      if (preflightResult.passed && charCheckResult.passed) break;
+
+      mechanicalRound++;
+      if (!preflightResult.passed) {
+        console.log(`  ⚠  Mechanical pre-flight failed — ${preflightResult.failures.length} violations`);
+        preflightResult.failures.forEach((f) => {
+          console.log(`    ${f.title} — ${f.hint}: ${f.reason}`);
+        });
+      }
+      if (!charCheckResult.passed) {
+        console.log(
+          `  ⚠  Character count violations — ${charCheckResult.failures.length} hints too long`
+        );
+        charCheckResult.failures.forEach((f) => {
+          console.log(`    ${f.title} — ${f.hint}: ${f.reason}`);
+        });
+      }
+
+      const allFailures = [...preflightResult.failures, ...charCheckResult.failures];
+      const failedTitles = [...new Set(allFailures.map((f) => f.title))];
+      const revisionNotes = failedTitles
+        .map((title) => {
+          const movieFailures = allFailures.filter((f) => f.title === title);
+          return `${title} — ${movieFailures.map((f) => `${f.hint}: ${f.reason}`).join("; ")}`;
+        })
+        .join("\n");
+      const mechanicalUserMsg =
+        `The following movies have violations that must be fixed:\n\n${revisionNotes}\n\nRewrite ONLY the flagged movies. Each hint must be 160 characters or fewer. Never include the movie title, director names, or cast names in hint text.\n\n` +
+        buildRewriteRequest(failedTitles, movies, batchNumber, revisionNotes);
+
+      await delay(STEP_COOLDOWN_MS);
+      console.log(`  ✍  Mechanical rewrite — round ${mechanicalRound}/${MAX_MECHANICAL_ROUNDS}...`);
+      let mechOut;
+      try {
+        mechOut = await callLLM(WRITER_SYSTEM, mechanicalUserMsg);
+      } catch (err) {
+        if (err.code === "LLM_ACCOUNT") {
+          console.error(`  ✗ ${err.message}`);
+          throw err;
+        }
+        console.error(`  ✗ Mechanical rewrite API error: ${err.message}`);
+        await delay(5000);
+        break;
+      }
+      const rewrittenHints = parseWriterOutput(mechOut, movies);
+      const mergedAligned = mergeRewritesIntoBatch(parsedHints, rewrittenHints, movies);
+      parsedHints = movies.map((_, i) => mergedAligned[i] || parsedHints[i] || null);
+      lastPerMovie = mergeRewritesIntoBatch(parsedHints, [], movies);
+      got = parsedHints.filter(Boolean).length;
+      console.log(`  ✓ After mechanical merge: ${got}/${movies.length} movies`);
+    }
+
+    const preflightStill = !mechanicalPreflight(parsedHints, movies).passed;
+    const charStill = !characterCountCheck(parsedHints, movies).passed;
+    if (preflightStill || charStill) {
+      const gateParts = [];
+      if (preflightStill) gateParts.push("title/cast/director strings");
+      if (charStill) gateParts.push("160-char limit");
+      console.warn(
+        `  ⚠  Mechanical gate still failing after ${MAX_MECHANICAL_ROUNDS} round(s) (${gateParts.join("; ")}) — continuing to LLM critic`
+      );
+    }
+
+    const effectiveWriterOutput = formatHintsAsWriterOutput(parsedHints, movies);
 
     if (SKIP_CRITIC) {
       console.warn(
@@ -649,7 +978,7 @@ async function processBatch(movies, batchNumber) {
     await delay(STEP_COOLDOWN_MS);
 
     console.log(`  🔍 Critic Agent reviewing...`);
-    const criticInput = `ORIGINAL BATCH INPUT:\n${batchInput}\n\nWRITER OUTPUT:\n${writerOutput}`;
+    const criticInput = `ORIGINAL BATCH INPUT:\n${batchInput}\n\nWRITER OUTPUT:\n${effectiveWriterOutput}`;
 
     let criticOutput;
     try {
@@ -800,6 +1129,17 @@ function writeOutputCSV(results) {
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 async function main() {
+  const limitArg = process.argv.find((arg) => arg.startsWith("--limit="));
+  const parsedLimit =
+    limitArg && limitArg.includes("=")
+      ? Number.parseInt(limitArg.split("=")[1], 10)
+      : NaN;
+  const movieLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
+
+  if (movieLimit) {
+    console.log(`⚠️  LIMIT MODE: Processing only first ${movieLimit} movies`);
+  }
+
   if (LLM_PROVIDER === "openai") {
     if (!OPENAI_API_KEY) {
       console.error("ERROR: HINT_GEN_PROVIDER=openai but OPENAI_API_KEY is not set.");
@@ -824,8 +1164,11 @@ async function main() {
   );
   console.log(`Batch size: ${BATCH_SIZE} | Step cooldown: ${STEP_COOLDOWN_MS}ms${SKIP_CRITIC ? " | Critic: OFF" : ""}`);
 
-  const movies = parseCSV(INPUT_CSV);
-  console.log(`Loaded ${movies.length} movies from CSV`);
+  let movies = parseCSV(INPUT_CSV);
+  if (movieLimit) {
+    movies = movies.slice(0, movieLimit);
+  }
+  console.log(`Loaded ${movies.length} movies from CSV${movieLimit ? ` (limited to ${movieLimit})` : ""}`);
 
   const progress = loadProgress();
   console.log(`Completed batches so far: ${progress.completedBatches.length}`);

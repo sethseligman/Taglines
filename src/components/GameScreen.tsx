@@ -2,6 +2,7 @@
 
 import {
   type PointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -50,6 +51,108 @@ interface TmdbMovieMeta {
   imdbRating: number | null;
   director: { name: string; imdbId: string | null } | null;
   cast: Array<{ name: string; imdbId: string | null }>;
+}
+
+function useAutoFitFontSize(
+  textRef: RefObject<HTMLElement | null>,
+  containerRef: RefObject<HTMLElement | null>,
+  options: { min: number; max: number; deps?: ReadonlyArray<unknown> }
+): number {
+  const { min, max, deps = [] } = options;
+  const [fontSize, setFontSize] = useState(max);
+
+  useLayoutEffect(() => {
+    const textEl = textRef.current;
+    const containerEl = containerRef.current;
+    if (!textEl || !containerEl) return;
+
+    let rafId: number | null = null;
+
+    const fit = () => {
+      const t = textRef.current;
+      const c = containerRef.current;
+      if (!t || !c) return;
+
+      let size = max;
+      t.style.fontSize = `${size}px`;
+
+      while (size > min && (t.scrollHeight > c.clientHeight || t.scrollWidth > c.clientWidth)) {
+        size -= 1;
+        t.style.fontSize = `${size}px`;
+      }
+      console.log(
+        `[AutoFit] textLen=${t.textContent?.length ?? 0}, containerH=${c.clientHeight}, finalSize=${size}`
+      );
+
+      setFontSize(size);
+    };
+
+    const scheduleFit = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(fit);
+    };
+
+    scheduleFit();
+
+    const ro = new ResizeObserver(() => scheduleFit());
+    ro.observe(containerEl);
+
+    return () => {
+      ro.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [min, max, ...deps]);
+
+  return fontSize;
+}
+
+function AutoFitHintText({
+  text,
+  isDesktop,
+}: {
+  text: string;
+  isDesktop: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  const fontSize = useAutoFitFontSize(textRef, containerRef, {
+    min: isDesktop ? 15 : 13,
+    max: isDesktop ? 22 : 18,
+    deps: [text, isDesktop],
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      <p
+        ref={textRef}
+        style={{
+          margin: 0,
+          color: "#C9B87A",
+          fontFamily: FONT_PLAYFAIR,
+          fontStyle: "italic",
+          fontSize: `${fontSize}px`,
+          lineHeight: 1.6,
+          textAlign: "center",
+          width: "100%",
+          maxWidth: "100%",
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+        }}
+      >
+        {text}
+      </p>
+    </div>
+  );
 }
 
 const hasSupabase = Boolean(
@@ -144,6 +247,8 @@ export function GameScreen() {
   const [hintRevealPhase, setHintRevealPhase] = useState<"normal" | "slideOut" | "blank" | "fadingIn">("normal");
   const [cinematicFocusActive, setCinematicFocusActive] = useState(false);
   const [slideOutHintText, setSlideOutHintText] = useState("");
+  const taglineContainerRef = useRef<HTMLDivElement>(null);
+  const taglineTextRef = useRef<HTMLParagraphElement>(null);
 
   /** More vertical rhythm when guess field is idle; compacts when the field is focused (keyboard). */
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
@@ -762,6 +867,12 @@ export function GameScreen() {
     mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
 
   const relaxedVisual = isDesktop || playLayoutRelaxed;
+  const isDesktopViewport = isDesktop;
+  const taglineFontSize = useAutoFitFontSize(taglineTextRef, taglineContainerRef, {
+    min: isDesktopViewport ? 28 : 24,
+    max: isDesktopViewport ? 56 : 44,
+    deps: [state.movie.officialTagline, introPhase, isDesktopViewport],
+  });
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
@@ -1213,11 +1324,13 @@ export function GameScreen() {
                   }}
                   aria-hidden
                 />
-                <div className="relative z-10 w-full">
+                <div ref={taglineContainerRef} className="relative z-10 w-full">
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
-                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:!text-[2.5rem] [&_p]:!leading-[1.12] md:[&_p]:!text-[2.9rem] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
+                    textRef={taglineTextRef}
+                    taglineFontSizePx={taglineFontSize}
+                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
                   />
                 </div>
               </div>
@@ -1450,16 +1563,13 @@ export function GameScreen() {
                                         justifyContent: "center",
                                       }}
                                     >
-                                      <p
-                                        key={`hint-text-${i}`}
+                                      <div
                                         style={{
-                                          margin: 0,
-                                          color: "#C9B87A",
-                                          fontFamily: FONT_PLAYFAIR,
-                                          fontStyle: "italic",
-                                          fontSize: isDesktop ? 18 : 16,
-                                          lineHeight: 1.6,
-                                          textAlign: "center",
+                                          width: "100%",
+                                          height: "100%",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
                                           opacity:
                                             i === carouselIndex &&
                                             (hintRevealPhase === "slideOut" ||
@@ -1473,8 +1583,11 @@ export function GameScreen() {
                                               : undefined,
                                         }}
                                       >
-                                        {getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
-                                      </p>
+                                        <AutoFitHintText
+                                          text={getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
+                                          isDesktop={isDesktop}
+                                        />
+                                      </div>
                                     </div>
                                   ))}
                                 </div>

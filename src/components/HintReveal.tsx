@@ -2,15 +2,24 @@
 
 import type { Movie } from "@/types/movie";
 import type { HintLevel } from "@/types/movie";
+import type { RefObject } from "react";
 import { getHintBodyForLevel } from "@/lib/hintContent";
 
 interface HintRevealProps {
   movie: Movie;
   hintLevel: HintLevel;
   className?: string;
+  textRef?: RefObject<HTMLParagraphElement | null>;
+  taglineFontSizePx?: number;
 }
 
-export function HintReveal({ movie, hintLevel, className = "" }: HintRevealProps) {
+export function HintReveal({
+  movie,
+  hintLevel,
+  className = "",
+  textRef,
+  taglineFontSizePx,
+}: HintRevealProps) {
   const content = getHintBodyForLevel(movie, hintLevel);
   const isStandaloneYearHint = hintLevel === 1 && /^\d{4}$/.test(content);
 
@@ -18,9 +27,10 @@ export function HintReveal({ movie, hintLevel, className = "" }: HintRevealProps
     return (
       <div className={`text-center ${className}`}>
         <p
+          ref={textRef}
           className="font-tagline-display text-foreground"
           style={{
-            fontSize: "clamp(1.25rem, 4.5vw, 1.65rem)",
+            fontSize: taglineFontSizePx ? `${taglineFontSizePx}px` : "clamp(1.25rem, 4.5vw, 1.65rem)",
             lineHeight: 1.45,
             textShadow: "0 0 40px rgba(201,169,110,0.12), 0 0 80px rgba(201,169,110,0.05)",
           }}
