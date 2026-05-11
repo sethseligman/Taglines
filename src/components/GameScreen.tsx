@@ -56,7 +56,8 @@ interface TmdbMovieMeta {
 function useAutoFitFontSize(
   textRef: RefObject<HTMLElement | null>,
   containerRef: RefObject<HTMLElement | null>,
-  options: { min: number; max: number; deps?: ReadonlyArray<unknown> }
+  options: { min: number; max: number; deps?: ReadonlyArray<unknown> },
+  label?: string
 ): number {
   const { min, max, deps = [] } = options;
   const [fontSize, setFontSize] = useState(max);
@@ -81,7 +82,7 @@ function useAutoFitFontSize(
         t.style.fontSize = `${size}px`;
       }
       console.log(
-        `[AutoFit] textLen=${t.textContent?.length ?? 0}, containerH=${c.clientHeight}, finalSize=${size}`
+        `[AutoFit label=${label || "unlabeled"}] textLen=${t.textContent?.length ?? 0}, containerH=${c.clientHeight}, finalSize=${size}`
       );
 
       setFontSize(size);
@@ -109,18 +110,25 @@ function useAutoFitFontSize(
 function AutoFitHintText({
   text,
   isDesktop,
+  label,
 }: {
   text: string;
   isDesktop: boolean;
+  label: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
 
-  const fontSize = useAutoFitFontSize(textRef, containerRef, {
-    min: isDesktop ? 15 : 13,
-    max: isDesktop ? 22 : 18,
-    deps: [text, isDesktop],
-  });
+  const fontSize = useAutoFitFontSize(
+    textRef,
+    containerRef,
+    {
+      min: isDesktop ? 15 : 13,
+      max: isDesktop ? 22 : 18,
+      deps: [text, isDesktop],
+    },
+    label
+  );
 
   return (
     <div
@@ -880,7 +888,7 @@ export function GameScreen() {
     min: isDesktopViewport ? 28 : 24,
     max: isDesktopViewport ? 56 : 44,
     deps: [state.movie.officialTagline, introPhase, isDesktopViewport],
-  });
+  }, state.movie.title);
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
@@ -1342,7 +1350,7 @@ export function GameScreen() {
                     hintLevel={0}
                     textRef={taglineTextRef}
                     taglineFontSizePx={taglineFontSize}
-                    className={`w-full !py-5 md:!py-12 [&_p]:!italic ${motionMargin} [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
+                    className={`w-full [&_p]:!italic ${motionMargin} [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
                   />
                 </div>
               </div>
@@ -1598,6 +1606,7 @@ export function GameScreen() {
                                         <AutoFitHintText
                                           text={getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
                                           isDesktop={isDesktop}
+                                          label={`${state.movie.title} H${i + 1}`}
                                         />
                                       </div>
                                     </div>
