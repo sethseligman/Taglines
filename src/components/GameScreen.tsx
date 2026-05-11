@@ -76,7 +76,7 @@ function useAutoFitFontSize(
       let size = max;
       t.style.fontSize = `${size}px`;
 
-      while (size > min && (t.scrollHeight > c.clientHeight || t.scrollWidth > c.clientWidth)) {
+      while (size > min && t.scrollHeight > c.clientHeight) {
         size -= 1;
         t.style.fontSize = `${size}px`;
       }
@@ -869,6 +869,13 @@ export function GameScreen() {
 
   const relaxedVisual = isDesktop || playLayoutRelaxed;
   const isDesktopViewport = isDesktop;
+
+  // Tagline is constrained to 3 lines max. This wrapper height provides the measurement box
+  // for useAutoFitFontSize (mobile: 44*1.45*3 ≈ 192px, desktop: 56*1.45*3 ≈ 244px).
+  const TAGLINE_3LINE_HEIGHT_MOBILE_PX = 192;
+  const TAGLINE_3LINE_HEIGHT_DESKTOP_PX = 244;
+  const taglineThreeLineHeightPx = isDesktopViewport ? TAGLINE_3LINE_HEIGHT_DESKTOP_PX : TAGLINE_3LINE_HEIGHT_MOBILE_PX;
+
   const taglineFontSize = useAutoFitFontSize(taglineTextRef, taglineContainerRef, {
     min: isDesktopViewport ? 28 : 24,
     max: isDesktopViewport ? 56 : 44,
@@ -1325,7 +1332,11 @@ export function GameScreen() {
                   }}
                   aria-hidden
                 />
-                <div ref={taglineContainerRef} className="relative z-10 w-full">
+                <div
+                  ref={taglineContainerRef}
+                  className="relative z-10 w-full"
+                  style={{ height: taglineThreeLineHeightPx, overflow: "hidden" }}
+                >
                   <HintReveal
                     movie={state.movie}
                     hintLevel={0}
