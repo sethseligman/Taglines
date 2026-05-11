@@ -127,6 +127,7 @@ function AutoFitHintText({
       ref={containerRef}
       style={{
         width: "100%",
+        height: 116,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
