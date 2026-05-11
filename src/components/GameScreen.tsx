@@ -1343,7 +1343,13 @@ export function GameScreen() {
                 <div
                   ref={taglineContainerRef}
                   className="relative z-10 w-full"
-                  style={{ height: taglineThreeLineHeightPx, overflow: "hidden" }}
+                  style={{
+                    height: taglineThreeLineHeightPx,
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <HintReveal
                     movie={state.movie}
