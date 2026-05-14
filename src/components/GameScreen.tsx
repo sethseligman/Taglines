@@ -2,7 +2,6 @@
 
 import {
   type PointerEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -16,6 +15,7 @@ import { MAX_GUESSES } from "@/types/movie";
 import { getDailyMovie, getRandomPracticeMovie } from "@/actions/movies";
 import { getTodayKey } from "@/data/movies";
 import { SAMPLE_MOVIES } from "@/data/movies";
+import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
 import { useGameState } from "@/hooks/useGameState";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { getHintBodyForLevel } from "@/lib/hintContent";
@@ -29,6 +29,7 @@ import {
   getStoredStreak,
   getWinCount,
 } from "@/lib/storage";
+import { GameEndSequence } from "./GameEndSequence";
 import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
@@ -53,82 +54,21 @@ interface TmdbMovieMeta {
   cast: Array<{ name: string; imdbId: string | null }>;
 }
 
-function useAutoFitFontSize(
-  textRef: RefObject<HTMLElement | null>,
-  containerRef: RefObject<HTMLElement | null>,
-  options: { min: number; max: number; deps?: ReadonlyArray<unknown> },
-  label?: string
-): number {
-  const { min, max, deps = [] } = options;
-  const [fontSize, setFontSize] = useState(max);
-
-  useLayoutEffect(() => {
-    const textEl = textRef.current;
-    const containerEl = containerRef.current;
-    if (!textEl || !containerEl) return;
-
-    let rafId: number | null = null;
-
-    const fit = () => {
-      const t = textRef.current;
-      const c = containerRef.current;
-      if (!t || !c) return;
-
-      let size = max;
-      t.style.fontSize = `${size}px`;
-
-      while (size > min && t.scrollHeight > c.clientHeight) {
-        size -= 1;
-        t.style.fontSize = `${size}px`;
-      }
-      console.log(
-        `[AutoFit label=${label || "unlabeled"}] textLen=${t.textContent?.length ?? 0}, containerH=${c.clientHeight}, finalSize=${size}`
-      );
-
-      setFontSize(size);
-    };
-
-    const scheduleFit = () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(fit);
-    };
-
-    scheduleFit();
-
-    const ro = new ResizeObserver(() => scheduleFit());
-    ro.observe(containerEl);
-
-    return () => {
-      ro.disconnect();
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, [min, max, ...deps]);
-
-  return fontSize;
-}
-
 function AutoFitHintText({
   text,
   isDesktop,
-  label,
 }: {
   text: string;
   isDesktop: boolean;
-  label: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
 
-  const fontSize = useAutoFitFontSize(
-    textRef,
-    containerRef,
-    {
-      min: isDesktop ? 15 : 13,
-      max: isDesktop ? 22 : 18,
-      deps: [text, isDesktop],
-    },
-    label
-  );
+  const fontSize = useAutoFitFontSize(textRef, containerRef, {
+    min: isDesktop ? 15 : 13,
+    max: isDesktop ? 22 : 18,
+    deps: [text, isDesktop],
+  });
 
   return (
     <div
@@ -441,6 +381,14 @@ export function GameScreen() {
       submitMessage: null,
     });
   }, [dailyCompletion, movie]);
+
+  const completionNarratorLine = useMemo(() => {
+    if (mode !== "daily" || !dailyCompletion) return "";
+    return narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed, {
+      isDaily: true,
+      dateKey: dailyCompletion.dateKey,
+    });
+  }, [mode, dailyCompletion?.dateKey, dailyCompletion?.status, dailyCompletion?.guessesUsed]);
 
   useEffect(() => {
     if (!dailyCompletion?.movieTitle || !dailyCompletion.movieYear) {
@@ -888,7 +836,7 @@ export function GameScreen() {
     min: isDesktopViewport ? 28 : 24,
     max: isDesktopViewport ? 56 : 44,
     deps: [state.movie.officialTagline, introPhase, isDesktopViewport],
-  }, state.movie.title);
+  });
   const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
   const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
   const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
@@ -1038,18 +986,109 @@ export function GameScreen() {
             </div>
           </header>
           <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
-            <div className="w-full max-w-md text-center">
-              <div className="mx-auto mt-2 w-full">
-                {completionImdbUrl ? (
-                  <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
-                    <a
-                      href={completionImdbUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="absolute inset-0 z-0"
-                      aria-label={`View ${dailyCompletion.movieTitle} on IMDb`}
-                    />
-                    <div className="relative z-10 flex w-full flex-row items-start gap-3 text-left">
+            <GameEndSequence
+              key={`completion-${dailyCompletion.dateKey}-${dailyCompletion.status}-${dailyCompletion.guessesUsed}`}
+              narratorLine={completionNarratorLine}
+              posterUrl={dailyCompletion.posterUrl ?? null}
+              showPoster={Boolean(dailyCompletion.posterUrl && !completionPosterError)}
+              onPosterError={() => setCompletionPosterError(true)}
+            >
+              <div className="w-full max-w-md text-center">
+                <div className="mx-auto mt-2 w-full">
+                  {completionImdbUrl ? (
+                    <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
+                      <a
+                        href={completionImdbUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 z-0"
+                        aria-label={`View ${dailyCompletion.movieTitle} on IMDb`}
+                      />
+                      <div className="relative z-10 flex w-full flex-row items-start gap-3 text-left">
+                        {dailyCompletion.posterUrl && !completionPosterError ? (
+                          <img
+                            src={dailyCompletion.posterUrl}
+                            alt=""
+                            width={84}
+                            height={124}
+                            className="block shrink-0 object-cover"
+                            style={{ width: 84, height: 124, borderRadius: 6 }}
+                            onError={() => setCompletionPosterError(true)}
+                          />
+                        ) : (
+                          <div
+                            className="shrink-0 bg-[#161616]"
+                            style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
+                            aria-hidden
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="font-bold leading-tight text-[#f0ede6]"
+                            style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
+                          >
+                            {dailyCompletion.movieTitle}
+                          </p>
+                          <p
+                            className="mt-1 text-[#6b6860]"
+                            style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
+                          >
+                            {completionMetaLine}
+                          </p>
+                          <p
+                            className="mt-2.5 italic leading-snug text-[#d7d3c8]"
+                            style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
+                          >
+                            {movie.officialTagline}
+                          </p>
+                          {completionTmdbMeta?.director?.name && completionTmdbMeta.director.imdbId ? (
+                            <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}>
+                              🎬{" "}
+                              <a
+                                href={`https://www.imdb.com/name/${completionTmdbMeta.director.imdbId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="relative z-20 underline"
+                              >
+                                {completionTmdbMeta.director.name}
+                              </a>
+                            </p>
+                          ) : null}
+                          {completionTmdbMeta?.cast?.length ? (
+                            <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem", lineHeight: 1.35 }}>
+                              {completionTmdbMeta.cast.map((actor, idx) => (
+                                <span key={`${actor.name}-${idx}`}>
+                                  {actor.imdbId ? (
+                                    <a
+                                      href={`https://www.imdb.com/name/${actor.imdbId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="relative z-20 underline"
+                                    >
+                                      {actor.name}
+                                    </a>
+                                  ) : (
+                                    actor.name
+                                  )}
+                                  {idx < completionTmdbMeta.cast.length - 1 ? " · " : ""}
+                                </span>
+                              ))}
+                            </p>
+                          ) : null}
+                          <a
+                            href={completionImdbUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative z-20 mt-1.5 inline-block text-[#6b6860] underline"
+                            style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}
+                          >
+                            View on IMDb →
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex w-full flex-row items-start gap-3 rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3 text-left">
                       {dailyCompletion.posterUrl && !completionPosterError ? (
                         <img
                           src={dailyCompletion.posterUrl}
@@ -1078,7 +1117,7 @@ export function GameScreen() {
                           className="mt-1 text-[#6b6860]"
                           style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
                         >
-                          {completionMetaLine}
+                          {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
                         </p>
                         <p
                           className="mt-2.5 italic leading-snug text-[#d7d3c8]"
@@ -1086,177 +1125,85 @@ export function GameScreen() {
                         >
                           {movie.officialTagline}
                         </p>
-                        {completionTmdbMeta?.director?.name && completionTmdbMeta.director.imdbId ? (
-                          <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}>
-                            🎬{" "}
-                            <a
-                              href={`https://www.imdb.com/name/${completionTmdbMeta.director.imdbId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="relative z-20 underline"
-                            >
-                              {completionTmdbMeta.director.name}
-                            </a>
-                          </p>
-                        ) : null}
-                        {completionTmdbMeta?.cast?.length ? (
-                          <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem", lineHeight: 1.35 }}>
-                            {completionTmdbMeta.cast.map((actor, idx) => (
-                              <span key={`${actor.name}-${idx}`}>
-                                {actor.imdbId ? (
-                                  <a
-                                    href={`https://www.imdb.com/name/${actor.imdbId}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="relative z-20 underline"
-                                  >
-                                    {actor.name}
-                                  </a>
-                                ) : (
-                                  actor.name
-                                )}
-                                {idx < completionTmdbMeta.cast.length - 1 ? " · " : ""}
-                              </span>
-                            ))}
-                          </p>
-                        ) : null}
-                        <a
-                          href={completionImdbUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="relative z-20 mt-1.5 inline-block text-[#6b6860] underline"
-                          style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}
-                        >
-                          View on IMDb →
-                        </a>
                       </div>
                     </div>
-                  </div>
+                  )}
+                  <div className="mt-4 w-full border-t" style={{ borderColor: "#1e1e1e" }} />
+                </div>
+                {dailyCompletion.status === "won" ? (
+                  <>
+                    <p
+                      className="mt-5 uppercase text-[#6b6860]"
+                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.68rem", letterSpacing: "0.15em" }}
+                    >
+                      solved in
+                    </p>
+                    <p
+                      className="leading-none text-[#c9a96e]"
+                      style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
+                    >
+                      {dailyCompletion.guessesUsed}
+                    </p>
+                  </>
                 ) : (
-                  <div className="flex w-full flex-row items-start gap-3 rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3 text-left">
-                    {dailyCompletion.posterUrl && !completionPosterError ? (
-                      <img
-                        src={dailyCompletion.posterUrl}
-                        alt=""
-                        width={84}
-                        height={124}
-                        className="block shrink-0 object-cover"
-                        style={{ width: 84, height: 124, borderRadius: 6 }}
-                        onError={() => setCompletionPosterError(true)}
-                      />
-                    ) : (
-                      <div
-                        className="shrink-0 bg-[#161616]"
-                        style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
-                        aria-hidden
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="font-bold leading-tight text-[#f0ede6]"
-                        style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
-                      >
-                        {dailyCompletion.movieTitle}
-                      </p>
-                      <p
-                        className="mt-1 text-[#6b6860]"
-                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
-                      >
-                        {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
-                      </p>
-                      <p
-                        className="mt-2.5 italic leading-snug text-[#d7d3c8]"
-                        style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
-                      >
-                        {movie.officialTagline}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-4 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
+                    {completionSolveSummary}
+                  </p>
                 )}
-                <div className="mt-4 w-full border-t" style={{ borderColor: "#1e1e1e" }} />
-              </div>
-              <p
-                className="mt-8 font-normal italic leading-none text-[#c9a96e]"
-                style={{ fontFamily: FONT_PLAYFAIR, fontSize: "2.75rem" }}
-              >
-                {narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed, {
-                  isDaily: true,
-                  dateKey: dailyCompletion.dateKey,
-                })}
-              </p>
-              {dailyCompletion.status === "won" ? (
-                <>
-                  <p
-                    className="mt-6 uppercase text-[#6b6860]"
-                    style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.68rem", letterSpacing: "0.15em" }}
-                  >
-                    solved in
-                  </p>
-                  <p
-                    className="leading-none text-[#c9a96e]"
-                    style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
-                  >
-                    {dailyCompletion.guessesUsed}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-3 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
-                  {completionSolveSummary}
+                <p className="mt-2 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}>
+                  Next tagline in {countdown}
                 </p>
-              )}
-              <p className="mt-2 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}>
-                Next tagline in {countdown}
-              </p>
 
-              <div className="mt-8 grid w-full grid-cols-4 border border-[#222]">
-                {[
-                  { n: played, l: "Played" },
-                  { n: `${winPct}%`, l: "Win %" },
-                  { n: streak, l: "Streak" },
-                  { n: bestStreak, l: "Best" },
-                ].map((cell, i) => (
-                  <div
-                    key={cell.l}
-                    className="flex flex-col items-center justify-center py-3 text-center"
-                    style={{ borderLeft: i > 0 ? "1px solid #222" : undefined }}
+                <div className="mt-8 grid w-full grid-cols-4 border border-[#222]">
+                  {[
+                    { n: played, l: "Played" },
+                    { n: `${winPct}%`, l: "Win %" },
+                    { n: streak, l: "Streak" },
+                    { n: bestStreak, l: "Best" },
+                  ].map((cell, i) => (
+                    <div
+                      key={cell.l}
+                      className="flex flex-col items-center justify-center py-3 text-center"
+                      style={{ borderLeft: i > 0 ? "1px solid #222" : undefined }}
+                    >
+                      <span
+                        className="font-bold text-[#f0ede6]"
+                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1.35rem" }}
+                      >
+                        {cell.n}
+                      </span>
+                      <span
+                        className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
+                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.65rem" }}
+                      >
+                        {cell.l}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleShareCompletion}
+                    className="w-full rounded-lg bg-[#c9a96e] py-3 font-bold text-black transition hover:bg-[#d4b377] active:scale-[0.99]"
+                    style={{ fontFamily: '"DM Sans", sans-serif' }}
                   >
-                    <span
-                      className="font-bold text-[#f0ede6]"
-                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1.35rem" }}
-                    >
-                      {cell.n}
-                    </span>
-                    <span
-                      className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
-                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.65rem" }}
-                    >
-                      {cell.l}
-                    </span>
-                  </div>
-                ))}
+                    {copied ? "Copied" : "Share today's result"}
+                  </button>
+                </div>
+                <div className="mt-3 w-full text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode("practice")}
+                    className="transition hover:opacity-90"
+                    style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 13, color: "#6B6860" }}
+                  >
+                    Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
+                  </button>
+                </div>
               </div>
-
-              <div className="mt-8 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleShareCompletion}
-                  className="w-full rounded-lg bg-[#c9a96e] py-3 font-bold text-black transition hover:bg-[#d4b377] active:scale-[0.99]"
-                  style={{ fontFamily: '"DM Sans", sans-serif' }}
-                >
-                  {copied ? "Copied" : "Share today's result"}
-                </button>
-              </div>
-              <div className="mt-3 w-full text-center">
-                <button
-                  type="button"
-                  onClick={() => setMode("practice")}
-                  className="transition hover:opacity-90"
-                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 13, color: "#6B6860" }}
-                >
-                  Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
-                </button>
-              </div>
-            </div>
+            </GameEndSequence>
           </main>
         </div>
       </div>
@@ -1612,7 +1559,6 @@ export function GameScreen() {
                                         <AutoFitHintText
                                           text={getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
                                           isDesktop={isDesktop}
-                                          label={`${state.movie.title} H${i + 1}`}
                                         />
                                       </div>
                                     </div>

@@ -11,11 +11,11 @@ interface NarratorResultOptions {
 function pickFromNarratorPools(status: "won" | "lost", guessesUsed: number): string {
   if (status === "lost") {
     const pool = narratorLines[0];
-    return pool[Math.floor(Math.random() * pool.length)] ?? "Tomorrow.";
+    return pool[Math.floor(Math.random() * pool.length)] ?? narratorLines[0][0];
   }
   const n = Math.min(5, Math.max(1, guessesUsed)) as 1 | 2 | 3 | 4 | 5;
   const pool = narratorLines[n];
-  return pool[Math.floor(Math.random() * pool.length)] ?? "Survived.";
+  return pool[Math.floor(Math.random() * pool.length)] ?? narratorLines[5][0];
 }
 
 /** Big headline after a round (result modal + daily completion). */

@@ -12,6 +12,7 @@ import {
   maybeUpdateStoredBestStreak,
 } from "@/lib/storage";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { GameEndSequence } from "./GameEndSequence";
 
 interface ResultModalProps {
   state: GameState;
@@ -60,8 +61,9 @@ function ShareIcon() {
 export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: ResultModalProps) {
   const [copied, setCopied] = useState(false);
   const [posterError, setPosterError] = useState(false);
-  const [revealed, setRevealed] = useState(false);
   const [beat1Show, setBeat1Show] = useState(false);
+  const [phaseCActive, setPhaseCActive] = useState(false);
+  const [dismissEnabled, setDismissEnabled] = useState(false);
   const [tmdbMeta, setTmdbMeta] = useState<TmdbMovieMeta | null>(null);
   const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
 
@@ -75,8 +77,8 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
 
   const lost = state.status === "lost";
   const movie = state.movie;
-  const showPoster = movie.posterUrl && !posterError;
-  const narrator = useMemo(() => {
+  const showPoster = Boolean(movie.posterUrl && !posterError);
+  const narratorLine = useMemo(() => {
     if (state.status === "playing") return "";
     return narratorResultLine(state.status, state.guessesUsed, {
       isDaily: state.isDaily,
@@ -89,19 +91,15 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
   const movieImdbUrl = tmdbMeta?.movieImdbId ? `https://www.imdb.com/title/${tmdbMeta.movieImdbId}` : null;
 
   useEffect(() => {
-    let cancelled = false;
-    setRevealed(false);
-    const t = window.setTimeout(() => {
-      if (!cancelled) setRevealed(true);
-    }, 1200);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [state.movie.title, state.status]);
+    // Intentional reset when a new result is shown (new sequence run).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync UI gates to new game identity
+    setPhaseCActive(false);
+    setDismissEnabled(false);
+    setBeat1Show(false);
+  }, [state.movie.title, state.status, state.guessesUsed, state.dateKey]);
 
   useEffect(() => {
-    if (!revealed) {
+    if (!phaseCActive) {
       const resetId = window.setTimeout(() => {
         setBeat1Show(false);
       }, 0);
@@ -127,12 +125,13 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
       window.clearTimeout(resetId);
       window.clearTimeout(beat1At);
     };
-  }, [revealed, state.movie.title, state.status, state.guessesUsed]);
+  }, [phaseCActive, state.movie.title, state.status, state.guessesUsed]);
 
   useLayoutEffect(() => {
     if (state.isDaily && state.status === "won") {
       maybeUpdateStoredBestStreak(getStoredStreak());
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync best streak from storage after result
     setBestStreak(getStoredBestStreak());
   }, [state.isDaily, state.status, state.movie.title, state.dateKey]);
 
@@ -146,6 +145,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear before refetch
     setTmdbMeta(null);
     const title = encodeURIComponent(movie.title);
     const year = encodeURIComponent(String(movie.year));
@@ -186,28 +186,6 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
     if (ok) setTimeout(() => setCopied(false), 2000);
   }, [shareText]);
 
-  const phaseEase = "transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:transform-none";
-
-  const fadeInStagger = () =>
-    `${phaseEase} ${
-      revealed ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
-    }`;
-
-  const fadeInStyle = (delayMs: number) =>
-    revealed ? ({ transitionDelay: `${delayMs}ms` } as const) : undefined;
-
-  const heroPhaseClass = `${phaseEase} flex flex-col items-center text-center ${
-    revealed
-      ? "pointer-events-none absolute inset-x-0 top-8 z-10 min-h-[min(50vh,420px)] justify-center opacity-0 scale-[0.92] -translate-y-3"
-      : "relative min-h-[min(52vh,440px)] justify-center py-10 opacity-100 scale-100 translate-y-0"
-  }`;
-
-  const detailShellClass = `${phaseEase} w-full ${
-    revealed
-      ? "relative z-0 translate-y-0 opacity-100"
-      : "pointer-events-none absolute inset-0 z-0 translate-y-3 opacity-0"
-  }`;
-
   const pillClass =
     "rounded-full border px-4 py-2 text-sm font-medium transition hover:border-muted hover:text-foreground/90 active:scale-[0.99]";
   const pillStyle = {
@@ -217,20 +195,37 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
     color: "#6b6860",
   } as const;
 
+  const handleBackdropClick = useCallback(() => {
+    if (!dismissEnabled) return;
+    onClose();
+  }, [dismissEnabled, onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex min-h-0 items-center justify-center overflow-hidden bg-[#0d0d0d] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="result-title"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         className="relative flex min-h-0 w-full max-w-[390px] flex-col items-stretch overflow-y-auto overscroll-contain py-6"
         style={{ maxHeight: "min(100dvh - 2rem, 100vh - 2rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {revealed ? (
+        <h2 id="result-title" className="sr-only">
+          Game result
+        </h2>
+
+        <GameEndSequence
+          key={`${state.movie.title}-${state.status}-${state.guessesUsed}-${state.dateKey}`}
+          narratorLine={narratorLine}
+          posterUrl={movie.posterUrl ?? null}
+          showPoster={showPoster}
+          onPosterError={() => setPosterError(true)}
+          onPhaseCEnter={() => setPhaseCActive(true)}
+          onSequenceComplete={() => setDismissEnabled(true)}
+        >
           <header className="mb-4 w-full px-1">
             <div className="flex items-center justify-start">
               <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
@@ -239,50 +234,8 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
               </h1>
             </div>
           </header>
-        ) : null}
-        <h2 id="result-title" className="sr-only">
-          Game result
-        </h2>
 
-        {/* Phase A: hero poster + title + meta only */}
-        <div className={heroPhaseClass} aria-hidden={revealed}>
-          {showPoster ? (
-            <img
-              src={movie.posterUrl!}
-              alt=""
-              width={187}
-              height={280}
-              className="mx-auto block h-auto w-auto max-w-[85vw] object-contain object-center"
-              style={{ maxHeight: 280 }}
-              onError={() => setPosterError(true)}
-            />
-          ) : (
-            <div
-              className="mx-auto bg-[#161616]"
-              style={{
-                width: "min(85vw, 187px)",
-                height: 280,
-                maxHeight: 280,
-                borderRadius: 6,
-                border: "1px solid #222",
-              }}
-              aria-hidden
-            />
-          )}
-          <p
-            className="mt-6 max-w-[95%] font-bold leading-tight text-[#f0ede6]"
-            style={{ fontFamily: PF, fontSize: "1.8rem" }}
-          >
-            {movie.title}
-          </p>
-          <p className="mt-2 text-[#6b6860]" style={{ fontFamily: DM, fontSize: "0.8rem" }}>
-            {metaLine}
-          </p>
-        </div>
-
-        {/* Phase B: compact movie row, then narrator, film, stats, share, secondary */}
-        <div className={detailShellClass}>
-          <div className={`mt-2 w-full ${fadeInStagger()}`} style={fadeInStyle(0)}>
+          <div className="mt-2 w-full">
             {movieImdbUrl ? (
               <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
                 <a
@@ -417,25 +370,11 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
               </div>
             )}
           </div>
-          <div className={`mt-4 w-full ${fadeInStagger()}`} style={fadeInStyle(30)}>
+          <div className="mt-4 w-full">
             <div className="w-full border-t" style={{ borderColor: "#1e1e1e" }} />
           </div>
 
-          <div className={`mt-8 text-center ${fadeInStagger()}`} style={fadeInStyle(60)}>
-            <p
-              className="font-normal italic leading-none text-[#c9a96e]"
-              style={{
-                fontFamily: PF,
-                fontSize: "3rem",
-                marginBottom: "0.35rem",
-              }}
-              aria-live="polite"
-            >
-              {narrator}
-            </p>
-          </div>
-
-          <div className={`mt-8 w-full ${fadeInStagger()}`} style={fadeInStyle(120)}>
+          <div className="mt-6 w-full">
             <div className="flex flex-col items-center text-center">
               <div
                 className="motion-reduce:transition-none"
@@ -473,10 +412,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
 
           {state.isDaily ? (
             <>
-              <div
-                className={`mt-6 grid w-full grid-cols-4 border border-[#222] ${fadeInStagger()}`}
-                style={{ ...fadeInStyle(180), borderColor: "#222" }}
-              >
+              <div className="mt-6 grid w-full grid-cols-4 border border-[#222]" style={{ borderColor: "#222" }}>
                 {[
                   { n: played, l: "Played" },
                   { n: `${winPct}%`, l: "Win %" },
@@ -503,7 +439,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
                 ))}
               </div>
 
-              <div className={`mt-8 flex w-full justify-center ${fadeInStagger()}`} style={fadeInStyle(240)}>
+              <div className="mt-8 flex w-full justify-center">
                 <button
                   type="button"
                   onClick={handleShare}
@@ -522,7 +458,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
             </>
           ) : null}
 
-          <div className={`mt-4 flex w-full flex-col items-center gap-3 ${fadeInStagger()}`} style={fadeInStyle(300)}>
+          <div className="mt-4 flex w-full flex-col items-center gap-3">
             {state.isDaily ? (
               <button
                 type="button"
@@ -537,12 +473,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
                 <button type="button" onClick={onPlayAgain} className={pillClass} style={pillStyle}>
                   Play again
                 </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className={pillClass}
-                  style={pillStyle}
-                >
+                <button type="button" onClick={onClose} className={pillClass} style={pillStyle}>
                   Close
                 </button>
               </div>
@@ -553,7 +484,7 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
               </p>
             ) : null}
           </div>
-        </div>
+        </GameEndSequence>
       </div>
     </div>
   );
