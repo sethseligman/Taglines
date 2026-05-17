@@ -35,12 +35,13 @@ import { HintReveal } from "./HintReveal";
 import { ResultModal } from "./ResultModal";
 import { WrongGuessFlash } from "./WrongGuessFlash";
 
-const CAROUSEL_MANUAL_MS = 320;
+const CAROUSEL_MANUAL_MS = 250;
 const CAROUSEL_EASING_DEFAULT = "cubic-bezier(0.25, 0, 0.15, 1)";
 const CAROUSEL_EASING_SETTLE = "cubic-bezier(0.2, 0, 0, 1)";
-const WRONG_GUESS_SLIDE_OUT_MS = 450;
-const WRONG_GUESS_BLANK_MS = 1000;
-const WRONG_GUESS_FADE_IN_MS = 1200;
+const WRONG_GUESS_SLIDE_OUT_MS = 320;
+const WRONG_GUESS_BLANK_MS = 280;
+const WRONG_GUESS_FADE_IN_MS = 450;
+const EASE_OUT = "var(--ease-out)";
 
 type Mode = "daily" | "practice";
 type IntroPhase = "lightsDown" | "taglineReveal" | "ready";
@@ -837,9 +838,6 @@ export function GameScreen() {
     max: isDesktopViewport ? 56 : 44,
     deps: [state.movie.officialTagline, introPhase, isDesktopViewport],
   });
-  const motionPad = !isDesktop ? "transition-[padding] duration-300 ease-out" : "";
-  const motionMargin = !isDesktop ? "transition-[margin] duration-300 ease-out" : "";
-  const motionGap = !isDesktop ? "transition-[gap] duration-300 ease-out" : "";
   const sprocketsRunning =
     cinematicFocusActive ||
     stripMotionMode === "engaging" ||
@@ -973,7 +971,7 @@ export function GameScreen() {
         />
         <div className="relative z-10 flex min-h-screen flex-col">
           <header
-            className={`w-full shrink-0 px-5 md:px-8 ${motionPad} ${
+            className={`w-full shrink-0 px-5 md:px-8 ${
               relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
             }`}
           >
@@ -1240,12 +1238,12 @@ export function GameScreen() {
           <main
             className={
               isDesktop
-                ? `flex flex-1 flex-col justify-start px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
-                : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${motionPad} ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
+                ? `flex flex-1 flex-col justify-start px-5 pb-12 md:px-8 ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
+                : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
             }
           >
             <header
-              className={`w-full shrink-0 ${motionPad} ${
+              className={`w-full shrink-0 ${
                 relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
               }`}
             >
@@ -1268,7 +1266,7 @@ export function GameScreen() {
               }
             >
               <div
-                className={`relative ${motionPad} ${
+                className={`relative ${
                   relaxedVisual ? "pb-3 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"
                 }`}
               >
@@ -1303,16 +1301,16 @@ export function GameScreen() {
                     hintLevel={0}
                     textRef={taglineTextRef}
                     taglineFontSizePx={taglineFontSize}
-                    className={`w-full [&_p]:!italic ${motionMargin} [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
+                    className={`w-full [&_p]:!italic [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10`}
                   />
                 </div>
               </div>
             </section>
             <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center md:mt-8">
             {state.status === "playing" && introPhase === "ready" && (
-              <div className="motion-safe:animate-[fadeIn_0.8s_ease-out_200ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
+              <div className="motion-safe:animate-[fadeIn_0.35s_ease-out_80ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
                 <div
-                  className={`relative flex w-full max-w-md shrink-0 flex-col ${motionGap} ${motionMargin} ${
+                  className={`relative flex w-full max-w-md shrink-0 flex-col ${
                     relaxedVisual ? "mb-6 gap-4 md:mb-11 md:gap-6" : "mb-4 gap-3 md:mb-6"
                   }`}
                 >
@@ -1344,13 +1342,13 @@ export function GameScreen() {
                 </div>
 
                 <hr
-                  className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${motionMargin} ${
+                  className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${
                     relaxedVisual ? "my-4 md:my-9" : "my-4 md:my-6"
                   }`}
                 />
 
                 <section
-                  className={`flex w-full max-w-md shrink-0 flex-col items-stretch scroll-mt-6 ${motionGap} ${
+                  className={`flex w-full max-w-md shrink-0 flex-col items-stretch scroll-mt-6 ${
                     relaxedVisual ? "gap-3 md:gap-6" : "gap-2 md:gap-3"
                   }`}
                 >
@@ -1475,15 +1473,25 @@ export function GameScreen() {
                                 position: "relative",
                                 width: "100%",
                                 height: 10,
-                                background:
-                                  "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
-                                backgroundSize: "22px 10px",
-                                animation:
-                                  sprocketsRunning
-                                    ? "perforationRoll 260ms steps(22, end) infinite"
-                                    : undefined,
+                                overflow: "hidden",
                               }}
                             >
+                              <div
+                                aria-hidden
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  width: "calc(100% + 44px)",
+                                  height: "100%",
+                                  background:
+                                    "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                  backgroundSize: "22px 10px",
+                                  animation:
+                                    sprocketsRunning
+                                      ? "perforationRoll 260ms steps(22, end) infinite"
+                                      : undefined,
+                                }}
+                              />
                               <span
                                 style={{
                                   fontFamily: "DM Sans",
@@ -1496,6 +1504,7 @@ export function GameScreen() {
                                   transform: "translateY(-50%)",
                                   pointerEvents: "none",
                                   userSelect: "none",
+                                  zIndex: 1,
                                 }}
                               >
                                 A · KU 22 9611 1802 · 35MM
@@ -1552,7 +1561,7 @@ export function GameScreen() {
                                               : 1,
                                           animation:
                                             i === carouselIndex && hintRevealPhase === "fadingIn"
-                                              ? `hintTextSettleFade ${WRONG_GUESS_FADE_IN_MS}ms ease-out both`
+                                              ? `hintTextSettleFade ${WRONG_GUESS_FADE_IN_MS}ms ${EASE_OUT} both`
                                               : undefined,
                                         }}
                                       >
@@ -1572,7 +1581,7 @@ export function GameScreen() {
                                     opacity: hintRevealPhase === "blank" ? 1 : hintRevealPhase === "fadingIn" ? 0 : 0,
                                     transition:
                                       hintRevealPhase === "fadingIn"
-                                        ? `opacity ${WRONG_GUESS_FADE_IN_MS}ms ease-out`
+                                        ? `opacity ${WRONG_GUESS_FADE_IN_MS}ms ${EASE_OUT}`
                                         : undefined,
                                     pointerEvents: "none",
                                   }}
@@ -1588,7 +1597,7 @@ export function GameScreen() {
                                       justifyContent: "center",
                                       padding: "32px 28px",
                                       pointerEvents: "none",
-                                      animation: `hintSlideOutLeft ${WRONG_GUESS_SLIDE_OUT_MS}ms ease-in both`,
+                                      animation: `hintSlideOutLeft ${WRONG_GUESS_SLIDE_OUT_MS}ms ${EASE_OUT} both`,
                                     }}
                                     aria-hidden
                                   >
@@ -1631,19 +1640,24 @@ export function GameScreen() {
                                 />
                               </div>
                             </div>
-                            <div
-                              style={{
-                                width: "100%",
-                                height: 10,
-                                background:
-                                  "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
-                                backgroundSize: "22px 10px",
-                                animation:
-                                  sprocketsRunning
-                                    ? "perforationRoll 260ms steps(22, end) infinite"
-                                    : undefined,
-                              }}
-                            />
+                            <div style={{ position: "relative", width: "100%", height: 10, overflow: "hidden" }}>
+                              <div
+                                aria-hidden
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  width: "calc(100% + 44px)",
+                                  height: "100%",
+                                  background:
+                                    "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
+                                  backgroundSize: "22px 10px",
+                                  animation:
+                                    sprocketsRunning
+                                      ? "perforationRoll 260ms steps(22, end) infinite"
+                                      : undefined,
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
                         {displayedHintLevel > 1 ? (
@@ -1671,7 +1685,7 @@ export function GameScreen() {
                 </section>
               {state.guessHistory.length > 0 ? (
               <div
-                className={`${motionMargin} ${relaxedVisual ? "mt-12 md:mt-14" : "mt-8"}`}
+                className={relaxedVisual ? "mt-12 md:mt-14" : "mt-8"}
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -1774,16 +1788,6 @@ export function GameScreen() {
           />
         )}
         <style jsx global>{`
-          @keyframes hintFadeUp {
-            0% {
-              opacity: 0;
-              transform: translateY(8px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
           @keyframes taglineCinematicReveal {
             from {
               opacity: 0;
@@ -1792,44 +1796,12 @@ export function GameScreen() {
               opacity: 1;
             }
           }
-          @keyframes hintFrameSlideIn {
-            0% {
-              transform: translateX(100%);
-            }
-            100% {
-              transform: translateX(0);
-            }
-          }
-          @keyframes hintFrameSlideOut {
-            0% {
-              transform: translateX(0);
-            }
-            100% {
-              transform: translateX(-100%);
-            }
-          }
-          @keyframes hintFrameSlideInFromLeft {
-            0% {
-              transform: translateX(-100%);
-            }
-            100% {
-              transform: translateX(0);
-            }
-          }
-          @keyframes hintFrameSlideOutToRight {
-            0% {
-              transform: translateX(0);
-            }
-            100% {
-              transform: translateX(100%);
-            }
-          }
           @keyframes perforationRoll {
-            0% {
-              background-position: 0 0;
+            from {
+              transform: translateX(0);
             }
-            100% {
-              background-position: -44px 0;
+            to {
+              transform: translateX(-44px);
             }
           }
           @keyframes hintTextSettleFade {

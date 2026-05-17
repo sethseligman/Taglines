@@ -233,7 +233,7 @@ export function GuessInput({
   useEffect(() => {
     if (showDropdown && listRef.current) {
       const el = listRef.current.children[highlightIndex] as HTMLElement | undefined;
-      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      el?.scrollIntoView({ block: "nearest", behavior: "auto" });
     }
   }, [showDropdown, highlightIndex]);
 
@@ -259,8 +259,8 @@ export function GuessInput({
   );
 
   const inputClassName = submitInline
-    ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
-    : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground outline-none transition focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
+    ? "w-full rounded-xl border border-white/15 bg-surface px-4 py-3 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50"
+    : "w-full rounded-xl border border-white/15 bg-surface px-5 py-4 text-lg text-foreground outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-gold/50 focus:ring-2 focus:ring-gold/20 disabled:opacity-50";
 
   const submitButtonLabel =
     remainingGuesses === undefined
@@ -324,8 +324,8 @@ export function GuessInput({
                   selectedSubmitTimerRef.current = null;
                 }, 150);
               }}
-              className={`cursor-pointer select-none px-5 py-3 text-left text-foreground transition touch-manipulation ${
-                i === highlightIndex ? "bg-gold/25 text-gold" : "hover:bg-white/10"
+              className={`cursor-pointer select-none px-5 py-3 text-left text-foreground transition-colors duration-150 ease-out touch-manipulation ${
+                i === highlightIndex ? "bg-gold/25 text-gold" : "[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/10"
               }`}
               style={
                 selectedIndex === i
@@ -365,7 +365,13 @@ export function GuessInput({
           }
         }
         .guess-input-shake {
-          animation: inputShake 400ms ease-in-out;
+          animation: inputShake 300ms var(--ease-in-out);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .guess-input-shake {
+            animation: none;
+            border-color: #c0392b;
+          }
         }
       `}</style>
     </div>

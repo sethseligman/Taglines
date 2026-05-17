@@ -379,9 +379,9 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
               <div
                 className="motion-reduce:transition-none"
                 style={{
-                  transform: beat1Show ? "scale(1)" : "scale(0.6)",
+                  transform: beat1Show ? "scale(1)" : "scale(0.92)",
                   opacity: beat1Show ? 1 : 0,
-                  transition: "transform 400ms ease-out, opacity 400ms ease-out",
+                  transition: "transform 280ms var(--ease-out), opacity 280ms var(--ease-out)",
                   transformOrigin: "center center",
                 }}
               >

@@ -7,20 +7,39 @@ const THINK_MS = 500;
 const SLAM_MS = 100;
 const HOLD_MS = 400;
 const FADE_MS = 150;
-const COMPLETE_MS = THINK_MS + SLAM_MS + HOLD_MS + FADE_MS; // 1150ms total
-const FADE_START_MS = THINK_MS + SLAM_MS + HOLD_MS; // 1000ms
+const COMPLETE_MS = THINK_MS + SLAM_MS + HOLD_MS + FADE_MS;
+const FADE_START_MS = THINK_MS + SLAM_MS + HOLD_MS;
+const REDUCE_MOTION_COMPLETE_MS = 220;
+const EASE_OUT = "var(--ease-out)";
 
 interface WrongGuessFlashProps {
   onComplete: () => void;
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
+  const [reduceMotion] = useState(prefersReducedMotion);
   const [phase, setPhase] = useState<"idle" | "slam" | "hold" | "fade">("idle");
   const timersRef = useRef<number[]>([]);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
+    if (reduceMotion) {
+      timersRef.current.push(
+        window.setTimeout(() => {
+          onCompleteRef.current();
+        }, REDUCE_MOTION_COMPLETE_MS)
+      );
+      return () => {
+        timersRef.current.forEach((t) => clearTimeout(t));
+        timersRef.current = [];
+      };
+    }
+
     timersRef.current.push(window.setTimeout(() => setPhase("slam"), THINK_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("hold"), THINK_MS + SLAM_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("fade"), FADE_START_MS));
@@ -34,15 +53,19 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
       timersRef.current.forEach((t) => clearTimeout(t));
       timersRef.current = [];
     };
-  }, []);
+  }, [reduceMotion]);
 
-  const scale = phase === "idle" ? 1.3 : 1;
+  if (reduceMotion) {
+    return null;
+  }
+
+  const scale = phase === "idle" ? 0.95 : 1;
   const opacity = phase === "idle" ? 0 : phase === "fade" ? 0 : 1;
   const transition =
     phase === "slam"
-      ? `transform ${SLAM_MS}ms cubic-bezier(0.2,0,0.3,1)`
+      ? `transform ${SLAM_MS}ms cubic-bezier(0.2, 0, 0.3, 1), opacity ${SLAM_MS}ms ${EASE_OUT}`
       : phase === "fade"
-        ? `opacity ${FADE_MS}ms ease`
+        ? `opacity ${FADE_MS}ms ${EASE_OUT}`
         : "none";
 
   const mark = (
@@ -68,7 +91,7 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
         <span
           style={{
             display: "inline-block",
-            animation: phase === "hold" ? "wrongGuessRattle 90ms ease-in-out 3" : undefined,
+            animation: phase === "hold" ? "wrongGuessRattle 120ms ease-out 1" : undefined,
           }}
         >
           ✕
@@ -79,17 +102,22 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
           0% {
             transform: translateX(0) rotate(0deg);
           }
-          25% {
+          35% {
             transform: translateX(-1.8px) rotate(-1.6deg);
           }
-          50% {
+          65% {
             transform: translateX(1.8px) rotate(1.6deg);
-          }
-          75% {
-            transform: translateX(-1px) rotate(-0.8deg);
           }
           100% {
             transform: translateX(0) rotate(0deg);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes wrongGuessRattle {
+            from,
+            to {
+              transform: none;
+            }
           }
         }
       `}</style>

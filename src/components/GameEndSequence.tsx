@@ -179,7 +179,15 @@ export function GameEndSequence({
     portalEl = createPortal(
       <div
         className="fixed inset-0 z-[200] bg-black"
-        style={{ pointerEvents: "auto" }}
+        style={{
+          pointerEvents: "auto",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100vw",
+          height: "100dvh",
+        }}
         role="presentation"
         aria-hidden
         onPointerDown={(e) => e.stopPropagation()}

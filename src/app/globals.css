@@ -8,6 +8,8 @@
   --gold: #c9a96e;
   --scrim: rgba(0, 0, 0, 0.85);
   --border-soft: #2a2a2a;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @theme inline {
@@ -59,25 +61,6 @@ body {
   }
 }
 
-@keyframes flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  15% {
-    opacity: 0.2;
-  }
-  20% {
-    opacity: 0.85;
-  }
-  25% {
-    opacity: 0.4;
-  }
-  30% {
-    opacity: 1;
-  }
-}
-
 @keyframes filmFadeIn {
   from {
     opacity: 0;
@@ -89,11 +72,6 @@ body {
   }
 }
 
-.flickering {
-  animation: flicker 0.4s ease;
-}
-
 .film-fade-in {
-  animation: filmFadeIn 0.4s ease-out;
+  animation: filmFadeIn 0.35s var(--ease-out) both;
 }
-

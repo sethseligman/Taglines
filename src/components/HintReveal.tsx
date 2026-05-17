@@ -61,7 +61,7 @@ export function HintReveal({
             letterSpacing: "-0.02em",
             color: "rgba(201,169,110,0.92)",
             textShadow: "0 0 24px rgba(201,169,110,0.28), 0 1px 8px rgba(0,0,0,0.45)",
-            animation: "fadeIn 0.38s ease-out both",
+            animation: "fadeIn 0.35s var(--ease-out) both",
           }}
         >
           {content}
