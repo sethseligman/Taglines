@@ -25,9 +25,11 @@ import {
   type DailyCompletionResult,
   getDailyCompletionResult,
   getPlayCount,
+  hasDailyResultBeenSeen,
   getStoredBestStreak,
   getStoredStreak,
   getWinCount,
+  markDailyResultSeen,
 } from "@/lib/storage";
 import { GameEndSequence } from "./GameEndSequence";
 import { GuessInput } from "./GuessInput";
@@ -990,8 +992,10 @@ export function GameScreen() {
               posterUrl={dailyCompletion.posterUrl ?? null}
               showPoster={Boolean(dailyCompletion.posterUrl && !completionPosterError)}
               onPosterError={() => setCompletionPosterError(true)}
+              skipSequence={hasDailyResultBeenSeen(dailyCompletion.dateKey)}
+              onSequenceComplete={() => markDailyResultSeen(dailyCompletion.dateKey)}
             >
-              <div className="w-full max-w-md text-center">
+              <div className="mx-auto w-full max-w-md text-center">
                 <div className="mx-auto mt-2 w-full">
                   {completionImdbUrl ? (
                     <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">

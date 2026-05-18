@@ -9,6 +9,7 @@ import {
   getStoredBestStreak,
   getStoredStreak,
   getWinCount,
+  markDailyResultSeen,
   maybeUpdateStoredBestStreak,
 } from "@/lib/storage";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
@@ -224,7 +225,12 @@ export function ResultModal({ state, onClose, onPlayAgain, onPlayPractice }: Res
           showPoster={showPoster}
           onPosterError={() => setPosterError(true)}
           onPhaseCEnter={() => setPhaseCActive(true)}
-          onSequenceComplete={() => setDismissEnabled(true)}
+          onSequenceComplete={() => {
+            setDismissEnabled(true);
+            if (state.isDaily && state.dateKey) {
+              markDailyResultSeen(state.dateKey);
+            }
+          }}
         >
           <header className="mb-4 w-full px-1">
             <div className="flex items-center justify-start">

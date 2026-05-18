@@ -93,6 +93,7 @@ export type GameEndSequenceProps = {
   children: React.ReactNode;
   onPhaseCEnter?: () => void;
   onSequenceComplete?: () => void;
+  skipSequence?: boolean;
 };
 
 export function GameEndSequence({
@@ -103,6 +104,7 @@ export function GameEndSequence({
   children,
   onPhaseCEnter,
   onSequenceComplete,
+  skipSequence = false,
 }: GameEndSequenceProps) {
   const onPhaseCEnterRef = useRef(onPhaseCEnter);
   const onSequenceCompleteRef = useRef(onSequenceComplete);
@@ -116,10 +118,12 @@ export function GameEndSequence({
   const [mounted, setMounted] = useState(false);
   const [showAbPortal, setShowAbPortal] = useState(false);
   const [narratorOpacity, setNarratorOpacity] = useState(0);
+  const [narratorEntered, setNarratorEntered] = useState(false);
   const [posterOpacity, setPosterOpacity] = useState(0);
   const [resultOpacity, setResultOpacity] = useState(0);
   const [resultInteractive, setResultInteractive] = useState(false);
   const timersRef = useRef<number[]>([]);
+  const bypassSequence = reduceMotion || skipSequence;
 
   const clearTimers = () => {
     timersRef.current.forEach((id) => clearTimeout(id));
@@ -131,7 +135,7 @@ export function GameEndSequence({
     const rm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setReduceMotion(rm);
     setMounted(true);
-    if (rm) {
+    if (rm || skipSequence) {
       setResultOpacity(1);
       setResultInteractive(true);
       queueMicrotask(() => {
@@ -141,14 +145,15 @@ export function GameEndSequence({
     } else {
       setShowAbPortal(true);
     }
-  }, []);
+  }, [skipSequence]);
 
   useEffect(() => {
     clearTimers();
-    if (!mounted || reduceMotion) return;
+    if (!mounted || bypassSequence) return;
 
     setShowAbPortal(true);
     setNarratorOpacity(0);
+    setNarratorEntered(false);
     setPosterOpacity(0);
     setResultOpacity(0);
     setResultInteractive(false);
@@ -157,8 +162,17 @@ export function GameEndSequence({
       timersRef.current.push(window.setTimeout(fn, delay));
     };
 
-    push(() => setNarratorOpacity(1), T_MS.blackHold);
-    push(() => setNarratorOpacity(0), T_MS.lineHoldEnd);
+    push(() => {
+      setNarratorOpacity(1);
+      setNarratorEntered(false);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setNarratorEntered(true));
+      });
+    }, T_MS.blackHold);
+    push(() => {
+      setNarratorOpacity(0);
+      setNarratorEntered(false);
+    }, T_MS.lineHoldEnd);
     push(() => setPosterOpacity(1), T_MS.lineHoldEnd + T_MS.lineFadeOut);
     push(() => setPosterOpacity(0), T_MS.posterHoldEnd);
     push(() => {
@@ -172,10 +186,10 @@ export function GameEndSequence({
     }, T_MS.phaseCEnd);
 
     return clearTimers;
-  }, [mounted, reduceMotion, narratorLine, posterUrl, showPoster]);
+  }, [mounted, bypassSequence, narratorLine, posterUrl, showPoster]);
 
   let portalEl: ReactNode = null;
-  if (mounted && showAbPortal && !reduceMotion && typeof document !== "undefined") {
+  if (mounted && showAbPortal && !bypassSequence && typeof document !== "undefined") {
     portalEl = createPortal(
       <div
         className="fixed inset-0 z-[200] bg-black"
@@ -197,11 +211,20 @@ export function GameEndSequence({
           className={PHASE_AB_SLOT_OUTER}
           style={{
             opacity: narratorOpacity,
-            transition: `opacity ${T_MS.lineFadeIn}ms ease-in-out`,
+            transition: "none",
             pointerEvents: "none",
           }}
         >
-          <div className={PHASE_AB_SLOT_INNER}>
+          <div
+            className={PHASE_AB_SLOT_INNER}
+            style={{
+              transform:
+                narratorOpacity > 0 ? (narratorEntered ? "scale(1)" : "scale(1.04)") : "scale(1)",
+              transition:
+                narratorOpacity > 0 && narratorEntered ? "transform 180ms var(--ease-out)" : "none",
+              transformOrigin: "center center",
+            }}
+          >
             <PhaseANarrator text={narratorLine} visible={narratorOpacity > 0} />
           </div>
         </div>
@@ -251,7 +274,7 @@ export function GameEndSequence({
         className="w-full"
         style={{
           opacity: resultOpacity,
-          transition: reduceMotion ? undefined : `opacity ${T_MS.phaseCFadeMs}ms ease-in`,
+          transition: bypassSequence ? undefined : `opacity ${T_MS.phaseCFadeMs}ms ease-in`,
           pointerEvents: resultInteractive ? "auto" : "none",
         }}
       >

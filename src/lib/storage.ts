@@ -118,6 +118,28 @@ function getDailyResultStorageKey(dateKey: string): string {
   return `taglines-daily-result-${dateKey}`;
 }
 
+function getDailyResultSeenKey(dateKey: string): string {
+  return `taglines:daily:seen:${dateKey}`;
+}
+
+export function markDailyResultSeen(dateKey: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getDailyResultSeenKey(dateKey), "1");
+  } catch {
+    // ignore
+  }
+}
+
+export function hasDailyResultBeenSeen(dateKey: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(getDailyResultSeenKey(dateKey)) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function setDailyCompletionResult(result: DailyCompletionResult): void {
   if (typeof window === "undefined") return;
   try {
