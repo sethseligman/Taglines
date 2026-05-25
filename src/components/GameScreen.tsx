@@ -34,6 +34,7 @@ import {
 import { GameEndSequence } from "./GameEndSequence";
 import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
+import { MainMenu } from "./MainMenu";
 import { ResultModal } from "./ResultModal";
 import { WrongGuessFlash } from "./WrongGuessFlash";
 
@@ -808,6 +809,22 @@ export function GameScreen() {
   const gameLocked =
     (mode === "daily" && !dailyCompletion && state.status === "playing") ||
     (state.status === "playing" && state.guessesUsed > 0);
+  const dailyResultToday = getDailyCompletionResult(dateKeyForDaily);
+
+  const headerMenu = (
+    <MainMenu
+      mode={mode}
+      gameLocked={gameLocked}
+      dailyDateKey={dateKeyForDaily}
+      dailyResult={dailyResultToday}
+      onSelectDaily={() => {
+        if (!gameLocked) setMode("daily");
+      }}
+      onSelectPractice={() => {
+        if (!gameLocked) setMode("practice");
+      }}
+    />
+  );
 
   useEffect(() => {
     if (!state.isDaily) return;
@@ -846,69 +863,6 @@ export function GameScreen() {
     hintRevealPhase === "slideOut" ||
     hintRevealPhase === "blank" ||
     hintRevealPhase === "fadingIn";
-  const dpModeToggle = (
-    <div
-      className="flex items-center justify-center gap-0.5"
-      style={{
-        fontFamily: FONT_DM,
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: "1px",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => {
-          if (!gameLocked) setMode("daily");
-        }}
-        className="cursor-pointer border-0 bg-transparent p-0 leading-none"
-        style={{
-          color: mode === "daily" ? "#C9A96E" : "#2E2E2E",
-          opacity: gameLocked && mode !== "daily" ? 0.4 : 1,
-          fontFamily: FONT_DM,
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: "1px",
-        }}
-        aria-pressed={mode === "daily"}
-        aria-label="Daily"
-      >
-        D
-      </button>
-      <span
-        className="select-none"
-        style={{
-          color: "#2E2E2E",
-          fontFamily: FONT_DM,
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: "1px",
-        }}
-        aria-hidden
-      >
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          if (!gameLocked) setMode("practice");
-        }}
-        className="cursor-pointer border-0 bg-transparent p-0 leading-none"
-        style={{
-          color: mode === "practice" ? "#C9A96E" : "#2E2E2E",
-          opacity: gameLocked && mode !== "practice" ? 0.4 : 1,
-          fontFamily: FONT_DM,
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: "1px",
-        }}
-        aria-pressed={mode === "practice"}
-        aria-label="Practice"
-      >
-        P
-      </button>
-    </div>
-  );
 
   if ((loading && mode === "daily") || practiceLoading) {
     return (
@@ -978,11 +932,16 @@ export function GameScreen() {
             }`}
           >
             <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-              <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                <span>Tag</span>
-                <span className="text-gold">lines</span>
-              </h1>
-              {!dailyCompletionJustAchieved ? dpModeToggle : null}
+              <a
+                href="https://www.taglines.app"
+                className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
+              >
+                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                  <span>Tag</span>
+                  <span className="text-gold">lines</span>
+                </h1>
+              </a>
+              {!dailyCompletionJustAchieved ? headerMenu : null}
             </div>
           </header>
           <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
@@ -1252,11 +1211,16 @@ export function GameScreen() {
               }`}
             >
               <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                  <span>Tag</span>
-                  <span className="text-gold">lines</span>
-                </h1>
-                {dpModeToggle}
+                <a
+                  href="https://www.taglines.app"
+                  className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
+                >
+                  <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                    <span>Tag</span>
+                    <span className="text-gold">lines</span>
+                  </h1>
+                </a>
+                {headerMenu}
               </div>
             </header>
             <section

@@ -47,7 +47,7 @@ function getShareBaseUrl(): string {
   return "https://taglines.app";
 }
 
-function formatPuzzleDate(dateKey: string): string {
+export function formatPuzzleDate(dateKey: string): string {
   const [y, m, d] = dateKey.split("-").map(Number);
   if (!y || !m || !d) return dateKey;
   const date = new Date(y, m - 1, d);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { OPEN_HTP_EVENT } from "@/lib/htpModal";
 
 const KEY_SPLASHED = "taglines-splashed";
 const SPLASH_DISMISSED_EVENT = "taglines:splash-dismissed";
@@ -37,6 +38,8 @@ export function SplashModal() {
 
   const xExitTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const xExitStartedRef = useRef(false);
+  /** Showtime on HTP close only when user opened How to Play from the first-visit splash. */
+  const htpFromSplashRef = useRef(false);
 
   /**
    * Read storage in one layout effect (no chained hydration flag).
@@ -72,6 +75,22 @@ export function SplashModal() {
     }
   }, [open, clearXExitTimers]);
 
+  useEffect(() => {
+    const handleOpenHtp = () => {
+      clearXExitTimers();
+      xExitStartedRef.current = false;
+      setHtpCardExiting(false);
+      setShowtimeLayer(false);
+      setShowtimeTextVisible(false);
+      setShowtimeCurtainOut(false);
+      htpFromSplashRef.current = false;
+      setPanel("htp");
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_HTP_EVENT, handleOpenHtp);
+    return () => window.removeEventListener(OPEN_HTP_EVENT, handleOpenHtp);
+  }, [clearXExitTimers]);
+
   const persistDismiss = useCallback((fromHtp: boolean) => {
     try {
       localStorage.setItem(KEY_SPLASHED, "true");
@@ -82,9 +101,9 @@ export function SplashModal() {
   }, []);
 
   const dismiss = useCallback(
-    (opts?: { fromHtp?: boolean }) => {
+    (opts?: { fromHtp?: boolean; notify?: boolean }) => {
       persistDismiss(Boolean(opts?.fromHtp));
-      notifySplashDismissed();
+      if (opts?.notify !== false) notifySplashDismissed();
       setOpen(false);
     },
     [notifySplashDismissed, persistDismiss]
@@ -92,6 +111,12 @@ export function SplashModal() {
 
   const handleHtpXClose = useCallback(() => {
     if (xExitStartedRef.current) return;
+
+    if (!htpFromSplashRef.current) {
+      dismiss({ fromHtp: true, notify: false });
+      return;
+    }
+
     xExitStartedRef.current = true;
     setHtpCardExiting(true);
 
@@ -120,9 +145,10 @@ export function SplashModal() {
       clearXExitTimers();
     }, HTP_X_MS_CARD + HTP_X_MS_TEXT_IN + HTP_X_MS_HOLD + HTP_X_MS_CURTAIN);
     xExitTimersRef.current.push(tDone);
-  }, [persistDismiss, clearXExitTimers]);
+  }, [persistDismiss, clearXExitTimers, dismiss, notifySplashDismissed]);
 
   const goToHowToPlay = useCallback(() => {
+    htpFromSplashRef.current = true;
     setPanel("htp");
   }, []);
 
