@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { FONT_DM } from "@/lib/fontStacks";
 import { openHowToPlayModal } from "@/lib/htpModal";
 import type { DailyCompletionResult } from "@/lib/storage";
-import { formatPuzzleDate } from "@/lib/share";
 
 const MENU_WIDTH_PX = 224;
 const MENU_GAP_PX = 6;
@@ -26,6 +25,17 @@ export type MainMenuProps = {
   onSelectPractice: () => void;
 };
 
+function formatMenuPuzzleDay(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return dateKey;
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 function formatDailyResultSummary(result: DailyCompletionResult): string {
   if (result.status === "won") {
     const n = result.guessesUsed;
@@ -43,165 +53,6 @@ function HamburgerIcon() {
     <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
     </svg>
-  );
-}
-
-function MenuStatusBanner({
-  mode,
-  dailyDateKey,
-  dailyResult,
-}: {
-  mode: Mode;
-  dailyDateKey: string;
-  dailyResult: DailyCompletionResult | null;
-}) {
-  const puzzleDate = formatPuzzleDate(dailyDateKey);
-
-  if (mode === "practice") {
-    return (
-      <div
-        style={{
-          padding: "10px 14px 11px",
-          borderBottom: "1px solid #1e1e1e",
-          background: GOLD_TINT,
-        }}
-      >
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: GOLD,
-            margin: 0,
-            lineHeight: 1.3,
-          }}
-        >
-          Practice mode
-        </p>
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 12,
-            color: "#6B6860",
-            margin: "3px 0 0",
-            lineHeight: 1.35,
-          }}
-        >
-          Random movies · unlimited plays
-        </p>
-      </div>
-    );
-  }
-
-  if (dailyResult) {
-    const summary = formatDailyResultSummary(dailyResult);
-    return (
-      <div
-        style={{
-          padding: "10px 14px 11px",
-          borderBottom: "1px solid #1e1e1e",
-          background: GOLD_TINT,
-        }}
-      >
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: GOLD,
-            margin: 0,
-            lineHeight: 1.3,
-          }}
-        >
-          Daily puzzle
-        </p>
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 12,
-            color: "#6B6860",
-            margin: "2px 0 0",
-            lineHeight: 1.35,
-          }}
-        >
-          {puzzleDate}
-        </p>
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 13,
-            fontWeight: 500,
-            color: dailyResult.status === "won" ? GOLD : "#F0EDE6",
-            margin: "4px 0 0",
-            lineHeight: 1.35,
-          }}
-        >
-          {summary}
-        </p>
-        <p
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 12,
-            color: "#6B6860",
-            margin: "3px 0 0",
-            lineHeight: 1.35,
-          }}
-        >
-          New puzzle at midnight
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        padding: "10px 14px 11px",
-        borderBottom: "1px solid #1e1e1e",
-        background: "#141414",
-      }}
-    >
-      <p
-        style={{
-          fontFamily: FONT_DM,
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#F0EDE6",
-          margin: 0,
-          lineHeight: 1.3,
-        }}
-      >
-        Today&apos;s puzzle
-      </p>
-      <p
-        style={{
-          fontFamily: FONT_DM,
-          fontSize: 12,
-          color: "#6B6860",
-          margin: "2px 0 0",
-          lineHeight: 1.35,
-        }}
-      >
-        {puzzleDate}
-      </p>
-      <p
-        style={{
-          fontFamily: FONT_DM,
-          fontSize: 12,
-          color: "#6B6860",
-          margin: "3px 0 0",
-          lineHeight: 1.35,
-        }}
-      >
-        One movie · five guesses
-      </p>
-    </div>
   );
 }
 
@@ -290,19 +141,16 @@ export function MainMenu({
     close();
   };
 
-  const puzzleDate = formatPuzzleDate(dailyDateKey);
   const dailyDisabled = gameLocked && mode !== "daily";
   const practiceDisabled = gameLocked && mode !== "practice";
-  const dailySummary = dailyResult ? formatDailyResultSummary(dailyResult) : null;
 
-  const dailyRowSublabel = (() => {
-    if (mode === "daily") {
-      if (dailyResult) return "Viewing results";
-      return "Playing now";
-    }
-    if (dailyResult) return dailySummary ?? undefined;
-    return "Daily puzzle";
-  })();
+  const puzzleDay = formatMenuPuzzleDay(dailyDateKey);
+  const dailyRowSublabel = dailyResult
+    ? `${puzzleDay} · ${formatDailyResultSummary(dailyResult)}`
+    : `${puzzleDay} · Playing now`;
+
+  const practiceRowSublabel =
+    mode === "practice" ? "Playing now" : "Random movies · unlimited plays";
 
   const triggerLabel = mode === "practice" ? "Practice mode" : "Main menu";
 
@@ -327,9 +175,8 @@ export function MainMenu({
           animation: reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
         }}
       >
-        <MenuStatusBanner mode={mode} dailyDateKey={dailyDateKey} dailyResult={dailyResult} />
         <MenuRow
-          label={puzzleDate}
+          label="Today"
           sublabel={dailyRowSublabel}
           active={mode === "daily"}
           disabled={dailyDisabled}
@@ -337,7 +184,7 @@ export function MainMenu({
         />
         <MenuRow
           label="Practice"
-          sublabel={mode === "practice" ? "Playing now" : undefined}
+          sublabel={practiceRowSublabel}
           active={mode === "practice"}
           disabled={practiceDisabled}
           onSelect={selectPractice}
@@ -418,7 +265,7 @@ type MenuRowProps = {
 function MenuRow({ label, sublabel, active, disabled, soon, onSelect }: MenuRowProps) {
   const isDisabled = Boolean(disabled || soon);
   const labelColor = isDisabled ? "#6B6860" : active ? GOLD : "#F0EDE6";
-  const sublabelColor = active ? "rgba(201, 169, 110, 0.85)" : "#6B6860";
+  const sublabelColor = "#6B6860";
 
   return (
     <div role="none">
