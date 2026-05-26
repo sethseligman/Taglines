@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FONT_DM } from "@/lib/fontStacks";
+import { ContactModal } from "@/components/ContactModal";
 import { openHowToPlayModal } from "@/lib/htpModal";
 import type { DailyCompletionResult } from "@/lib/storage";
 
@@ -65,6 +66,7 @@ export function MainMenu({
   onSelectPractice,
 }: MainMenuProps) {
   const [open, setOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -141,6 +143,11 @@ export function MainMenu({
     close();
   };
 
+  const selectContact = () => {
+    close();
+    setContactOpen(true);
+  };
+
   const dailyDisabled = gameLocked && mode !== "daily";
   const practiceDisabled = gameLocked && mode !== "practice";
 
@@ -194,6 +201,7 @@ export function MainMenu({
         <MenuRow label="Playlists" disabled soon />
         <MenuDivider />
         <MenuRow label="How to Play" onSelect={selectHowToPlay} />
+        <MenuRow label="Contact" onSelect={selectContact} />
         <MenuRow label="About" disabled soon />
         <style jsx global>{`
           @keyframes mainMenuFadeIn {
@@ -245,6 +253,7 @@ export function MainMenu({
         <HamburgerIcon />
       </button>
       {mounted && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
+      <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
     </div>
   );
 }
