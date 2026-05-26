@@ -159,7 +159,6 @@ export function GameScreen() {
   const [bestStreak, setBestStreak] = useState(() =>
     typeof window !== "undefined" ? getStoredBestStreak() : 0
   );
-  const [dailyCompletionJustAchieved, setDailyCompletionJustAchieved] = useState(false);
   const [splashDismissed, setSplashDismissed] = useState(false);
   const dateKeyForDaily = getTodayKey();
 
@@ -403,11 +402,9 @@ export function GameScreen() {
   useEffect(() => {
     if (mode !== "daily") {
       setDailyCompletion(null);
-      setDailyCompletionJustAchieved(false);
       return;
     }
     setDailyCompletion(getDailyCompletionResult(dateKey));
-    setDailyCompletionJustAchieved(false);
   }, [mode, dateKey]);
 
   useEffect(() => {
@@ -417,12 +414,10 @@ export function GameScreen() {
     if (state.status === "lost") {
       const timeoutId = window.setTimeout(() => {
         setDailyCompletion(getDailyCompletionResult(dateKey));
-        setDailyCompletionJustAchieved(true);
       }, 1300);
       return () => window.clearTimeout(timeoutId);
     }
     setDailyCompletion(getDailyCompletionResult(dateKey));
-    setDailyCompletionJustAchieved(true);
   }, [mode, state.status, state.guessesUsed, dateKey]);
 
   useEffect(() => {
@@ -480,7 +475,6 @@ export function GameScreen() {
     prevDisplayedHintLevelRef.current = 0;
     prevSyncedHintLevelRef.current = 0;
     previousCarouselIndexRef.current = 0;
-    setDailyCompletionJustAchieved(false);
   }, [hintSessionResetKey]);
 
   useLayoutEffect(() => {
@@ -893,7 +887,7 @@ export function GameScreen() {
 
     return (
       <ResultAppShell
-        headerMenu={isDailyResult && dailyCompletionJustAchieved ? null : headerMenu}
+        headerMenu={headerMenu}
         relaxedVisual={relaxedVisual}
       >
         <GameEndSequence
