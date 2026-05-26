@@ -76,7 +76,7 @@ src/
 │   └── auth.ts         # loginAdmin, logoutAdmin
 ├── components/
 │   ├── admin/AdminPanel.tsx, AdminLoginForm.tsx
-│   ├── GameScreen.tsx, HintReveal.tsx, ResultModal.tsx
+│   ├── GameScreen.tsx, HintReveal.tsx, ResultAppShell.tsx, ResultContent.tsx
 ├── data/movies.ts      # Sample movies + getTodayKey (local fallback)
 ├── data/suggestionCatalog.json  # Local autocomplete suggestion catalog
 ├── hooks/useGameState.ts

@@ -30,12 +30,14 @@ import {
   getStoredStreak,
   getWinCount,
   markDailyResultSeen,
+  maybeUpdateStoredBestStreak,
 } from "@/lib/storage";
 import { GameEndSequence } from "./GameEndSequence";
 import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
 import { MainMenu } from "./MainMenu";
-import { ResultModal } from "./ResultModal";
+import { ResultAppShell } from "./ResultAppShell";
+import { ResultContent } from "./ResultContent";
 import { WrongGuessFlash } from "./WrongGuessFlash";
 
 const CAROUSEL_MANUAL_MS = 250;
@@ -50,13 +52,6 @@ type Mode = "daily" | "practice";
 type IntroPhase = "lightsDown" | "taglineReveal" | "ready";
 const KEY_SPLASHED = "taglines-splashed";
 const SPLASH_DISMISSED_EVENT = "taglines:splash-dismissed";
-
-interface TmdbMovieMeta {
-  movieImdbId: string | null;
-  imdbRating: number | null;
-  director: { name: string; imdbId: string | null } | null;
-  cast: Array<{ name: string; imdbId: string | null }>;
-}
 
 function AutoFitHintText({
   text,
@@ -157,12 +152,13 @@ export function GameScreen() {
   const [dailyFailed, setDailyFailed] = useState(false);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
-  const [resultDismissed, setResultDismissed] = useState(false);
   const [dailyCompletion, setDailyCompletion] = useState<DailyCompletionResult | null>(null);
   const [countdown, setCountdown] = useState(() => formatCountdownToLocalMidnight());
   const [copied, setCopied] = useState(false);
-  const [completionPosterError, setCompletionPosterError] = useState(false);
-  const [completionTmdbMeta, setCompletionTmdbMeta] = useState<TmdbMovieMeta | null>(null);
+  const [resultPosterError, setResultPosterError] = useState(false);
+  const [bestStreak, setBestStreak] = useState(() =>
+    typeof window !== "undefined" ? getStoredBestStreak() : 0
+  );
   const [dailyCompletionJustAchieved, setDailyCompletionJustAchieved] = useState(false);
   const [splashDismissed, setSplashDismissed] = useState(false);
   const dateKeyForDaily = getTodayKey();
@@ -368,65 +364,33 @@ export function GameScreen() {
   const played = getPlayCount();
   const wins = getWinCount();
   const streak = getStoredStreak();
-  const bestStreak = getStoredBestStreak();
   const winPct = played > 0 ? Math.round((100 * wins) / played) : 0;
 
+  const effectiveDailyCompletion = useMemo((): DailyCompletionResult | null => {
+    if (mode !== "daily") return null;
+    return dailyCompletion ?? getDailyCompletionResult(dateKeyForDaily);
+  }, [mode, dailyCompletion, dateKeyForDaily]);
+
   const completionShareText = useMemo(() => {
-    if (!dailyCompletion) return "";
+    if (!effectiveDailyCompletion) return "";
     return buildShareText({
       movie,
-      hintLevel: Math.min(Math.max(dailyCompletion.guessesUsed - 1, 0), 4) as HintLevel,
-      guessesUsed: dailyCompletion.guessesUsed,
-      status: dailyCompletion.status,
-      guessHistory: Array.from({ length: dailyCompletion.guessesUsed }, () => ""),
+      hintLevel: Math.min(Math.max(effectiveDailyCompletion.guessesUsed - 1, 0), 4) as HintLevel,
+      guessesUsed: effectiveDailyCompletion.guessesUsed,
+      status: effectiveDailyCompletion.status,
+      guessHistory: Array.from({ length: effectiveDailyCompletion.guessesUsed }, () => ""),
       isDaily: true,
-      dateKey: dailyCompletion.dateKey,
+      dateKey: effectiveDailyCompletion.dateKey,
       didYouMean: null,
       submitMessage: null,
     });
-  }, [dailyCompletion, movie]);
+  }, [effectiveDailyCompletion, movie]);
 
-  const completionNarratorLine = useMemo(() => {
-    if (mode !== "daily" || !dailyCompletion) return "";
-    return narratorResultLine(dailyCompletion.status, dailyCompletion.guessesUsed, {
-      isDaily: true,
-      dateKey: dailyCompletion.dateKey,
-    });
-  }, [mode, dailyCompletion?.dateKey, dailyCompletion?.status, dailyCompletion?.guessesUsed]);
-
-  useEffect(() => {
-    if (!dailyCompletion?.movieTitle || !dailyCompletion.movieYear) {
-      setCompletionTmdbMeta(null);
-      return;
-    }
-    let cancelled = false;
-    setCompletionTmdbMeta(null);
-    const title = encodeURIComponent(dailyCompletion.movieTitle);
-    const year = encodeURIComponent(String(dailyCompletion.movieYear));
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/tmdb-movie-meta?title=${title}&year=${year}`, {
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as ({ ok: true } & TmdbMovieMeta) | { ok?: false };
-        if (!cancelled && data.ok) {
-          setCompletionTmdbMeta({
-            movieImdbId: data.movieImdbId ?? null,
-            imdbRating: typeof data.imdbRating === "number" ? data.imdbRating : null,
-            director: data.director ?? null,
-            cast: Array.isArray(data.cast) ? data.cast.slice(0, 3) : [],
-          });
-        }
-      } catch {
-        // Graceful fallback: keep base completion tile.
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [dailyCompletion?.movieTitle, dailyCompletion?.movieYear]);
+  useLayoutEffect(() => {
+    if (mode !== "daily" || effectiveDailyCompletion?.status !== "won") return;
+    maybeUpdateStoredBestStreak(getStoredStreak());
+    setBestStreak(getStoredBestStreak());
+  }, [mode, effectiveDailyCompletion?.status, effectiveDailyCompletion?.dateKey]);
 
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -470,11 +434,10 @@ export function GameScreen() {
   }, [dailyCompletion, mode]);
 
   useEffect(() => {
-    setCompletionPosterError(false);
-  }, [dailyCompletion?.dateKey]);
+    setResultPosterError(false);
+  }, [effectiveDailyCompletion?.dateKey, mode, state.movie.title, state.status]);
 
   useEffect(() => {
-    setResultDismissed(false);
     setWrongGuessFlash(false);
     setDisplayedHintLevel(0);
     setCarouselIndex(0);
@@ -673,20 +636,17 @@ export function GameScreen() {
     }
   }, [completionShareText]);
 
-  const dismissResultAndReturnToPlay = useCallback(() => {
-    setResultDismissed(false);
-    if (mode === "practice") {
-      setPracticeMovie(null);
-      getRandomPracticeMovie().then((m) => {
-        setPracticeMovie(m ?? getLocalRandomMovie());
-      });
-    }
+  const handlePracticePlayAgain = useCallback(() => {
+    setPracticeMovie(null);
+    getRandomPracticeMovie().then((m) => {
+      setPracticeMovie(m ?? getLocalRandomMovie());
+    });
     reset();
-  }, [mode, reset]);
-  const handleDailyResultPlayPractice = useCallback(() => {
-    dismissResultAndReturnToPlay();
-    setMode("practice");
-  }, [dismissResultAndReturnToPlay]);
+  }, [reset]);
+
+  const handlePracticeClose = useCallback(() => {
+    reset();
+  }, [reset]);
 
   wrongGuessCompleteRef.current = { hintLevel: state.hintLevel, carouselIndex };
   const handleWrongGuessFlashComplete = useCallback(() => {
@@ -805,7 +765,10 @@ export function GameScreen() {
   );
 
   const isGameOver = state.status === "won" || state.status === "lost";
-  const showResult = isGameOver && !resultDismissed && !wrongGuessFlash;
+  const showSeatedResult =
+    !wrongGuessFlash &&
+    ((mode === "daily" && effectiveDailyCompletion != null) ||
+      (mode === "practice" && isGameOver));
   const gameLocked =
     (mode === "daily" && !dailyCompletion && state.status === "playing") ||
     (state.status === "playing" && state.guessesUsed > 0);
@@ -825,19 +788,6 @@ export function GameScreen() {
       }}
     />
   );
-
-  useEffect(() => {
-    if (!state.isDaily) return;
-    if (!(state.status === "won" || state.status === "lost")) return;
-    console.log("[GameScreen] daily game ended", {
-      status: state.status,
-      resultDismissed,
-      showResult,
-      isGameOver,
-      guessesUsed: state.guessesUsed,
-      dateKey: state.dateKey,
-    });
-  }, [state.isDaily, state.status, resultDismissed, showResult, isGameOver, state.guessesUsed, state.dateKey]);
 
   const practiceLoading = mode === "practice" && practiceMovie === null;
   const dailyUnavailable =
@@ -903,271 +853,152 @@ export function GameScreen() {
     );
   }
 
-  if (mode === "daily" && dailyCompletion && !showResult) {
-    const completionImdbUrl = completionTmdbMeta?.movieImdbId
-      ? `https://www.imdb.com/title/${completionTmdbMeta.movieImdbId}`
-      : null;
-    const completionGuesses = dailyCompletion.guessesUsed;
-    const completionHintsUsed = Math.max(completionGuesses - 1, 0);
-    const completionSolveSummary = `Solved in ${completionGuesses} ${
-      completionGuesses === 1 ? "guess" : "guesses"
-    }${completionHintsUsed > 0 ? ` · ${completionHintsUsed} hints used` : ""}`;
-    const completionMetaLine =
-      completionTmdbMeta?.imdbRating !== null && completionTmdbMeta?.imdbRating !== undefined
-        ? `${dailyCompletion.movieYear} · ${dailyCompletion.movieGenre} · ⭐ ${completionTmdbMeta.imdbRating.toFixed(1)}`
-        : `${dailyCompletion.movieYear} · ${dailyCompletion.movieGenre}`;
+  if (showSeatedResult) {
+    const isDailyResult = mode === "daily" && effectiveDailyCompletion != null;
+    const dailyResult = effectiveDailyCompletion;
+    const resultStatus = isDailyResult ? dailyResult!.status : state.status;
+    const resultGuesses = isDailyResult ? dailyResult!.guessesUsed : state.guessesUsed;
+    const resultHintsUsed = Math.max(resultGuesses - 1, 0);
+    const resultSolveSummary = `Solved in ${resultGuesses} ${
+      resultGuesses === 1 ? "guess" : "guesses"
+    }${resultHintsUsed > 0 ? ` · ${resultHintsUsed} hints used` : ""}`;
+    const resultTitle = isDailyResult ? dailyResult!.movieTitle : state.movie.title;
+    const resultYear = isDailyResult ? dailyResult!.movieYear : state.movie.year;
+    const resultGenre = isDailyResult ? dailyResult!.movieGenre : state.movie.genre;
+    const resultPosterUrl = isDailyResult
+      ? dailyResult!.posterUrl
+      : (state.movie.posterUrl ?? null);
+    const showResultPoster = Boolean(resultPosterUrl && !resultPosterError);
+    const seatedNarratorLine = isDailyResult
+      ? narratorResultLine(dailyResult!.status, dailyResult!.guessesUsed, {
+          isDaily: true,
+          dateKey: dailyResult!.dateKey,
+        })
+      : narratorResultLine(
+          state.status as "won" | "lost",
+          state.guessesUsed,
+          { isDaily: false }
+        );
+    const sequenceKey = isDailyResult
+      ? `daily-${dailyResult!.dateKey}-${dailyResult!.status}-${dailyResult!.guessesUsed}`
+      : `practice-${state.movie.title}-${state.status}-${state.guessesUsed}`;
+    const practicePillClass =
+      "rounded-full border px-4 py-2 text-sm font-medium transition hover:border-muted hover:text-foreground/90 active:scale-[0.99]";
+    const practicePillStyle = {
+      fontFamily: FONT_DM,
+      backgroundColor: "#1a1a1a",
+      borderColor: "#333333",
+      color: "#6b6860",
+    } as const;
+
     return (
-      <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
-        <div
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 200px 500px at 50% -5%, rgba(201,169,110,0.04) 0%, transparent 70%)",
+      <ResultAppShell
+        headerMenu={isDailyResult && dailyCompletionJustAchieved ? null : headerMenu}
+        relaxedVisual={relaxedVisual}
+      >
+        <GameEndSequence
+          key={sequenceKey}
+          narratorLine={seatedNarratorLine}
+          posterUrl={resultPosterUrl}
+          showPoster={showResultPoster}
+          onPosterError={() => setResultPosterError(true)}
+          skipSequence={isDailyResult ? hasDailyResultBeenSeen(dailyResult!.dateKey) : false}
+          onSequenceComplete={() => {
+            if (isDailyResult && dailyResult) {
+              markDailyResultSeen(dailyResult.dateKey);
+            }
           }}
-        />
-        <div className="relative z-10 flex min-h-screen flex-col">
-          <header
-            className={`w-full shrink-0 px-5 md:px-8 ${
-              relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
-            }`}
-          >
-            <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-              <a
-                href="https://www.taglines.app"
-                className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
-              >
-                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                  <span>Tag</span>
-                  <span className="text-gold">lines</span>
-                </h1>
-              </a>
-              {!dailyCompletionJustAchieved ? headerMenu : null}
-            </div>
-          </header>
-          <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
-            <GameEndSequence
-              key={`completion-${dailyCompletion.dateKey}-${dailyCompletion.status}-${dailyCompletion.guessesUsed}`}
-              narratorLine={completionNarratorLine}
-              posterUrl={dailyCompletion.posterUrl ?? null}
-              showPoster={Boolean(dailyCompletion.posterUrl && !completionPosterError)}
-              onPosterError={() => setCompletionPosterError(true)}
-              skipSequence={hasDailyResultBeenSeen(dailyCompletion.dateKey)}
-              onSequenceComplete={() => markDailyResultSeen(dailyCompletion.dateKey)}
-            >
-              <div className="mx-auto w-full max-w-md text-center">
-                <div className="mx-auto mt-2 w-full">
-                  {completionImdbUrl ? (
-                    <div className="relative rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3">
-                      <a
-                        href={completionImdbUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute inset-0 z-0"
-                        aria-label={`View ${dailyCompletion.movieTitle} on IMDb`}
-                      />
-                      <div className="relative z-10 flex w-full flex-row items-start gap-3 text-left">
-                        {dailyCompletion.posterUrl && !completionPosterError ? (
-                          <img
-                            src={dailyCompletion.posterUrl}
-                            alt=""
-                            width={84}
-                            height={124}
-                            className="block shrink-0 object-cover"
-                            style={{ width: 84, height: 124, borderRadius: 6 }}
-                            onError={() => setCompletionPosterError(true)}
-                          />
-                        ) : (
-                          <div
-                            className="shrink-0 bg-[#161616]"
-                            style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
-                            aria-hidden
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="font-bold leading-tight text-[#f0ede6]"
-                            style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
-                          >
-                            {dailyCompletion.movieTitle}
-                          </p>
-                          <p
-                            className="mt-1 text-[#6b6860]"
-                            style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
-                          >
-                            {completionMetaLine}
-                          </p>
-                          <p
-                            className="mt-2.5 italic leading-snug text-[#d7d3c8]"
-                            style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
-                          >
-                            {movie.officialTagline}
-                          </p>
-                          {completionTmdbMeta?.director?.name && completionTmdbMeta.director.imdbId ? (
-                            <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}>
-                              🎬{" "}
-                              <a
-                                href={`https://www.imdb.com/name/${completionTmdbMeta.director.imdbId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="relative z-20 underline"
-                              >
-                                {completionTmdbMeta.director.name}
-                              </a>
-                            </p>
-                          ) : null}
-                          {completionTmdbMeta?.cast?.length ? (
-                            <p className="mt-1.5 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem", lineHeight: 1.35 }}>
-                              {completionTmdbMeta.cast.map((actor, idx) => (
-                                <span key={`${actor.name}-${idx}`}>
-                                  {actor.imdbId ? (
-                                    <a
-                                      href={`https://www.imdb.com/name/${actor.imdbId}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="relative z-20 underline"
-                                    >
-                                      {actor.name}
-                                    </a>
-                                  ) : (
-                                    actor.name
-                                  )}
-                                  {idx < completionTmdbMeta.cast.length - 1 ? " · " : ""}
-                                </span>
-                              ))}
-                            </p>
-                          ) : null}
-                          <a
-                            href={completionImdbUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="relative z-20 mt-1.5 inline-block text-[#6b6860] underline"
-                            style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.72rem" }}
-                          >
-                            View on IMDb →
-                          </a>
-                        </div>
-                      </div>
-                    </div>
+        >
+          <div className="mx-auto w-full max-w-md text-center">
+            <ResultContent
+              variant="completion"
+              title={resultTitle}
+              year={resultYear}
+              genre={resultGenre}
+              tagline={movie.officialTagline}
+              posterUrl={resultPosterUrl}
+              showPoster={showResultPoster}
+              onPosterError={() => setResultPosterError(true)}
+              showDailyStats={isDailyResult}
+              stats={isDailyResult ? { played, winPct, streak, bestStreak } : undefined}
+              copied={copied}
+              onShare={handleShareCompletion}
+              betweenTileAndDailyExtras={
+                <>
+                  {resultStatus === "won" ? (
+                    <>
+                      <p
+                        className="mt-5 uppercase text-[#6b6860]"
+                        style={{
+                          fontFamily: '"DM Sans", sans-serif',
+                          fontSize: "0.68rem",
+                          letterSpacing: "0.15em",
+                        }}
+                      >
+                        solved in
+                      </p>
+                      <p
+                        className="leading-none text-[#c9a96e]"
+                        style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
+                      >
+                        {resultGuesses}
+                      </p>
+                    </>
                   ) : (
-                    <div className="flex w-full flex-row items-start gap-3 rounded-md border border-[#1e1e1e] bg-[#111] px-3 py-3 text-left">
-                      {dailyCompletion.posterUrl && !completionPosterError ? (
-                        <img
-                          src={dailyCompletion.posterUrl}
-                          alt=""
-                          width={84}
-                          height={124}
-                          className="block shrink-0 object-cover"
-                          style={{ width: 84, height: 124, borderRadius: 6 }}
-                          onError={() => setCompletionPosterError(true)}
-                        />
-                      ) : (
-                        <div
-                          className="shrink-0 bg-[#161616]"
-                          style={{ width: 84, height: 124, borderRadius: 6, border: "1px solid #222" }}
-                          aria-hidden
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className="font-bold leading-tight text-[#f0ede6]"
-                          style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.12rem", lineHeight: 1.15 }}
-                        >
-                          {dailyCompletion.movieTitle}
-                        </p>
-                        <p
-                          className="mt-1 text-[#6b6860]"
-                          style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.74rem", lineHeight: 1.3 }}
-                        >
-                          {dailyCompletion.movieYear} · {dailyCompletion.movieGenre}
-                        </p>
-                        <p
-                          className="mt-2.5 italic leading-snug text-[#d7d3c8]"
-                          style={{ fontFamily: FONT_PLAYFAIR, fontSize: "1.03rem" }}
-                        >
-                          {movie.officialTagline}
-                        </p>
-                      </div>
-                    </div>
+                    <p
+                      className="mt-4 text-[#f0ede6]"
+                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}
+                    >
+                      {resultSolveSummary}
+                    </p>
                   )}
-                  <div className="mt-4 w-full border-t" style={{ borderColor: "#1e1e1e" }} />
-                </div>
-                {dailyCompletion.status === "won" ? (
-                  <>
+                  {isDailyResult ? (
                     <p
-                      className="mt-5 uppercase text-[#6b6860]"
-                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.68rem", letterSpacing: "0.15em" }}
+                      className="mt-2 text-[#6b6860]"
+                      style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}
                     >
-                      solved in
+                      Next tagline in {countdown}
                     </p>
-                    <p
-                      className="leading-none text-[#c9a96e]"
-                      style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
-                    >
-                      {dailyCompletion.guessesUsed}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-4 text-[#f0ede6]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1rem" }}>
-                    {completionSolveSummary}
-                  </p>
-                )}
-                <p className="mt-2 text-[#6b6860]" style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.78rem" }}>
-                  Next tagline in {countdown}
-                </p>
-
-                <div className="mt-8 grid w-full grid-cols-4 border border-[#222]">
-                  {[
-                    { n: played, l: "Played" },
-                    { n: `${winPct}%`, l: "Win %" },
-                    { n: streak, l: "Streak" },
-                    { n: bestStreak, l: "Best" },
-                  ].map((cell, i) => (
-                    <div
-                      key={cell.l}
-                      className="flex flex-col items-center justify-center py-3 text-center"
-                      style={{ borderLeft: i > 0 ? "1px solid #222" : undefined }}
-                    >
-                      <span
-                        className="font-bold text-[#f0ede6]"
-                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "1.35rem" }}
-                      >
-                        {cell.n}
-                      </span>
-                      <span
-                        className="mt-1 uppercase tracking-[0.06em] text-[#6b6860]"
-                        style={{ fontFamily: '"DM Sans", sans-serif', fontSize: "0.65rem" }}
-                      >
-                        {cell.l}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-8 flex justify-center">
+                  ) : null}
+                </>
+              }
+            />
+            {isDailyResult ? (
+              <div className="mt-3 w-full text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode("practice")}
+                  className="transition hover:opacity-90"
+                  style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 13, color: "#6B6860" }}
+                >
+                  Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex w-full flex-col items-center gap-3">
+                <div className="flex w-full max-w-[320px] flex-row flex-wrap justify-center gap-2">
                   <button
                     type="button"
-                    onClick={handleShareCompletion}
-                    className="w-full rounded-lg bg-[#c9a96e] py-3 font-bold text-black transition hover:bg-[#d4b377] active:scale-[0.99]"
-                    style={{ fontFamily: '"DM Sans", sans-serif' }}
+                    onClick={handlePracticePlayAgain}
+                    className={practicePillClass}
+                    style={practicePillStyle}
                   >
-                    {copied ? "Copied" : "Share today's result"}
+                    Play again
                   </button>
-                </div>
-                <div className="mt-3 w-full text-center">
                   <button
                     type="button"
-                    onClick={() => setMode("practice")}
-                    className="transition hover:opacity-90"
-                    style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 13, color: "#6B6860" }}
+                    onClick={handlePracticeClose}
+                    className={practicePillClass}
+                    style={practicePillStyle}
                   >
-                    Need more Taglines? <span style={{ color: "#A8A49C" }}>Play practice mode</span>
+                    Close
                   </button>
                 </div>
               </div>
-            </GameEndSequence>
-          </main>
-        </div>
-      </div>
+            )}
+          </div>
+        </GameEndSequence>
+      </ResultAppShell>
     );
   }
 
@@ -1747,14 +1578,6 @@ export function GameScreen() {
           />
         ) : null}
 
-        {showResult && (
-          <ResultModal
-            state={state}
-            onClose={dismissResultAndReturnToPlay}
-            onPlayAgain={dismissResultAndReturnToPlay}
-            onPlayPractice={handleDailyResultPlayPractice}
-          />
-        )}
         <style jsx global>{`
           @keyframes taglineCinematicReveal {
             from {
