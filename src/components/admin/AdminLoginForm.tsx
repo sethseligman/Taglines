@@ -9,7 +9,10 @@ export function AdminLoginForm() {
   const [state, formAction] = useActionState(loginAdmin, null as { error?: string; success?: boolean } | null);
 
   useEffect(() => {
-    if (state?.success) router.push("/admin");
+    if (state?.success) {
+      router.refresh();
+      router.push("/admin");
+    }
   }, [state?.success, router]);
 
   return (

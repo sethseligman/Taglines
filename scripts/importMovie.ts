@@ -100,55 +100,45 @@ export type ImportResult =
   | { outcome: "skipped"; reason: string }
   | { outcome: "error"; message: string };
 
-/**
- * Import one movie from TMDB into Supabase. Caller must have env and loadEnv() already run.
- */
-export async function importOneMovie(titleArg: string): Promise<ImportResult> {
+function missingEnvError(): ImportResult {
+  return {
+    outcome: "error",
+    message: "Missing TMDB_ACCESS_TOKEN, NEXT_PUBLIC_SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY.",
+  };
+}
+
+function getImportClients() {
   const tmdbToken = process.env.TMDB_ACCESS_TOKEN;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!tmdbToken || !supabaseUrl || !supabaseServiceKey) return null;
+  return {
+    headers: { Authorization: `Bearer ${tmdbToken}` },
+    supabase: createClient(supabaseUrl, supabaseServiceKey),
+  };
+}
 
-  if (!tmdbToken || !supabaseUrl || !supabaseServiceKey) {
-    return {
-      outcome: "error",
-      message: "Missing TMDB_ACCESS_TOKEN, NEXT_PUBLIC_SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY.",
-    };
-  }
-
-  const headers = { Authorization: `Bearer ${tmdbToken}` };
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const searchRes = await fetch(
-    `${TMDB_BASE}/search/movie?query=${encodeURIComponent(titleArg)}&language=en-US`,
-    { headers }
-  );
-  if (!searchRes.ok) {
-    return { outcome: "error", message: `TMDB search failed: ${searchRes.status}` };
-  }
-  const searchData = (await searchRes.json()) as { results?: TMDBSearchResult[] };
-  const results = searchData.results ?? [];
-  if (results.length === 0) {
-    return { outcome: "skipped", reason: "No TMDB results found." };
-  }
-
-  const best = results[0]!;
-  const movieId = best.id;
-
-  const detailsRes = await fetch(
-    `${TMDB_BASE}/movie/${movieId}?language=en-US`,
-    { headers }
-  );
+async function fetchTmdbMovie(
+  movieId: number,
+  headers: Record<string, string>
+): Promise<{ details: TMDBMovieDetails; credits: TMDBCredits } | ImportResult> {
+  const detailsRes = await fetch(`${TMDB_BASE}/movie/${movieId}?language=en-US`, { headers });
   if (!detailsRes.ok) {
     return { outcome: "error", message: `TMDB movie details failed: ${detailsRes.status}` };
   }
   const details = (await detailsRes.json()) as TMDBMovieDetails;
 
-  const creditsRes = await fetch(
-    `${TMDB_BASE}/movie/${movieId}/credits?language=en-US`,
-    { headers }
-  );
+  const creditsRes = await fetch(`${TMDB_BASE}/movie/${movieId}/credits?language=en-US`, { headers });
   const credits: TMDBCredits = creditsRes.ok ? await creditsRes.json() : {};
 
+  return { details, credits };
+}
+
+async function insertMovieFromTmdb(
+  supabase: ReturnType<typeof createClient>,
+  details: TMDBMovieDetails,
+  credits: TMDBCredits
+): Promise<ImportResult> {
   const tagline = cleanTagline(details.tagline ?? "");
   if (!tagline) {
     return { outcome: "skipped", reason: "TMDB tagline is empty or cleaned to empty." };
@@ -161,22 +151,22 @@ export async function importOneMovie(titleArg: string): Promise<ImportResult> {
 
   const normalizedNewTitle = normalizeTitleForDedup(details.title);
   const { data: existingRows } = await supabase.from("movies").select("id, title, year");
-  const isDuplicate = (existingRows ?? []).some(
+  const existing = (existingRows ?? []).find(
     (row: { id: string; title: string; year: number }) =>
       row.year === year && normalizeTitleForDedup(row.title) === normalizedNewTitle
   );
-  if (isDuplicate) {
-    const existing = (existingRows ?? []).find(
-      (row: { id: string; title: string; year: number }) =>
-        row.year === year && normalizeTitleForDedup(row.title) === normalizedNewTitle
-    );
-    return { outcome: "skipped", reason: `Movie already exists (id=${existing?.id ?? "?"}).` };
+  if (existing) {
+    return { outcome: "skipped", reason: `Movie already exists (id=${existing.id}).` };
   }
 
   const genre = getGenre(details);
   const castHint = getCastHint(credits);
   const plotHint = (details.overview ?? "").trim().slice(0, 1000);
-  const posterPath = details.poster_path?.trim() ? (details.poster_path!.startsWith("/") ? details.poster_path : `/${details.poster_path}`) : null;
+  const posterPath = details.poster_path?.trim()
+    ? details.poster_path!.startsWith("/")
+      ? details.poster_path
+      : `/${details.poster_path}`
+    : null;
 
   const { data: insertedMovie, error: movieErr } = await supabase
     .from("movies")
@@ -218,6 +208,46 @@ export async function importOneMovie(titleArg: string): Promise<ImportResult> {
   }
 
   return { outcome: "inserted", id: movieUuid, title: canonicalTitle, year };
+}
+
+/** Import one movie by TMDB movie id (bypasses ambiguous title search). */
+export async function importMovieByTmdbId(tmdbId: number): Promise<ImportResult> {
+  const clients = getImportClients();
+  if (!clients) return missingEnvError();
+
+  const fetched = await fetchTmdbMovie(tmdbId, clients.headers);
+  if ("outcome" in fetched) return fetched;
+
+  return insertMovieFromTmdb(clients.supabase, fetched.details, fetched.credits);
+}
+
+/**
+ * Import one movie from TMDB into Supabase. Caller must have env and loadEnv() already run.
+ */
+export async function importOneMovie(titleArg: string, year?: number): Promise<ImportResult> {
+  const clients = getImportClients();
+  if (!clients) return missingEnvError();
+
+  const searchUrl = new URL(`${TMDB_BASE}/search/movie`);
+  searchUrl.searchParams.set("query", titleArg);
+  searchUrl.searchParams.set("language", "en-US");
+  if (year) searchUrl.searchParams.set("year", String(year));
+
+  const searchRes = await fetch(searchUrl.toString(), { headers: clients.headers });
+  if (!searchRes.ok) {
+    return { outcome: "error", message: `TMDB search failed: ${searchRes.status}` };
+  }
+  const searchData = (await searchRes.json()) as { results?: TMDBSearchResult[] };
+  const results = searchData.results ?? [];
+  if (results.length === 0) {
+    return { outcome: "skipped", reason: "No TMDB results found." };
+  }
+
+  const best = results[0]!;
+  const fetched = await fetchTmdbMovie(best.id, clients.headers);
+  if ("outcome" in fetched) return fetched;
+
+  return insertMovieFromTmdb(clients.supabase, fetched.details, fetched.credits);
 }
 
 async function main(): Promise<void> {

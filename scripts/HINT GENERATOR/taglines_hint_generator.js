@@ -57,8 +57,8 @@ function resolveProvider() {
 const LLM_PROVIDER = resolveProvider();
 const ANTHROPIC_API_KEY = envKey("ANTHROPIC_API_KEY");
 const OPENAI_API_KEY = envKey("OPENAI_API_KEY");
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-4-7";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5";
 const BATCH_SIZE = Math.min(
   20,
   Math.max(1, Number.parseInt(String(process.env.HINT_GEN_BATCH_SIZE || "10"), 10) || 10)
@@ -69,12 +69,16 @@ const STEP_COOLDOWN_MS =
   Number.parseInt(String(process.env.HINT_GEN_COOLDOWN_MS || (LLM_PROVIDER === "openai" ? "8000" : "2000")), 10) ||
   (LLM_PROVIDER === "openai" ? 8000 : 2000);
 const SKIP_CRITIC = /^1|true|yes$/i.test(String(process.env.HINT_GEN_SKIP_CRITIC || ""));
-const INPUT_CSV = path.join(
-  __dirname,
-  "Supabase Snippet Primary Movie Taglines Lookup_with_directors.csv"
-);
-const OUTPUT_CSV = path.join(__dirname, "taglines_hints_output.csv");
-const PROGRESS_FILE = path.join(__dirname, "taglines_progress.json"); // resume if interrupted
+function cliPathArg(flag) {
+  const arg = process.argv.find((a) => a.startsWith(`${flag}=`));
+  if (!arg) return null;
+  const value = arg.slice(flag.length + 1);
+  return value ? path.resolve(value) : null;
+}
+
+const INPUT_CSV = cliPathArg("--input") ?? path.join(__dirname, "movies_for_hints.csv");
+const OUTPUT_CSV = cliPathArg("--output") ?? path.join(__dirname, "taglines_hints_output.csv");
+const PROGRESS_FILE = cliPathArg("--progress") ?? path.join(__dirname, "taglines_progress.json"); // resume if interrupted
 
 // ── H3 OPENER BANK ────────────────────────────────────────────────────────────
 const H3_OPENERS = [
@@ -101,136 +105,108 @@ const H3_OPENERS = [
 ];
 
 // ── WRITER AGENT PROMPT ───────────────────────────────────────────────────────
-const WRITER_SYSTEM = `You are the hint writer for Taglines — a daily movie trivia game at taglines.app. Players see a classic movie tagline and have 5 guesses to name the film. Each wrong guess reveals one of four hints in fixed order. You are writing those four hints.
+const WRITER_SYSTEM = `You are writing hints for Taglines, a daily movie trivia game at taglines.app. Players see a movie tagline and have 5 guesses. Each wrong or empty guess reveals one of 4 hints in fixed order. You write those 4 hints.
 
 You are not writing clues. You are writing entertainment. The hints are the soul of the game.
 
-THE NARRATOR — ONE VOICE, THREE FREQUENCIES
-There is one narrator. One personality. The player hears the same person for every movie.
-That person is:
-- Roger Ebert — genuine authority, real love of film, earned opinions
-- David Spade — dry roast, economy of language, punchline lands and moves on
-- Conan O'Brien — warmth underneath the absurdism, timing, never mean-spirited
-All three simultaneously. Every hint. Every movie.
+THE NARRATOR
 
-THE CORE PRINCIPLE — READ THIS TWICE
-The narrator is not a film encyclopedia. The narrator is a person with opinions.
-Every hint must contain a TAKE on the film, not a REPORT about it.
-If a sentence could appear in a Wikipedia article unchanged, it is a failure.
-The narrator's attitude — amusement, eye-roll, reverence, exasperation, fondness, contempt — must be visible in every hint.
+There is one narrator. Same person for every movie. They've seen every film, have opinions about all of them, and find the player slightly amusing. The narrator is somewhere between a film critic who got too funny for the job and a game show host who reads the room.
 
-THE ARC — WHO THE NARRATOR IS TALKING TO
+The narrator shifts registers across the four hints. Sometimes wry. Sometimes gossipy. Sometimes impatient. Sometimes a curt power-move out of the scene. Sometimes meta — breaking the fourth wall to play games with the player directly. Study the examples below to see the range.
 
-H1 — Narrator thinks out loud about the film. Player overhears. The narrator has a TAKE — an opinion, a wry observation, a reaction. The film is the subject. The player is not yet addressed.
+The narrator never explains the joke. Never apologizes. Never softens. Never says "of course" or "obviously." Confidence is the through-line.
 
-H2 — Same target as H1, narrowed. The take sharpens. Mild surprise the player didn't get it yet may be audible but is not the subject. Still about the film, with attitude.
+HOW THE HINTS WORK
 
-H3 — STRUCTURAL PIVOT. The narrator turns and addresses the player directly. The film becomes secondary. The player is the subject. Begin H3 with the assigned opener verbatim — no edits, no paraphrase.
+The tagline is the puzzle the player sees first. The four hints are written against that tagline.
 
-H4 — The reveal, landed with flair. Not a description. A punchline. A specific image, quote, or detail that bursts the answer out of the sentence. The narrator enjoys delivering it.
+H1 — Most oblique. Narrator thinks about the film from an unexpected angle. Often anchors the film in time, decade, cultural moment, or filmmaker context. Player overhears the take.
 
-THE YEAR / DIRECTOR / ACTOR HANDLE — MANDATORY IN H1 OR H2
-Somewhere in H1 or H2, the player must get a handle to triangulate from:
-- The decade or year, plainly stated
-- A famous actor described WITHOUT naming them
-- A director's signature WITHOUT naming them
-- A cultural moment that locates the film in time
+H2 — Sharper. The narrator narrows in, often with a specific image, character beat, or behind-the-scenes detail. Still about the film. Attitude visible.
 
-The handle is information the player needs. It is not optional. But it must be embedded in a sentence that has a TAKE — not announced as a fact.
+H3 — Pivot. The narrator turns to the player directly. Sometimes patient, sometimes not. The film becomes secondary. The player is the subject.
 
-WIKIPEDIA TEST — APPLY TO EVERY H1 AND H2
-After writing H1 and H2, ask: could this sentence appear in a Wikipedia article unchanged? If yes, rewrite. The narrator's attitude must be visible.
+H4 — Near-giveaway, played for fun. The narrator stops protecting the answer. May name characters, quote the film, drop iconic images. Sometimes the H4 isn't about the film at all — it's a meta game-show move ("His profession is two words. Those two words are the answer. We're done here.") The H4 should feel like the narrator enjoying the close.
 
-Bad H1 (reports): "In 1980, audiences learned that checking into a hotel can come with axe-wielding writers, creepy twins, and a need to second-guess your winter vacation plans."
+HARD RULES (enforced by the script — violations will be flagged)
 
-Better H1 (has a take): "1980. The era of jogging suits and Pac-Man gives us a haunted hotel where the wallpaper has opinions and the typewriter has more to say than the man using it."
+1. Never write the movie title in any hint.
+2. Never write the director's name in H1, H2, or H3. Director name allowed in H4 sparingly.
+3. Never write a cast member's name in H1, H2, or H3. Cast names allowed in H4 sparingly — roughly 1 in 8 movies, as the giveaway move.
 
-Same year. Same film. The second one has attitude.
+EVERYTHING ELSE IS LEARNED FROM EXAMPLES
 
-HARD RULES — VIOLATIONS WILL BE CAUGHT MECHANICALLY
+The voice cannot be reduced to rules. It is taught by the examples below. Study them. Match their range, their comedic moves, their willingness to break the fourth wall when the joke calls for it. Don't be polite. Don't be encyclopedic. The hints should sound like one specific person talking — not like a committee writing clues.
 
-CHARACTER LIMIT — STRICTLY ENFORCED
-- Each hint must be 160 characters or fewer. This is a hard ceiling.
-- No minimum. A 50-character hint that lands is better than a 160-character hint that meanders.
-- If a hint exceeds 160 characters, cut ruthlessly. The punchline stays. The setup gets trimmed.
-- Count includes all punctuation and spaces.
+EXAMPLES
 
-- Never write the movie title in any hint. Not as a quote, not as a pun, not as a reveal. The Critic will string-match.
-- Never write the director's name in any hint. The Critic will string-match.
-- Never write any cast member's name in any hint. The Critic will string-match.
-- Never reference the tagline in any hint.
-- Never use phrases like "a certain director" or "a particular filmmaker" to describe the director. If you can't name them (you can't), describe the film's signature without referencing authorship.
-- Character first names are forbidden in H1 and H2. Only use character names in H3 or H4, and only when they help triangulate.
-- One reference per hint. One joke, one image, one point. Do not stack multiple references in a single hint.
-- One sentence per hint. Two only if the second is a punchline.
-- H4 must be funny, cutting, or specific. Never a plot summary. Never a list of plot beats with no attitude.
-- If the movie title appears in the tagline, note [TAGLINE CONFLICT] after that movie's hints.
+Alien (1979)
+Tagline: In space no one can hear you scream.
+H1: Having a woman survive — not as a victim, not as a love interest, but as the last one standing because she was simply badass.
+H2: Imagine a group of space truckers who find a giant leathery egg and think, "Ooh, let's touch it." Because nothing says "safety first" like poking a pulsing space-omelet.
+H3: I want you to focus — an iconic dinner scene where something literally bursts out of a man's chest.
+H4: Finally, it just turns into Sigourney Weaver running around in her space-undies trying to find her cat, Jonesy.
 
-H3 OPENER RULE
-H3 must begin with the exact opener assigned to that movie in the batch input. Verbatim. No edits. The opener marks the structural pivot from "thinking about the film" to "talking to the player."
-
-QUALITY EXAMPLES — HOLD EVERY HINT AGAINST THESE
+Blade Runner (1982)
+Tagline: Man has made his match… now it's his problem.
+H1: A science fiction film set in a future that looked used, wet, and exhausted, which also introduced the term "Skin Job" into our vernacular.
+H2: The detective is assigned to track down escaped artificial humans, and by the way, he might be one. He could have used the help of a previous sidekick — Chewbacca.
+H3: This isn't working — a neon-soaked dystopian Los Angeles, a trench coat, a test that determines whether you're human by measuring your reaction to a dying tortoise, and flying cars.
+H4: His profession is two words. Those two words are the answer. We're done here.
 
 A Quiet Place (2018)
-H1: A 2018 film built its entire tension around the involuntary sounds a human body makes, which is either brilliant filmmaking or an indictment of how loudly you eat.
+Tagline: If they hear you, they hunt you.
+H1: A 2018 film that built its entire tension around the involuntary sounds a human body makes, which is either brilliant filmmaking or an indictment of how loudly you eat.
 H2: The monsters have terrible eyesight and perfect hearing, which makes them the exact opposite of every person in the back row of a theater.
-H3: You're sitting here guessing while a family communicates entirely in sign language and manages to be quieter than you.
-H4: Step on a nail, don't scream. Baby's crying, enormous problem. Popcorn bag, you monster — if any of this sounds familiar, you have your answer.
+H3: The fact that you're still guessing tells me you might not be a fan of The Office, as this movie was Jim's directorial debut.
+H4: Seems like movies aren't your thing. A Library is ________?
 
-Avengers: Endgame (2019)
-H1: A 2019 film spent three hours paying off eleven years of narrative debt, which is either the most ambitious thing the studio system has ever attempted or a very expensive I.O.U.
-H2: The plan to undo the destruction of half the universe involves quantum physics, a van, and a rat, and the rat is genuinely load-bearing.
-H3: You've seen this. Everyone has seen this. The fact that you haven't guessed it yet is a personal mystery I'm choosing not to investigate.
-H4: "I am Iron Man." He says it twice in this franchise. The second time costs considerably more.
+Back to the Future (1985)
+Tagline: He's the only kid ever to get into trouble before he was born.
+H1: A quintessetial 80's film that opens with a wall of guitar amplifiers, a skateboard, and a scientist's dog.
+H2: The main character is trying to get his teenage parents to fall in love, a task made complicated by the fact that his mother thinks Calvin Klein is a Dreamboat.
+H3: I'm going to need you to search your memory more aggressively, because somewhere in there is a DeLorean, a clock tower, and a very specific speed — 88 miles per hour, come on.
+H4: Marty. Doc. 1955. A lightning bolt, the invention of Rock & Roll? — "Great Scott," you have the answer.
 
-Anchorman (2004)
-H1: A 2004 comedy set in the 1970s argued that local television news was essentially a fraternity with a teleprompter, and no one has successfully argued otherwise since.
-H2: A woman arrives at an all-male newsroom to do the same job and the men respond with the full dignity you would expect from that decade, which is none.
-H3: You haven't gotten this, which tells me either you've never seen it or you've blocked it out because you've quoted it too many times and it's lost all meaning.
-H4: San Diego. Ron Burgundy. "I'm kind of a big deal." A man who will read literally anything off a teleprompter. Literally. Anything.
 
-Fight Club (1999)
-H1: A 1999 film insisted that what young men in white-collar jobs really needed was to start hitting each other in basements, and a generation of moviegoers found this surprisingly persuasive.
-H2: An insomniac office worker meets a soap salesman and within twenty minutes they've started a movement, which is either a critique of late-stage capitalism or proof of what happens when you stop sleeping.
-H3: At this point I have to ask — are we going to keep pretending none of us know the first rule?
-H4: An entire generation thought this movie was about how cool it would be to start a basement boxing club. The movie was not, in fact, about that.
+Braveheart (1995)
+Tagline: Every man dies. Not every man really lives.
+H1: This film won the Oscar for Best Picture. It depicted a thirteenth-century rebellion with the historical accuracy of a fever dream.
+H2: A Scottish uprising led by an Australian actor doing an accent that wandered through six countries before arriving on set.
+H3: We've been at this long enough — a Scotsman in a kilt with blue face paint delivering a speech about freedom before a cavalry charge, and at least one person reading this just heard the bagpipes.
+H4: A man who dies badly and wins anyway. The English are the villains, the Scots are outnumbered, and the title you're looking for starts with Brave and ends with a body part.
 
-The Sixth Sense (1999)
-H1: A 1999 thriller built its entire reputation on a final reveal so well-executed that for two years afterward, nobody could discuss it at parties without someone shushing them.
-H2: A child psychologist takes on a young patient who keeps reporting visitors that no one else can see, and the resulting therapy sessions get less professional and more cosmic.
-H3: I want you to think carefully about what you actually know — particularly about wedding rings, color symbolism, and which characters in this film actually order their own dinner.
-H4: The kid sees dead people. There — half the work is done. Now connect the second half and stop letting me carry this.
+Clueless (1995)
+Tagline: Sex. Clothes. Popularity. Whatever.
+H1: Who would have thought a Jane Austen novel would require almost no adjustment to be converted into satire that takes place in Beverly Hills.
+H2: The protagonist is wealthy, well-dressed, and operating under the sincere belief that her social instincts are a form of charity work. She was also in some Aerosmith videos.
+H3: Come on, you know this. The film resolves with the teenage main character falling for her ex-stepbrother. Did I forget to mention he is in his twenties? I guess that was fine in 1995.
+H4: Yellow plaid, knee socks, and the single most weaponized "Whatever" of the decade — the title is literally what you are right now.
 
-The Hangover (2009)
-H1: Las Vegas bachelor parties were already a gamble, but this one raised the stakes to include a tiger, a missing tooth, and the kind of morning-after that makes you reconsider friendship.
-H2: When your best clue to the previous night is a polaroid and a baby, you've either had the time of your life or committed several felonies.
-H3: You've seen this. The rooftop, the chapel, the Mike Tyson cameo — if none of this is ringing bells, check your own photo roll.
-H4: What happens in Vegas was supposed to stay there, but the groom didn't, and now three idiots are retracing their steps through one very expensive mistake.
+E.T. the Extra-Terrestrial (1982)
+Tagline: He is afraid. He is totally alone. He is 3,000,000 light years from home.
+H1: A filmmaker at the height of his commercial powers made a film about loneliness, belonging, and a wrinkled little alien whose species George Lucas later snuck into the Galactic Senate as an inside joke.
+H2: A lonely kid bonds with a stranded alien over Reese's Pieces and a shared psychic link, which is a more functional relationship than basically everyone in 2026.
+H3: You might have been the only person on the planet that didn't see this movie — a boy, a bicycle, the Amblin Entertainment logo, and a phrase involving a phone call.
+H4: The glowing finger. The flowers dying and coming back, phone home, and arguably the worst Atari game ever made.
 
-KNOWN FAILURE MODES — DO NOT DO THESE
-- Stamping the year as a Wikipedia opener with no take ("In 1980, audiences...")
-- H4 that names the title, even celebratorily ("it's Beetlejuice!")
-- H4 that lists plot beats with no punchline
-- Hints that are clever about the film instead of having a take on it
-- Sentences that don't parse — incoherent wordplay, stretched metaphors, mixed images
-- H2 that's a slightly easier H1 with no escalation of attitude
-- Voice that gets generic by the third or fourth movie in a batch
+Batman Begins (2005)
+Tagline: Evil fears the knight.
+H1: A filmmaker known for making movies viewers can't understand reboots this famous franchise.
+H2: The origin story here is less "man gets powers" and more "man spends years in foreign prisons, learning to fight and then apprentices under a ninja cult," which is an interesting and inexpensive form of therapy.
+H3: Dig a little deeper — a billionaire, an orphan, a cave full of bats, and a city so comprehensively corrupt it requires a symbol rather than a hero.
+H4: A cave. A cowl. A butler who has seen everything and is professionally unimpressed. Gotham, that's all I'm giving you.
 
-SELF-CHECK BEFORE OUTPUTTING — RUN ON EVERY MOVIE
-1. Does H1 have a take, or is it reporting? Wikipedia test.
-2. Does H2 sharpen the take, or is it a softer H1?
-3. Does H3 begin with the assigned opener verbatim?
-4. Does H4 have personality, or is it a plot summary?
-5. Is the year/director/actor handle present in H1 or H2, embedded in attitude (not announced as fact)?
-6. Have I named the title, director, or any cast member anywhere? If yes, rewrite.
+OUTPUT FORMAT — follow this exactly, one movie per block:
 
-OUTPUT FORMAT — CRITICAL: follow this exactly, one movie per block
 MOVIE: [Title]
 H1: [hint]
 H2: [hint]
 H3: [hint]
 H4: [hint]
 ---`;
+
 
 // ── CRITIC AGENT PROMPT ───────────────────────────────────────────────────────
 const CRITIC_SYSTEM = `You are the quality control agent for Taglines hint batches. You do not write. You do not rewrite. You evaluate and report. Your job is to catch drift before it compounds.
@@ -240,11 +216,6 @@ You receive a completed batch of hints from the Writer Agent plus the original b
 CRITICAL: Be strict. If you are uncertain whether a hint passes or fails, FLAG IT. The cost of flagging a borderline hint is one rewrite. The cost of approving a bad hint is shipping bad voice.
 
 THE CHECKLIST — RUN FOR EVERY MOVIE
-
-CHARACTER COUNT CHECK — RUN ON EVERY HINT
-- Count the characters in each hint (H1, H2, H3, H4). Include all punctuation and spaces.
-- If any hint exceeds 160 characters → FLAG with the character count.
-- This is a hard limit. No exceptions.
 
 H1 CHECKS
 - WIKIPEDIA TEST: Could this sentence appear unchanged in a Wikipedia article? If yes → FLAG. The narrator must have a visible take.
@@ -414,22 +385,33 @@ async function callAnthropic(systemPrompt, userMessage, attempt = 0) {
   return extractAnthropicText(data);
 }
 
+/** GPT-5+ and some newer models reject `max_tokens`; they require `max_completion_tokens`. */
+function openAIUsesMaxCompletionTokens() {
+  const m = (OPENAI_MODEL || "").toLowerCase();
+  return m.startsWith("gpt-5") || /^o\d/.test(m) || m.startsWith("o3");
+}
+
 async function callOpenAI(systemPrompt, userMessage, attempt = 0) {
   const maxAttempts = 5;
+  const payload = {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
+  };
+  if (openAIUsesMaxCompletionTokens()) {
+    payload.max_completion_tokens = 4000;
+  } else {
+    payload.max_tokens = 4000;
+  }
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      max_tokens: 4000,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (response.status === 429) {
@@ -483,7 +465,7 @@ function buildBatchInput(movies, batchNumber) {
   const openerOffset = ((batchNumber - 1) * BATCH_SIZE) % H3_OPENERS.length;
   let input = `BATCH ${batchNumber} | MOVIES ${(batchNumber - 1) * BATCH_SIZE + 1}–${
     batchNumber * BATCH_SIZE
-  } | VOICE: One narrator. Ebert authority, Spade economy, O'Brien warmth. All three simultaneously.\nIgnore any memory from previous sessions. Write only from what is in front of you right now.\n\n`;
+  }\nIgnore any memory from previous sessions. Write only from what is in front of you right now.\n\n`;
 
   movies.forEach((movie, i) => {
     const opener = H3_OPENERS[(openerOffset + i) % H3_OPENERS.length];
@@ -661,6 +643,38 @@ const MECHANICAL_TITLE_COMMON_WORDS = new Set([
   "by",
   // Often title-cased but safe as ordinary vocabulary in hints (e.g. "A Space Odyssey")
   "space",
+  // Common title fragments / everyday speech — allow as title-word tokens (full title still banned)
+  "baby",
+  "boy",
+  "boys",
+  "day",
+  "days",
+  "dream",
+  "dreams",
+  "family",
+  "future",
+  "girl",
+  "girls",
+  "home",
+  "house",
+  "kid",
+  "kids",
+  "land",
+  "life",
+  "lives",
+  "love",
+  "man",
+  "men",
+  "night",
+  "past",
+  "road",
+  "stories",
+  "story",
+  "time",
+  "war",
+  "woman",
+  "women",
+  "world",
 ]);
 
 /** Lowercase tokens that must always be forbidden as title-word matches (short franchise names, etc.). */
@@ -758,6 +772,15 @@ function mechanicalPreflight(parsedHints, movies) {
 
       forbidden.forEach(({ str, kind }) => {
         if (!str) return;
+        if (
+          idx === 3 &&
+          (kind === "director" ||
+            kind === "director-lastname" ||
+            kind === "cast" ||
+            kind === "cast-lastname")
+        ) {
+          return;
+        }
         const lowerStr = str.toLowerCase();
         const pattern = new RegExp(
           `\\b${lowerStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
@@ -781,8 +804,10 @@ function mechanicalPreflight(parsedHints, movies) {
 }
 
 // ── CHARACTER COUNT CHECK ────────────────────────────────────────────────────
-// Enforces 160-character limit per hint. Returns same shape as mechanicalPreflight.
+// Not called from processBatch (disabled — was mangling voice). Kept for possible re-enable with a new limit.
+// When active: enforces CHAR_LIMIT per hint; returns same shape as mechanicalPreflight.
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- pipeline disabled; keep for re-enable with a new limit
 function characterCountCheck(parsedHints, movies) {
   const failures = [];
   const CHAR_LIMIT = 160;
@@ -901,8 +926,8 @@ async function processBatch(movies, batchNumber) {
     let mechanicalRound = 0;
     while (mechanicalRound < MAX_MECHANICAL_ROUNDS) {
       const preflightResult = mechanicalPreflight(parsedHints, movies);
-      const charCheckResult = characterCountCheck(parsedHints, movies);
-      if (preflightResult.passed && charCheckResult.passed) break;
+      // characterCountCheck(parsedHints, movies) — disabled; see function body if re-enabling with a new limit
+      if (preflightResult.passed) break;
 
       mechanicalRound++;
       if (!preflightResult.passed) {
@@ -911,16 +936,8 @@ async function processBatch(movies, batchNumber) {
           console.log(`    ${f.title} — ${f.hint}: ${f.reason}`);
         });
       }
-      if (!charCheckResult.passed) {
-        console.log(
-          `  ⚠  Character count violations — ${charCheckResult.failures.length} hints too long`
-        );
-        charCheckResult.failures.forEach((f) => {
-          console.log(`    ${f.title} — ${f.hint}: ${f.reason}`);
-        });
-      }
 
-      const allFailures = [...preflightResult.failures, ...charCheckResult.failures];
+      const allFailures = [...preflightResult.failures];
       const failedTitles = [...new Set(allFailures.map((f) => f.title))];
       const revisionNotes = failedTitles
         .map((title) => {
@@ -929,7 +946,7 @@ async function processBatch(movies, batchNumber) {
         })
         .join("\n");
       const mechanicalUserMsg =
-        `The following movies have violations that must be fixed:\n\n${revisionNotes}\n\nRewrite ONLY the flagged movies. Each hint must be 160 characters or fewer. Never include the movie title, director names, or cast names in hint text.\n\n` +
+        `The following movies have violations that must be fixed:\n\n${revisionNotes}\n\nRewrite ONLY the flagged movies. Never include the movie title, director names, or cast names in hint text (per HARD RULES in your system prompt).\n\n` +
         buildRewriteRequest(failedTitles, movies, batchNumber, revisionNotes);
 
       await delay(STEP_COOLDOWN_MS);
@@ -955,13 +972,9 @@ async function processBatch(movies, batchNumber) {
     }
 
     const preflightStill = !mechanicalPreflight(parsedHints, movies).passed;
-    const charStill = !characterCountCheck(parsedHints, movies).passed;
-    if (preflightStill || charStill) {
-      const gateParts = [];
-      if (preflightStill) gateParts.push("title/cast/director strings");
-      if (charStill) gateParts.push("160-char limit");
+    if (preflightStill) {
       console.warn(
-        `  ⚠  Mechanical gate still failing after ${MAX_MECHANICAL_ROUNDS} round(s) (${gateParts.join("; ")}) — continuing to LLM critic`
+        `  ⚠  Mechanical gate still failing after ${MAX_MECHANICAL_ROUNDS} round(s) (title/cast/director strings) — continuing to LLM critic`
       );
     }
 
@@ -1136,14 +1149,24 @@ async function main() {
       : NaN;
   const movieLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null;
 
+  const offsetArg = process.argv.find((arg) => arg.startsWith("--offset="));
+  const parsedOffset =
+    offsetArg && offsetArg.includes("=")
+      ? Number.parseInt(offsetArg.split("=")[1], 10)
+      : 0;
+  const movieOffset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+
   if (movieLimit) {
     console.log(`⚠️  LIMIT MODE: Processing only first ${movieLimit} movies`);
+  }
+  if (movieOffset > 0) {
+    console.log(`⚠️  OFFSET MODE: Skipping first ${movieOffset} movies`);
   }
 
   if (LLM_PROVIDER === "openai") {
     if (!OPENAI_API_KEY) {
       console.error("ERROR: HINT_GEN_PROVIDER=openai but OPENAI_API_KEY is not set.");
-      console.error("Add OPENAI_API_KEY=sk-... to .env (optional: OPENAI_MODEL=gpt-4o).");
+      console.error("Add OPENAI_API_KEY=sk-... to .env (optional: OPENAI_MODEL=gpt-5.5).");
       process.exit(1);
     }
   } else if (!ANTHROPIC_API_KEY) {
@@ -1165,10 +1188,13 @@ async function main() {
   console.log(`Batch size: ${BATCH_SIZE} | Step cooldown: ${STEP_COOLDOWN_MS}ms${SKIP_CRITIC ? " | Critic: OFF" : ""}`);
 
   let movies = parseCSV(INPUT_CSV);
+  if (movieOffset > 0) {
+    movies = movies.slice(movieOffset);
+  }
   if (movieLimit) {
     movies = movies.slice(0, movieLimit);
   }
-  console.log(`Loaded ${movies.length} movies from CSV${movieLimit ? ` (limited to ${movieLimit})` : ""}`);
+  console.log(`Loaded ${movies.length} movies from CSV${movieLimit ? ` (limited to ${movieLimit})` : ""}${movieOffset ? ` (offset ${movieOffset})` : ""}`);
 
   const progress = loadProgress();
   console.log(`Completed batches so far: ${progress.completedBatches.length}`);

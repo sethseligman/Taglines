@@ -42,3 +42,17 @@ next-env.d.ts
 
 # Hint generator local resume state
 scripts/HINT GENERATOR/taglines_progress.json
+scripts/HINT GENERATOR/taglines_progress_block*.json
+taglines_progress_block*.json
+
+# Hint generator test / backup outputs (keep block*.csv in repo root if committed)
+scripts/HINT GENERATOR/taglines_hints_output_*_TEST*.csv
+scripts/HINT GENERATOR/taglines_hints_output_*_NOCRITIC.csv
+scripts/HINT GENERATOR/taglines_hints_output_BACKUP.csv
+
+# Excel lock files
+~$*
+
+# Local agent tooling
+.agents/
+.claude/

@@ -109,17 +109,39 @@ export async function getMovieById(id: string): Promise<MovieRow | null> {
 export async function listMovies(): Promise<MovieRow[]> {
   if (!hasSupabase) return [];
   const supabase = await createClient();
-  const { data: movies } = await supabase
-    .from("movies")
-    .select("id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, is_playable, hint_1, hint_2, hint_3, hint_4")
-    .order("title");
+
+  const [{ data: movies }, { data: allTaglines }, { data: allAliases }] = await Promise.all([
+    supabase
+      .from("movies")
+      .select(
+        "id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, status, is_playable, hint_1, hint_2, hint_3, hint_4"
+      )
+      .order("title"),
+    supabase.from("taglines").select("movie_id, tagline_text, is_primary"),
+    supabase.from("accepted_aliases").select("movie_id, alias"),
+  ]);
+
   if (!movies?.length) return [];
-  const rows: MovieRow[] = [];
-  for (const m of movies as DbMovie[]) {
-    const row = await fetchMovieRow(supabase, m.id);
-    if (row) rows.push(row);
+
+  const taglinesByMovie = new Map<string, { tagline_text: string; is_primary: boolean }[]>();
+  for (const t of allTaglines ?? []) {
+    const list = taglinesByMovie.get(t.movie_id) ?? [];
+    list.push({ tagline_text: t.tagline_text, is_primary: t.is_primary });
+    taglinesByMovie.set(t.movie_id, list);
   }
-  return rows;
+
+  const aliasesByMovie = new Map<string, string[]>();
+  for (const a of allAliases ?? []) {
+    const list = aliasesByMovie.get(a.movie_id) ?? [];
+    list.push(a.alias);
+    aliasesByMovie.set(a.movie_id, list);
+  }
+
+  return (movies as DbMovie[]).map((m) => ({
+    ...m,
+    taglines: taglinesByMovie.get(m.id) ?? [],
+    aliases: aliasesByMovie.get(m.id) ?? [],
+  }));
 }
 
 /** Get schedule entries (for admin). */
