@@ -163,9 +163,6 @@ export function GameScreen() {
   const dateKeyForDaily = getTodayKey();
 
   const stageRef = useRef<HTMLDivElement>(null);
-  const prevGuessLenRef = useRef(0);
-  /** When false, the next layout pass only seeds prevGuessLen (restored or new game), no ✕ flash. */
-  const guessLengthBaselineReadyRef = useRef(false);
   const holdHintUntilFlashCompleteRef = useRef(false);
   const [wrongGuessFlash, setWrongGuessFlash] = useState(false);
   const [displayedHintLevel, setDisplayedHintLevel] = useState(0);
@@ -277,6 +274,11 @@ export function GameScreen() {
   const hintSessionResetKey = mode === "daily" ? `daily:${dateKey}` : `practice:${movie.title}`;
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
+
+  /** Last guessesUsed we already reacted to for ✕ flash (init matches restored sessions). */
+  const prevGuessesUsedRef = useRef(state.guessesUsed);
+  /** When false, next layout pass seeds prevGuessesUsed without flashing. */
+  const guessFlashBaselineReadyRef = useRef(false);
 
   /** Guess/hints UI hidden briefly on new session; tagline stays in normal layout (`hintSessionResetKey`), playing-only. */
   const introShownForKeyRef = useRef<string | null>(null);
@@ -475,10 +477,12 @@ export function GameScreen() {
     prevDisplayedHintLevelRef.current = 0;
     prevSyncedHintLevelRef.current = 0;
     previousCarouselIndexRef.current = 0;
+    prevGuessesUsedRef.current = 0;
+    guessFlashBaselineReadyRef.current = false;
   }, [hintSessionResetKey]);
 
   useLayoutEffect(() => {
-    guessLengthBaselineReadyRef.current = false;
+    guessFlashBaselineReadyRef.current = false;
   }, [hintSessionResetKey]);
 
   useEffect(() => {
@@ -564,22 +568,24 @@ export function GameScreen() {
   }, [state.status]);
 
   useLayoutEffect(() => {
-    const len = state.guessHistory.length;
-    if (!guessLengthBaselineReadyRef.current) {
-      guessLengthBaselineReadyRef.current = true;
-      prevGuessLenRef.current = len;
+    const used = state.guessesUsed;
+    if (!guessFlashBaselineReadyRef.current) {
+      guessFlashBaselineReadyRef.current = true;
+      if (used <= prevGuessesUsedRef.current) {
+        prevGuessesUsedRef.current = used;
+        return;
+      }
+      // guessesUsed grew while baseline was false (reset race) — fall through to flash.
+    } else if (used <= prevGuessesUsedRef.current) {
       return;
     }
-    if (len > prevGuessLenRef.current) {
-      const wrongGuessLanded = gameStatusRef.current !== "won";
-      const shouldFlash = wrongGuessLanded;
-      if (shouldFlash) {
-        holdHintUntilFlashCompleteRef.current = true;
-        setWrongGuessFlash(true);
-      }
+
+    if (used > prevGuessesUsedRef.current && gameStatusRef.current !== "won") {
+      holdHintUntilFlashCompleteRef.current = true;
+      setWrongGuessFlash(true);
     }
-    prevGuessLenRef.current = len;
-  }, [state.guessHistory.length]);
+    prevGuessesUsedRef.current = used;
+  }, [state.guessesUsed]);
 
   const handleGuessSubmit = useCallback(
     (value: string) => {

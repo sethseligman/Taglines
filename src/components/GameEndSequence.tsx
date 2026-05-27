@@ -14,13 +14,13 @@ import { createPortal } from "react-dom";
 import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
 import {
-  SLAM_ENTRANCE_EASING,
   SLAM_ENTRANCE_MS,
   SLAM_EASE_OUT,
-  SLAM_HOLD_MS,
   SLAM_INITIAL_SCALE,
   SLAM_PRIME_MS,
   SLAM_RATTLE_ANIMATION,
+  VERDICT_SLAM_CHARACTER_ANIMATION,
+  VERDICT_SLAM_CHARACTER_MS,
   VERDICT_SLAM_TEXT_SHADOW,
 } from "@/lib/slamEntrance";
 
@@ -37,10 +37,10 @@ const T_MS = {
   posterRecede: 600,
   /** Near-empty seated frame (header only) before verdict slams — win after recede; loss from t=0. */
   emptyBeatHold: 850,
-  /** Verdict slam — matches WrongGuessFlash SLAM_MS via slamEntrance.ts. */
-  verdictSlam: SLAM_ENTRANCE_MS,
-  /** Brief settle after verdict lands + wrongGuessRattle (mirrors WrongGuessFlash HOLD_MS). */
-  verdictHoldAfterSlam: SLAM_HOLD_MS,
+  /** Verdict X-character strike (keyframes: overshoot, wobble, undershoot, settle). */
+  verdictCharacter: VERDICT_SLAM_CHARACTER_MS,
+  /** Verdict alone at rest before result card cascades in. */
+  verdictSoloHold: 500,
   /** Result card (ResultContent) cascade fade + rise. */
   cardCascadeFade: 520,
   /** Delay after card fade before pointer events + onSequenceComplete. */
@@ -48,7 +48,7 @@ const T_MS = {
 } as const;
 
 type ResultStatus = "won" | "lost";
-type VerdictSlamPhase = "hidden" | "idle" | "slam" | "hold";
+type VerdictSlamPhase = "hidden" | "idle" | "strike" | "hold";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -92,14 +92,14 @@ function VerdictLine({
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const min = isDesktop ? 22 : 18;
-  const max = isDesktop ? 40 : 32;
+  const max = isDesktop ? 36 : 30;
   const fontSize = useAutoFitFontSize(textRef, containerRef, {
     min,
     max,
-    deps: [text, isDesktop, visible, slamPhase],
+    deps: [text, isDesktop, visible],
   });
 
-  const struck = slamPhase === "slam" || slamPhase === "hold";
+  const struck = slamPhase === "strike";
 
   return (
     <div
@@ -138,7 +138,7 @@ function VerdictLine({
 }
 
 function buildSchedule(status: ResultStatus) {
-  const verdictTail = T_MS.verdictSlam + T_MS.verdictHoldAfterSlam;
+  const verdictTail = SLAM_PRIME_MS + T_MS.verdictCharacter + T_MS.verdictSoloHold;
   const cardTail = T_MS.cardCascadeFade + T_MS.interactiveDelayAfterCard;
 
   if (status === "lost") {
@@ -271,12 +271,15 @@ export function GameEndSequence({
       }, schedule.portalOff);
     }
 
+    const strikeAt = schedule.verdictSlamStart + SLAM_PRIME_MS;
+    const holdAt = strikeAt + T_MS.verdictCharacter;
+
     push(() => {
       setVerdictSlamPhase("idle");
-      push(() => setVerdictSlamPhase("slam"), SLAM_PRIME_MS);
+      push(() => setVerdictSlamPhase("strike"), SLAM_PRIME_MS);
     }, schedule.verdictSlamStart);
 
-    push(() => setVerdictSlamPhase("hold"), schedule.verdictSlamStart + SLAM_PRIME_MS + T_MS.verdictSlam);
+    push(() => setVerdictSlamPhase("hold"), holdAt);
 
     push(() => {
       setCardOpacity(1);
@@ -296,18 +299,7 @@ export function GameEndSequence({
     ? `opacity ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}, transform ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}`
     : "none";
 
-  const verdictScale =
-    verdictSlamPhase === "hidden" || verdictSlamPhase === "idle"
-      ? SLAM_INITIAL_SCALE
-      : 1;
-  const verdictOpacity =
-    verdictSlamPhase === "hidden" ? 0 : verdictSlamPhase === "idle" ? 0 : 1;
-  const verdictTransition =
-    verdictSlamPhase === "slam"
-      ? `transform ${SLAM_ENTRANCE_MS}ms ${SLAM_ENTRANCE_EASING}, opacity ${SLAM_ENTRANCE_MS}ms ${SLAM_EASE_OUT}`
-      : verdictSlamPhase === "hold"
-        ? "none"
-        : "none";
+  const verdictPreStrike = verdictSlamPhase === "hidden" || verdictSlamPhase === "idle";
 
   let posterPortalEl: ReactNode = null;
   if (mounted && isWin && showPosterPortal && !bypassSequence && typeof document !== "undefined") {
@@ -384,9 +376,8 @@ export function GameEndSequence({
         >
           <div
             style={{
-              transform: `scale(${verdictScale})`,
-              opacity: verdictOpacity,
-              transition: verdictTransition,
+              opacity: verdictPreStrike ? 0 : undefined,
+              transform: verdictPreStrike ? `scale(${SLAM_INITIAL_SCALE})` : undefined,
               transformOrigin: "center center",
             }}
           >
@@ -394,8 +385,14 @@ export function GameEndSequence({
               style={{
                 display: "inline-block",
                 width: "100%",
+                transformOrigin: "center center",
+                transform: verdictSlamPhase === "hold" ? "none" : undefined,
                 animation:
-                  verdictSlamPhase === "hold" ? SLAM_RATTLE_ANIMATION : undefined,
+                  verdictSlamPhase === "strike"
+                    ? VERDICT_SLAM_CHARACTER_ANIMATION
+                    : verdictSlamPhase === "hold"
+                      ? SLAM_RATTLE_ANIMATION
+                      : undefined,
               }}
             >
               <VerdictLine

@@ -25,5 +25,10 @@ export const SLAM_PRIME_MS = 50;
 
 export const SLAM_RATTLE_ANIMATION = `wrongGuessRattle ${SLAM_RATTLE_MS}ms ${SLAM_RATTLE_EASING} 1`;
 
+/** Verdict strike: scale past rest, wobble, dip smaller, settle (see globals.css). */
+export const VERDICT_SLAM_CHARACTER_MS = 460;
+export const VERDICT_SLAM_CHARACTER_EASING = SLAM_ENTRANCE_EASING;
+export const VERDICT_SLAM_CHARACTER_ANIMATION = `verdictSlamCharacter ${VERDICT_SLAM_CHARACTER_MS}ms ${VERDICT_SLAM_CHARACTER_EASING} both`;
+
 /** Red glow/stroke accent on verdict text during slam + hold (Playfair gold fill preserved). */
 export const VERDICT_SLAM_TEXT_SHADOW = `0 0 28px rgba(192, 57, 43, 0.55), 0 0 10px rgba(192, 57, 43, 0.7), 0 1px 0 ${WRONG_GUESS_RED}`;
