@@ -31,13 +31,11 @@ const POSTER_LETTERBOX = "#0D0D0D";
 const T_MS = {
   /** Win: poster appears instantly. */
   winPosterEnter: 0,
-  /** Loss: slow fade-in for poster (scaled with slower overall pacing). */
-  lossPosterFadeIn: 1800,
-  /** Full-screen poster hold before recede. */
+  /** Full-screen poster hold before recede (win only). */
   posterHold: 1400,
-  /** Poster recede (scale + fade); empty beat starts after this ends. */
+  /** Poster recede (scale + fade); empty beat starts after this ends (win only). */
   posterRecede: 600,
-  /** Near-empty seated frame (header only) before verdict slams. */
+  /** Near-empty seated frame (header only) before verdict slams — win after recede; loss from t=0. */
   emptyBeatHold: 850,
   /** Verdict slam — matches WrongGuessFlash SLAM_MS via slamEntrance.ts. */
   verdictSlam: SLAM_ENTRANCE_MS,
@@ -75,9 +73,8 @@ function posterFrameStyle(isDesktop: boolean): CSSProperties {
     };
   }
   return {
-    maxWidth: "90vw",
-    maxHeight: "90dvh",
-    width: "auto",
+    width: "78vw",
+    maxWidth: "320px",
     height: "auto",
   };
 }
@@ -141,22 +138,34 @@ function VerdictLine({
 }
 
 function buildSchedule(status: ResultStatus) {
-  const posterFadeIn = status === "won" ? T_MS.winPosterEnter : T_MS.lossPosterFadeIn;
-  const posterHoldEnd = posterFadeIn + T_MS.posterHold;
+  const verdictTail = T_MS.verdictSlam + T_MS.verdictHoldAfterSlam;
+  const cardTail = T_MS.cardCascadeFade + T_MS.interactiveDelayAfterCard;
+
+  if (status === "lost") {
+    const verdictSlamStart = T_MS.emptyBeatHold;
+    const cardRevealStart = verdictSlamStart + verdictTail;
+    return {
+      hasPoster: false as const,
+      recedeStart: 0,
+      portalOff: 0,
+      verdictSlamStart,
+      cardRevealStart,
+      interactiveAt: cardRevealStart + cardTail,
+    };
+  }
+
+  const posterHoldEnd = T_MS.winPosterEnter + T_MS.posterHold;
   const recedeStart = posterHoldEnd;
   const portalOff = recedeStart + T_MS.posterRecede;
-  const emptyBeatEnd = portalOff + T_MS.emptyBeatHold;
-  const verdictSlamStart = emptyBeatEnd;
-  const cardRevealStart = verdictSlamStart + T_MS.verdictSlam + T_MS.verdictHoldAfterSlam;
-  const interactiveAt = cardRevealStart + T_MS.cardCascadeFade + T_MS.interactiveDelayAfterCard;
+  const verdictSlamStart = portalOff + T_MS.emptyBeatHold;
+  const cardRevealStart = verdictSlamStart + verdictTail;
   return {
-    posterFadeIn,
+    hasPoster: true as const,
     recedeStart,
     portalOff,
-    emptyBeatEnd,
     verdictSlamStart,
     cardRevealStart,
-    interactiveAt,
+    interactiveAt: cardRevealStart + cardTail,
   };
 }
 
@@ -238,7 +247,7 @@ export function GameEndSequence({
       timersRef.current.push(window.setTimeout(fn, delay));
     };
 
-    setShowPosterPortal(true);
+    setShowPosterPortal(false);
     setPosterReceding(false);
     setPosterScale(1);
     setVerdictSlamPhase("hidden");
@@ -246,23 +255,21 @@ export function GameEndSequence({
     setCardOffsetY(18);
     setResultInteractive(false);
 
-    if (isWin) {
+    if (schedule.hasPoster) {
+      setShowPosterPortal(true);
       setPosterOpacity(1);
-    } else {
-      setPosterOpacity(0);
-      push(() => setPosterOpacity(1), 0);
+
+      push(() => {
+        setPosterReceding(true);
+        setPosterScale(0.9);
+        setPosterOpacity(0);
+      }, schedule.recedeStart);
+
+      push(() => {
+        setShowPosterPortal(false);
+        setPosterReceding(false);
+      }, schedule.portalOff);
     }
-
-    push(() => {
-      setPosterReceding(true);
-      setPosterScale(0.9);
-      setPosterOpacity(0);
-    }, schedule.recedeStart);
-
-    push(() => {
-      setShowPosterPortal(false);
-      setPosterReceding(false);
-    }, schedule.portalOff);
 
     push(() => {
       setVerdictSlamPhase("idle");
@@ -283,14 +290,11 @@ export function GameEndSequence({
     }, schedule.interactiveAt);
 
     return clearTimers;
-  }, [mounted, bypassSequence, resultStatus, narratorLine, posterUrl, showPoster, isWin]);
+  }, [mounted, bypassSequence, resultStatus, narratorLine, posterUrl, showPoster]);
 
-  const posterEnterTransition = isWin
-    ? "none"
-    : `opacity ${T_MS.lossPosterFadeIn}ms ${SLAM_EASE_OUT}`;
   const posterRecedeTransition = posterReceding
     ? `opacity ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}, transform ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}`
-    : posterEnterTransition;
+    : "none";
 
   const verdictScale =
     verdictSlamPhase === "hidden" || verdictSlamPhase === "idle"
@@ -306,7 +310,7 @@ export function GameEndSequence({
         : "none";
 
   let posterPortalEl: ReactNode = null;
-  if (mounted && showPosterPortal && !bypassSequence && typeof document !== "undefined") {
+  if (mounted && isWin && showPosterPortal && !bypassSequence && typeof document !== "undefined") {
     posterPortalEl = createPortal(
       <div
         className="fixed inset-0 z-[200]"
