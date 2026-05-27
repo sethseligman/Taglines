@@ -7,15 +7,17 @@ import {
   SLAM_ENTRANCE_EASING,
   SLAM_ENTRANCE_MS,
   SLAM_EASE_OUT,
+  SLAM_HOLD_MS,
   SLAM_INITIAL_SCALE,
+  SLAM_RATTLE_ANIMATION,
+  SLAM_THINK_MS,
+  WRONG_GUESS_RED,
 } from "@/lib/slamEntrance";
 
-const THINK_MS = 500;
 const SLAM_MS = SLAM_ENTRANCE_MS;
-const HOLD_MS = 400;
 const FADE_MS = 150;
-const COMPLETE_MS = THINK_MS + SLAM_MS + HOLD_MS + FADE_MS;
-const FADE_START_MS = THINK_MS + SLAM_MS + HOLD_MS;
+const COMPLETE_MS = SLAM_THINK_MS + SLAM_MS + SLAM_HOLD_MS + FADE_MS;
+const FADE_START_MS = SLAM_THINK_MS + SLAM_MS + SLAM_HOLD_MS;
 const REDUCE_MOTION_COMPLETE_MS = 220;
 const EASE_OUT = SLAM_EASE_OUT;
 
@@ -47,8 +49,8 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
       };
     }
 
-    timersRef.current.push(window.setTimeout(() => setPhase("slam"), THINK_MS));
-    timersRef.current.push(window.setTimeout(() => setPhase("hold"), THINK_MS + SLAM_MS));
+    timersRef.current.push(window.setTimeout(() => setPhase("slam"), SLAM_THINK_MS));
+    timersRef.current.push(window.setTimeout(() => setPhase("hold"), SLAM_THINK_MS + SLAM_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("fade"), FADE_START_MS));
     timersRef.current.push(
       window.setTimeout(() => {
@@ -76,59 +78,33 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
         : "none";
 
   const mark = (
-    <>
+    <span
+      aria-hidden
+      style={{
+        position: "fixed",
+        top: "40%",
+        left: "50%",
+        zIndex: 10050,
+        pointerEvents: "none",
+        fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+        fontSize: 420,
+        lineHeight: 1,
+        color: WRONG_GUESS_RED,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: "center",
+        transition,
+        opacity,
+      }}
+    >
       <span
-        aria-hidden
         style={{
-          position: "fixed",
-          top: "40%",
-          left: "50%",
-          zIndex: 10050,
-          pointerEvents: "none",
-          fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
-          fontSize: 420,
-          lineHeight: 1,
-          color: "#C0392B",
-          transform: `translate(-50%, -50%) scale(${scale})`,
-          transformOrigin: "center",
-          transition,
-          opacity,
+          display: "inline-block",
+          animation: phase === "hold" ? SLAM_RATTLE_ANIMATION : undefined,
         }}
       >
-        <span
-          style={{
-            display: "inline-block",
-            animation: phase === "hold" ? "wrongGuessRattle 120ms ease-out 1" : undefined,
-          }}
-        >
-          ✕
-        </span>
+        ✕
       </span>
-      <style jsx global>{`
-        @keyframes wrongGuessRattle {
-          0% {
-            transform: translateX(0) rotate(0deg);
-          }
-          35% {
-            transform: translateX(-1.8px) rotate(-1.6deg);
-          }
-          65% {
-            transform: translateX(1.8px) rotate(1.6deg);
-          }
-          100% {
-            transform: translateX(0) rotate(0deg);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          @keyframes wrongGuessRattle {
-            from,
-            to {
-              transform: none;
-            }
-          }
-        }
-      `}</style>
-    </>
+    </span>
   );
   if (typeof document === "undefined") {
     return mark;
