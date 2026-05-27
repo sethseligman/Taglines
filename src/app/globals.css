@@ -75,3 +75,28 @@ body {
 .film-fade-in {
   animation: filmFadeIn 0.35s var(--ease-out) both;
 }
+
+/* WrongGuessFlash ✕ + GameEndSequence verdict (shared via slamEntrance.ts) */
+@keyframes wrongGuessRattle {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  35% {
+    transform: translateX(-1.8px) rotate(-1.6deg);
+  }
+  65% {
+    transform: translateX(1.8px) rotate(1.6deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes wrongGuessRattle {
+    from,
+    to {
+      transform: none;
+    }
+  }
+}

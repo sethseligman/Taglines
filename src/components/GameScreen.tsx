@@ -892,6 +892,7 @@ export function GameScreen() {
       >
         <GameEndSequence
           key={sequenceKey}
+          resultStatus={resultStatus as "won" | "lost"}
           narratorLine={seatedNarratorLine}
           posterUrl={resultPosterUrl}
           showPoster={showResultPoster}

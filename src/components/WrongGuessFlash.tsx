@@ -3,14 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const THINK_MS = 500;
-const SLAM_MS = 100;
-const HOLD_MS = 400;
+import {
+  SLAM_ENTRANCE_EASING,
+  SLAM_ENTRANCE_MS,
+  SLAM_EASE_OUT,
+  SLAM_HOLD_MS,
+  SLAM_INITIAL_SCALE,
+  SLAM_RATTLE_ANIMATION,
+  SLAM_THINK_MS,
+  WRONG_GUESS_RED,
+} from "@/lib/slamEntrance";
+
+const SLAM_MS = SLAM_ENTRANCE_MS;
 const FADE_MS = 150;
-const COMPLETE_MS = THINK_MS + SLAM_MS + HOLD_MS + FADE_MS;
-const FADE_START_MS = THINK_MS + SLAM_MS + HOLD_MS;
+const COMPLETE_MS = SLAM_THINK_MS + SLAM_MS + SLAM_HOLD_MS + FADE_MS;
+const FADE_START_MS = SLAM_THINK_MS + SLAM_MS + SLAM_HOLD_MS;
 const REDUCE_MOTION_COMPLETE_MS = 220;
-const EASE_OUT = "var(--ease-out)";
+const EASE_OUT = SLAM_EASE_OUT;
 
 interface WrongGuessFlashProps {
   onComplete: () => void;
@@ -40,8 +49,8 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
       };
     }
 
-    timersRef.current.push(window.setTimeout(() => setPhase("slam"), THINK_MS));
-    timersRef.current.push(window.setTimeout(() => setPhase("hold"), THINK_MS + SLAM_MS));
+    timersRef.current.push(window.setTimeout(() => setPhase("slam"), SLAM_THINK_MS));
+    timersRef.current.push(window.setTimeout(() => setPhase("hold"), SLAM_THINK_MS + SLAM_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("fade"), FADE_START_MS));
     timersRef.current.push(
       window.setTimeout(() => {
@@ -59,69 +68,43 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
     return null;
   }
 
-  const scale = phase === "idle" ? 0.95 : 1;
+  const scale = phase === "idle" ? SLAM_INITIAL_SCALE : 1;
   const opacity = phase === "idle" ? 0 : phase === "fade" ? 0 : 1;
   const transition =
     phase === "slam"
-      ? `transform ${SLAM_MS}ms cubic-bezier(0.2, 0, 0.3, 1), opacity ${SLAM_MS}ms ${EASE_OUT}`
+      ? `transform ${SLAM_MS}ms ${SLAM_ENTRANCE_EASING}, opacity ${SLAM_MS}ms ${EASE_OUT}`
       : phase === "fade"
         ? `opacity ${FADE_MS}ms ${EASE_OUT}`
         : "none";
 
   const mark = (
-    <>
+    <span
+      aria-hidden
+      style={{
+        position: "fixed",
+        top: "40%",
+        left: "50%",
+        zIndex: 10050,
+        pointerEvents: "none",
+        fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+        fontSize: 420,
+        lineHeight: 1,
+        color: WRONG_GUESS_RED,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: "center",
+        transition,
+        opacity,
+      }}
+    >
       <span
-        aria-hidden
         style={{
-          position: "fixed",
-          top: "40%",
-          left: "50%",
-          zIndex: 10050,
-          pointerEvents: "none",
-          fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
-          fontSize: 420,
-          lineHeight: 1,
-          color: "#C0392B",
-          transform: `translate(-50%, -50%) scale(${scale})`,
-          transformOrigin: "center",
-          transition,
-          opacity,
+          display: "inline-block",
+          animation: phase === "hold" ? SLAM_RATTLE_ANIMATION : undefined,
         }}
       >
-        <span
-          style={{
-            display: "inline-block",
-            animation: phase === "hold" ? "wrongGuessRattle 120ms ease-out 1" : undefined,
-          }}
-        >
-          ✕
-        </span>
+        ✕
       </span>
-      <style jsx global>{`
-        @keyframes wrongGuessRattle {
-          0% {
-            transform: translateX(0) rotate(0deg);
-          }
-          35% {
-            transform: translateX(-1.8px) rotate(-1.6deg);
-          }
-          65% {
-            transform: translateX(1.8px) rotate(1.6deg);
-          }
-          100% {
-            transform: translateX(0) rotate(0deg);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          @keyframes wrongGuessRattle {
-            from,
-            to {
-              transform: none;
-            }
-          }
-        }
-      `}</style>
-    </>
+    </span>
   );
   if (typeof document === "undefined") {
     return mark;

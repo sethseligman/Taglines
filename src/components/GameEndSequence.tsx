@@ -2,28 +2,53 @@
 
 /* eslint-disable react-hooks/set-state-in-effect -- mount + timed sequence orchestration (explicit timeouts, cleaned up on unmount) */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
+import {
+  SLAM_ENTRANCE_EASING,
+  SLAM_ENTRANCE_MS,
+  SLAM_EASE_OUT,
+  SLAM_HOLD_MS,
+  SLAM_INITIAL_SCALE,
+  SLAM_PRIME_MS,
+  SLAM_RATTLE_ANIMATION,
+  VERDICT_SLAM_TEXT_SHADOW,
+} from "@/lib/slamEntrance";
 
+/** Charcoal letterboxing behind object-contain poster. */
+const POSTER_LETTERBOX = "#0D0D0D";
+
+/** Tunable phase durations (absolute schedule built from these per win/loss). */
 const T_MS = {
-  blackHold: 0,
-  lineFadeIn: 300,
-  lineHoldEnd: 3800,
-  lineFadeOut: 300,
-  posterFadeIn: 300,
-  posterHoldEnd: 5400,
-  posterFadeOut: 300,
-  phaseCEnd: 6300,
-  phaseCFadeMs: 600,
+  /** Win: poster appears instantly. */
+  winPosterEnter: 0,
+  /** Full-screen poster hold before recede (win only). */
+  posterHold: 1400,
+  /** Poster recede (scale + fade); empty beat starts after this ends (win only). */
+  posterRecede: 600,
+  /** Near-empty seated frame (header only) before verdict slams — win after recede; loss from t=0. */
+  emptyBeatHold: 850,
+  /** Verdict slam — matches WrongGuessFlash SLAM_MS via slamEntrance.ts. */
+  verdictSlam: SLAM_ENTRANCE_MS,
+  /** Brief settle after verdict lands + wrongGuessRattle (mirrors WrongGuessFlash HOLD_MS). */
+  verdictHoldAfterSlam: SLAM_HOLD_MS,
+  /** Result card (ResultContent) cascade fade + rise. */
+  cardCascadeFade: 520,
+  /** Delay after card fade before pointer events + onSequenceComplete. */
+  interactiveDelayAfterCard: 120,
 } as const;
 
-/** Narrator + poster share this frame so the poster replaces the line in the same screen position. */
-const PHASE_AB_SLOT_OUTER =
-  "absolute inset-0 flex flex-col items-center px-4 pt-[min(20vh,176px)] md:pt-[min(22vh,200px)]";
-const PHASE_AB_SLOT_INNER =
-  "mx-auto flex w-full max-w-[min(100vw-3rem,420px)] min-h-[280px] items-center justify-center px-3";
+type ResultStatus = "won" | "lost";
+type VerdictSlamPhase = "hidden" | "idle" | "slam" | "hold";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -38,7 +63,31 @@ function useIsDesktop() {
   return isDesktop;
 }
 
-function PhaseANarrator({ text, visible }: { text: string; visible: boolean }) {
+function posterFrameStyle(isDesktop: boolean): CSSProperties {
+  if (isDesktop) {
+    return {
+      maxWidth: "min(42vw, 340px)",
+      maxHeight: "85vh",
+      width: "auto",
+      height: "auto",
+    };
+  }
+  return {
+    width: "78vw",
+    maxWidth: "320px",
+    height: "auto",
+  };
+}
+
+function VerdictLine({
+  text,
+  visible,
+  slamPhase,
+}: {
+  text: string;
+  visible: boolean;
+  slamPhase: VerdictSlamPhase;
+}) {
   const isDesktop = useIsDesktop();
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -47,16 +96,17 @@ function PhaseANarrator({ text, visible }: { text: string; visible: boolean }) {
   const fontSize = useAutoFitFontSize(textRef, containerRef, {
     min,
     max,
-    deps: [text, isDesktop, visible],
+    deps: [text, isDesktop, visible, slamPhase],
   });
-  const h = isDesktop ? 180 : 140;
+
+  const struck = slamPhase === "slam" || slamPhase === "hold";
 
   return (
     <div
       ref={containerRef}
       className="mx-auto w-full max-w-[min(100vw-3rem,420px)] px-3"
       style={{
-        height: h,
+        minHeight: isDesktop ? 72 : 64,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -77,6 +127,8 @@ function PhaseANarrator({ text, visible }: { text: string; visible: boolean }) {
           maxWidth: "100%",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
+          textShadow: struck ? VERDICT_SLAM_TEXT_SHADOW : undefined,
+          transition: struck ? `text-shadow ${SLAM_ENTRANCE_MS}ms ${SLAM_EASE_OUT}` : undefined,
         }}
       >
         {text}
@@ -85,7 +137,40 @@ function PhaseANarrator({ text, visible }: { text: string; visible: boolean }) {
   );
 }
 
+function buildSchedule(status: ResultStatus) {
+  const verdictTail = T_MS.verdictSlam + T_MS.verdictHoldAfterSlam;
+  const cardTail = T_MS.cardCascadeFade + T_MS.interactiveDelayAfterCard;
+
+  if (status === "lost") {
+    const verdictSlamStart = T_MS.emptyBeatHold;
+    const cardRevealStart = verdictSlamStart + verdictTail;
+    return {
+      hasPoster: false as const,
+      recedeStart: 0,
+      portalOff: 0,
+      verdictSlamStart,
+      cardRevealStart,
+      interactiveAt: cardRevealStart + cardTail,
+    };
+  }
+
+  const posterHoldEnd = T_MS.winPosterEnter + T_MS.posterHold;
+  const recedeStart = posterHoldEnd;
+  const portalOff = recedeStart + T_MS.posterRecede;
+  const verdictSlamStart = portalOff + T_MS.emptyBeatHold;
+  const cardRevealStart = verdictSlamStart + verdictTail;
+  return {
+    hasPoster: true as const,
+    recedeStart,
+    portalOff,
+    verdictSlamStart,
+    cardRevealStart,
+    interactiveAt: cardRevealStart + cardTail,
+  };
+}
+
 export type GameEndSequenceProps = {
+  resultStatus: ResultStatus;
   narratorLine: string;
   posterUrl: string | null;
   showPoster: boolean;
@@ -97,6 +182,7 @@ export type GameEndSequenceProps = {
 };
 
 export function GameEndSequence({
+  resultStatus,
   narratorLine,
   posterUrl,
   showPoster,
@@ -108,6 +194,7 @@ export function GameEndSequence({
 }: GameEndSequenceProps) {
   const onPhaseCEnterRef = useRef(onPhaseCEnter);
   const onSequenceCompleteRef = useRef(onSequenceComplete);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     onPhaseCEnterRef.current = onPhaseCEnter;
@@ -116,14 +203,18 @@ export function GameEndSequence({
 
   const [reduceMotion, setReduceMotion] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [showAbPortal, setShowAbPortal] = useState(false);
-  const [narratorOpacity, setNarratorOpacity] = useState(0);
-  const [narratorEntered, setNarratorEntered] = useState(false);
+  const [showPosterPortal, setShowPosterPortal] = useState(false);
   const [posterOpacity, setPosterOpacity] = useState(0);
-  const [resultOpacity, setResultOpacity] = useState(0);
+  const [posterScale, setPosterScale] = useState(1);
+  const [posterReceding, setPosterReceding] = useState(false);
+  const [verdictSlamPhase, setVerdictSlamPhase] = useState<VerdictSlamPhase>("hidden");
+  const [cardOpacity, setCardOpacity] = useState(0);
+  const [cardOffsetY, setCardOffsetY] = useState(18);
   const [resultInteractive, setResultInteractive] = useState(false);
   const timersRef = useRef<number[]>([]);
   const bypassSequence = reduceMotion || skipSequence;
+  const isWin = resultStatus === "won";
+  const posterFrame = posterFrameStyle(isDesktop);
 
   const clearTimers = () => {
     timersRef.current.forEach((id) => clearTimeout(id));
@@ -136,14 +227,14 @@ export function GameEndSequence({
     setReduceMotion(rm);
     setMounted(true);
     if (rm || skipSequence) {
-      setResultOpacity(1);
+      setVerdictSlamPhase("hold");
+      setCardOpacity(1);
+      setCardOffsetY(0);
       setResultInteractive(true);
       queueMicrotask(() => {
         onPhaseCEnterRef.current?.();
         onSequenceCompleteRef.current?.();
       });
-    } else {
-      setShowAbPortal(true);
     }
   }, [skipSequence]);
 
@@ -151,48 +242,78 @@ export function GameEndSequence({
     clearTimers();
     if (!mounted || bypassSequence) return;
 
-    setShowAbPortal(true);
-    setNarratorOpacity(0);
-    setNarratorEntered(false);
-    setPosterOpacity(0);
-    setResultOpacity(0);
-    setResultInteractive(false);
-
+    const schedule = buildSchedule(resultStatus);
     const push = (fn: () => void, delay: number) => {
       timersRef.current.push(window.setTimeout(fn, delay));
     };
 
+    setShowPosterPortal(false);
+    setPosterReceding(false);
+    setPosterScale(1);
+    setVerdictSlamPhase("hidden");
+    setCardOpacity(0);
+    setCardOffsetY(18);
+    setResultInteractive(false);
+
+    if (schedule.hasPoster) {
+      setShowPosterPortal(true);
+      setPosterOpacity(1);
+
+      push(() => {
+        setPosterReceding(true);
+        setPosterScale(0.9);
+        setPosterOpacity(0);
+      }, schedule.recedeStart);
+
+      push(() => {
+        setShowPosterPortal(false);
+        setPosterReceding(false);
+      }, schedule.portalOff);
+    }
+
     push(() => {
-      setNarratorOpacity(1);
-      setNarratorEntered(false);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setNarratorEntered(true));
-      });
-    }, T_MS.blackHold);
+      setVerdictSlamPhase("idle");
+      push(() => setVerdictSlamPhase("slam"), SLAM_PRIME_MS);
+    }, schedule.verdictSlamStart);
+
+    push(() => setVerdictSlamPhase("hold"), schedule.verdictSlamStart + SLAM_PRIME_MS + T_MS.verdictSlam);
+
     push(() => {
-      setNarratorOpacity(0);
-      setNarratorEntered(false);
-    }, T_MS.lineHoldEnd);
-    push(() => setPosterOpacity(1), T_MS.lineHoldEnd + T_MS.lineFadeOut);
-    push(() => setPosterOpacity(0), T_MS.posterHoldEnd);
-    push(() => {
-      setShowAbPortal(false);
-      setResultOpacity(1);
+      setCardOpacity(1);
+      setCardOffsetY(0);
       onPhaseCEnterRef.current?.();
-    }, T_MS.posterHoldEnd + T_MS.posterFadeOut);
+    }, schedule.cardRevealStart);
+
     push(() => {
       setResultInteractive(true);
       onSequenceCompleteRef.current?.();
-    }, T_MS.phaseCEnd);
+    }, schedule.interactiveAt);
 
     return clearTimers;
-  }, [mounted, bypassSequence, narratorLine, posterUrl, showPoster]);
+  }, [mounted, bypassSequence, resultStatus, narratorLine, posterUrl, showPoster]);
 
-  let portalEl: ReactNode = null;
-  if (mounted && showAbPortal && !bypassSequence && typeof document !== "undefined") {
-    portalEl = createPortal(
+  const posterRecedeTransition = posterReceding
+    ? `opacity ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}, transform ${T_MS.posterRecede}ms ${SLAM_EASE_OUT}`
+    : "none";
+
+  const verdictScale =
+    verdictSlamPhase === "hidden" || verdictSlamPhase === "idle"
+      ? SLAM_INITIAL_SCALE
+      : 1;
+  const verdictOpacity =
+    verdictSlamPhase === "hidden" ? 0 : verdictSlamPhase === "idle" ? 0 : 1;
+  const verdictTransition =
+    verdictSlamPhase === "slam"
+      ? `transform ${SLAM_ENTRANCE_MS}ms ${SLAM_ENTRANCE_EASING}, opacity ${SLAM_ENTRANCE_MS}ms ${SLAM_EASE_OUT}`
+      : verdictSlamPhase === "hold"
+        ? "none"
+        : "none";
+
+  let posterPortalEl: ReactNode = null;
+  if (mounted && isWin && showPosterPortal && !bypassSequence && typeof document !== "undefined") {
+    posterPortalEl = createPortal(
       <div
-        className="fixed inset-0 z-[200] bg-black"
+        className="fixed inset-0 z-[200]"
         style={{
           pointerEvents: "auto",
           top: 0,
@@ -201,6 +322,7 @@ export function GameEndSequence({
           bottom: 0,
           width: "100vw",
           height: "100dvh",
+          backgroundColor: POSTER_LETTERBOX,
         }}
         role="presentation"
         aria-hidden
@@ -208,77 +330,95 @@ export function GameEndSequence({
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className={PHASE_AB_SLOT_OUTER}
-          style={{
-            opacity: narratorOpacity,
-            transition: "none",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            className={PHASE_AB_SLOT_INNER}
-            style={{
-              transform:
-                narratorOpacity > 0 ? (narratorEntered ? "scale(1)" : "scale(1.04)") : "scale(1)",
-              transition:
-                narratorOpacity > 0 && narratorEntered ? "transform 180ms var(--ease-out)" : "none",
-              transformOrigin: "center center",
-            }}
-          >
-            <PhaseANarrator text={narratorLine} visible={narratorOpacity > 0} />
-          </div>
-        </div>
-        <div
-          className={PHASE_AB_SLOT_OUTER}
+          className="absolute inset-0 flex items-center justify-center"
           style={{
             opacity: posterOpacity,
-            transition: `opacity ${T_MS.posterFadeIn}ms ease-in-out`,
-            pointerEvents: "none",
+            transform: `scale(${posterScale})`,
+            transition: posterRecedeTransition,
+            transformOrigin: "center center",
           }}
         >
-          <div className={PHASE_AB_SLOT_INNER}>
-            {showPoster && posterUrl ? (
-              <img
-                src={posterUrl}
-                alt=""
-                width={187}
-                height={280}
-                className="mx-auto block h-auto w-auto max-w-full object-contain object-center"
-                style={{ maxHeight: 280 }}
-                onError={onPosterError}
-              />
-            ) : (
-              <div
-                className="mx-auto bg-[#161616]"
-                style={{
-                  width: "min(85vw, 187px)",
-                  height: 280,
-                  maxHeight: 280,
-                  borderRadius: 6,
-                  border: "1px solid #222",
-                }}
-                aria-hidden
-              />
-            )}
-          </div>
+          {showPoster && posterUrl ? (
+            <img
+              src={posterUrl}
+              alt=""
+              className="block object-contain object-center"
+              style={posterFrame}
+              onError={onPosterError}
+            />
+          ) : (
+            <div
+              className="bg-[#161616]"
+              style={{
+                ...posterFrame,
+                border: "1px solid #222",
+                minWidth: isDesktop ? 200 : 160,
+                minHeight: isDesktop ? 300 : 240,
+              }}
+              aria-hidden
+            />
+          )}
         </div>
       </div>,
       document.body
     );
   }
 
+  const verdictVisible = verdictSlamPhase !== "hidden";
+
   return (
     <>
-      {portalEl}
-      <div
-        className="w-full"
-        style={{
-          opacity: resultOpacity,
-          transition: bypassSequence ? undefined : `opacity ${T_MS.phaseCFadeMs}ms ease-in`,
-          pointerEvents: resultInteractive ? "auto" : "none",
-        }}
-      >
-        {children}
+      {posterPortalEl}
+      <div className="flex w-full flex-col">
+        <div
+          className="flex w-full shrink-0 flex-col items-center justify-start px-4"
+          style={{
+            minHeight: 0,
+            paddingTop: verdictVisible ? "0.25rem" : 0,
+            paddingBottom: verdictVisible ? "0.5rem" : 0,
+            pointerEvents: "none",
+            overflow: "hidden",
+            visibility: verdictSlamPhase === "hidden" ? "hidden" : "visible",
+          }}
+          aria-live="polite"
+        >
+          <div
+            style={{
+              transform: `scale(${verdictScale})`,
+              opacity: verdictOpacity,
+              transition: verdictTransition,
+              transformOrigin: "center center",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "100%",
+                animation:
+                  verdictSlamPhase === "hold" ? SLAM_RATTLE_ANIMATION : undefined,
+              }}
+            >
+              <VerdictLine
+                text={narratorLine}
+                visible={verdictVisible}
+                slamPhase={verdictSlamPhase}
+              />
+            </span>
+          </div>
+        </div>
+        <div
+          className="w-full"
+          style={{
+            opacity: cardOpacity,
+            transform: `translateY(${cardOffsetY}px)`,
+            transition: bypassSequence
+              ? undefined
+              : `opacity ${T_MS.cardCascadeFade}ms ${SLAM_EASE_OUT}, transform ${T_MS.cardCascadeFade}ms ${SLAM_EASE_OUT}`,
+            pointerEvents: resultInteractive ? "auto" : "none",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </>
   );
