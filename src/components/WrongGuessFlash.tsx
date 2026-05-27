@@ -3,14 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import {
+  SLAM_ENTRANCE_EASING,
+  SLAM_ENTRANCE_MS,
+  SLAM_EASE_OUT,
+  SLAM_INITIAL_SCALE,
+} from "@/lib/slamEntrance";
+
 const THINK_MS = 500;
-const SLAM_MS = 100;
+const SLAM_MS = SLAM_ENTRANCE_MS;
 const HOLD_MS = 400;
 const FADE_MS = 150;
 const COMPLETE_MS = THINK_MS + SLAM_MS + HOLD_MS + FADE_MS;
 const FADE_START_MS = THINK_MS + SLAM_MS + HOLD_MS;
 const REDUCE_MOTION_COMPLETE_MS = 220;
-const EASE_OUT = "var(--ease-out)";
+const EASE_OUT = SLAM_EASE_OUT;
 
 interface WrongGuessFlashProps {
   onComplete: () => void;
@@ -59,11 +66,11 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
     return null;
   }
 
-  const scale = phase === "idle" ? 0.95 : 1;
+  const scale = phase === "idle" ? SLAM_INITIAL_SCALE : 1;
   const opacity = phase === "idle" ? 0 : phase === "fade" ? 0 : 1;
   const transition =
     phase === "slam"
-      ? `transform ${SLAM_MS}ms cubic-bezier(0.2, 0, 0.3, 1), opacity ${SLAM_MS}ms ${EASE_OUT}`
+      ? `transform ${SLAM_MS}ms ${SLAM_ENTRANCE_EASING}, opacity ${SLAM_MS}ms ${EASE_OUT}`
       : phase === "fade"
         ? `opacity ${FADE_MS}ms ${EASE_OUT}`
         : "none";
