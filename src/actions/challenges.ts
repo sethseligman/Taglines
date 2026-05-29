@@ -1,6 +1,6 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/adminAuth";
 import type { ChallengeType, DbChallenge } from "@/types/challenges";
 
@@ -50,6 +50,22 @@ export async function getChallenges(): Promise<DbChallenge[]> {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
+  return (data ?? []) as DbChallenge[];
+}
+
+/** Published challenges for the portal (anon RLS). */
+export async function getPublishedChallenges(): Promise<DbChallenge[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("challenges")
+    .select("*")
+    .eq("is_published", true)
+    .order("portal_sort_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("getPublishedChallenges:", error.message);
+    return [];
+  }
   return (data ?? []) as DbChallenge[];
 }
 
