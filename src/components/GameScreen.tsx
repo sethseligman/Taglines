@@ -39,6 +39,9 @@ import { MainMenu } from "./MainMenu";
 import { ResultAppShell } from "./ResultAppShell";
 import { ResultContent } from "./ResultContent";
 import { WrongGuessFlash } from "./WrongGuessFlash";
+import { GameHintCarousel } from "@/components/game/GameHintCarousel";
+import { GamePlayHeader } from "@/components/game/GamePlayHeader";
+import { WrongGuessHistoryStrip } from "@/components/game/WrongGuessHistoryStrip";
 
 const CAROUSEL_MANUAL_MS = 250;
 const CAROUSEL_EASING_DEFAULT = "cubic-bezier(0.25, 0, 0.15, 1)";
@@ -52,56 +55,6 @@ type Mode = "daily" | "practice";
 type IntroPhase = "lightsDown" | "taglineReveal" | "ready";
 const KEY_SPLASHED = "taglines-splashed";
 const SPLASH_DISMISSED_EVENT = "taglines:splash-dismissed";
-
-function AutoFitHintText({
-  text,
-  isDesktop,
-}: {
-  text: string;
-  isDesktop: boolean;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLParagraphElement>(null);
-
-  const fontSize = useAutoFitFontSize(textRef, containerRef, {
-    min: isDesktop ? 15 : 13,
-    max: isDesktop ? 22 : 18,
-    deps: [text, isDesktop],
-  });
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: 116,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      <p
-        ref={textRef}
-        style={{
-          margin: 0,
-          color: "#C9B87A",
-          fontFamily: FONT_PLAYFAIR,
-          fontStyle: "italic",
-          fontSize: `${fontSize}px`,
-          lineHeight: 1.6,
-          textAlign: "center",
-          width: "100%",
-          maxWidth: "100%",
-          wordBreak: "break-word",
-          overflowWrap: "anywhere",
-        }}
-      >
-        {text}
-      </p>
-    </div>
-  );
-}
 
 const hasSupabase = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -1037,24 +990,7 @@ export function GameScreen() {
                 : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
             }
           >
-            <header
-              className={`w-full shrink-0 ${
-                relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
-              }`}
-            >
-              <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-                <a
-                  href="https://www.taglines.app"
-                  className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
-                >
-                  <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                    <span>Tag</span>
-                    <span className="text-gold">lines</span>
-                  </h1>
-                </a>
-                {headerMenu}
-              </div>
-            </header>
+            <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
             <section
               className="relative z-30 mx-auto w-full max-w-lg px-1"
               style={
@@ -1147,423 +1083,44 @@ export function GameScreen() {
                   }`}
                 />
 
-                <section
-                  className={`flex w-full max-w-md shrink-0 flex-col items-stretch scroll-mt-6 ${
-                    relaxedVisual ? "gap-3 md:gap-6" : "gap-2 md:gap-3"
-                  }`}
-                >
-                  <div className="w-full">
-                    {displayedHintLevel >= 1 ? (
-                      <div className="flex w-full flex-col" style={{ gap: 12 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            color: "#6B6860",
-                            fontFamily: '"DM Sans", sans-serif',
-                            fontSize: isDesktop ? 12 : 11,
-                            lineHeight: 1.35,
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            textAlign: "center",
-                          }}
-                        >
-                          Hint {carouselIndex + 1}
-                        </p>
-                        <div
-                          className="relative w-full"
-                          style={{ padding: "0 22px", touchAction: "pan-y" }}
-                          onPointerDown={handleHintPointerDown}
-                          onPointerMove={handleHintPointerMove}
-                          onPointerUp={handleHintPointerUp}
-                          onPointerCancel={() => {
-                            hintSwipeStartRef.current = null;
-                            hintSwipePointerIdRef.current = null;
-                            hintSwipeLockedRef.current = false;
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              exitingDirectionRef.current = -1;
-                              setCarouselDirection(-1);
-                              setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
-                              setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
-                              setCarouselIndex((c) => c - 1);
-                            }}
-                            aria-label="Previous hint"
-                            className="flex shrink-0 items-center justify-center"
-                            style={{
-                              position: "absolute",
-                              left: -18,
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              width: 28,
-                              height: 28,
-                              borderRadius: 9999,
-                              border: "1px solid #2A2A2A",
-                              background: "transparent",
-                              padding: 0,
-                              cursor: "pointer",
-                              visibility: carouselIndex === 0 ? "hidden" : "visible",
-                              zIndex: 5,
-                            }}
-                          >
-                            <svg
-                              width="9"
-                              height="14"
-                              viewBox="0 0 9 14"
-                              fill="none"
-                              aria-hidden
-                            >
-                              <path
-                                d="M7.5 1L1.5 7l6 6"
-                                stroke="#6B6860"
-                                strokeWidth="1.4"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              exitingDirectionRef.current = 1;
-                              setCarouselDirection(1);
-                              setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
-                              setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
-                              setCarouselIndex((c) => c + 1);
-                            }}
-                            aria-label="Next hint"
-                            className="flex shrink-0 items-center justify-center"
-                            style={{
-                              position: "absolute",
-                              right: -18,
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              width: 28,
-                              height: 28,
-                              borderRadius: 9999,
-                              border: "1px solid #2A2A2A",
-                              background: "transparent",
-                              padding: 0,
-                              cursor: "pointer",
-                              visibility: carouselIndex === displayedHintLevel - 1 ? "hidden" : "visible",
-                              zIndex: 5,
-                            }}
-                          >
-                            <svg
-                              width="9"
-                              height="14"
-                              viewBox="0 0 9 14"
-                              fill="none"
-                              aria-hidden
-                            >
-                              <path
-                                d="M1.5 1L7.5 7l-6 6"
-                                stroke="#6B6860"
-                                strokeWidth="1.4"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                          <div className="w-full">
-                            <div
-                              style={{
-                                position: "relative",
-                                width: "100%",
-                                height: 10,
-                                overflow: "hidden",
-                              }}
-                            >
-                              <div
-                                aria-hidden
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  width: "calc(100% + 44px)",
-                                  height: "100%",
-                                  background:
-                                    "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
-                                  backgroundSize: "22px 10px",
-                                  animation:
-                                    sprocketsRunning
-                                      ? "perforationRoll 260ms steps(22, end) infinite"
-                                      : undefined,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontFamily: "DM Sans",
-                                  fontSize: 7,
-                                  letterSpacing: "0.2em",
-                                  color: "#8B6914",
-                                  position: "absolute",
-                                  top: "50%",
-                                  left: 12,
-                                  transform: "translateY(-50%)",
-                                  pointerEvents: "none",
-                                  userSelect: "none",
-                                  zIndex: 1,
-                                }}
-                              >
-                                A · KU 22 9611 1802 · 35MM
-                              </span>
-                            </div>
-                            <div className="relative w-full overflow-hidden" style={{ height: 180, minHeight: 180 }}>
-                              <div
-                                style={{
-                                  position: "relative",
-                                  width: "100%",
-                                  height: 180,
-                                  minHeight: 180,
-                                  background: "#141410",
-                                  borderTop: "3px solid #2A2410",
-                                  borderBottom: "3px solid #2A2410",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    width: "100%",
-                                    transform: `translateX(-${carouselIndex * 100}%)`,
-                                    transition: `transform ${carouselTransitionMs}ms ${carouselTransitionEasing}`,
-                                  }}
-                                >
-                                  {Array.from({ length: displayedHintLevel }, (_, i) => (
-                                    <div
-                                      key={`hint-strip-${i}`}
-                                      style={{
-                                        flex: "0 0 100%",
-                                        padding: "32px 28px",
-                                        height: 180,
-                                        minHeight: 180,
-                                        overflow: "hidden",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          width: "100%",
-                                          height: "100%",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          opacity:
-                                            i === carouselIndex &&
-                                            (hintRevealPhase === "slideOut" ||
-                                              hintRevealPhase === "blank" ||
-                                              hintRevealPhase === "fadingIn")
-                                              ? 0
-                                              : 1,
-                                          animation:
-                                            i === carouselIndex && hintRevealPhase === "fadingIn"
-                                              ? `hintTextSettleFade ${WRONG_GUESS_FADE_IN_MS}ms ${EASE_OUT} both`
-                                              : undefined,
-                                        }}
-                                      >
-                                        <AutoFitHintText
-                                          text={getHintBodyForLevel(state.movie, (i + 1) as HintLevel)}
-                                          isDesktop={isDesktop}
-                                        />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    inset: 0,
-                                    background: "#141410",
-                                    opacity: hintRevealPhase === "blank" ? 1 : hintRevealPhase === "fadingIn" ? 0 : 0,
-                                    transition:
-                                      hintRevealPhase === "fadingIn"
-                                        ? `opacity ${WRONG_GUESS_FADE_IN_MS}ms ${EASE_OUT}`
-                                        : undefined,
-                                    pointerEvents: "none",
-                                  }}
-                                  aria-hidden
-                                />
-                                {hintRevealPhase === "slideOut" ? (
-                                  <div
-                                    style={{
-                                      position: "absolute",
-                                      inset: 0,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      padding: "32px 28px",
-                                      pointerEvents: "none",
-                                      animation: `hintSlideOutLeft ${WRONG_GUESS_SLIDE_OUT_MS}ms ${EASE_OUT} both`,
-                                    }}
-                                    aria-hidden
-                                  >
-                                    <p
-                                      style={{
-                                        margin: 0,
-                                        color: "#C9B87A",
-                                        fontFamily: FONT_PLAYFAIR,
-                                        fontStyle: "italic",
-                                        fontSize: isDesktop ? 18 : 16,
-                                        lineHeight: 1.6,
-                                        textAlign: "center",
-                                      }}
-                                    >
-                                      {slideOutHintText}
-                                    </p>
-                                  </div>
-                                ) : null}
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    bottom: 0,
-                                    left: 0,
-                                    width: 2,
-                                    background: "#000000",
-                                    pointerEvents: "none",
-                                  }}
-                                />
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    bottom: 0,
-                                    right: 0,
-                                    width: 2,
-                                    background: "#000000",
-                                    pointerEvents: "none",
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div style={{ position: "relative", width: "100%", height: 10, overflow: "hidden" }}>
-                              <div
-                                aria-hidden
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  width: "calc(100% + 44px)",
-                                  height: "100%",
-                                  background:
-                                    "repeating-linear-gradient(90deg, #0D0D0D 0px, #0D0D0D 12px, #1A1A1A 12px, #1A1A1A 22px)",
-                                  backgroundSize: "22px 10px",
-                                  animation:
-                                    sprocketsRunning
-                                      ? "perforationRoll 260ms steps(22, end) infinite"
-                                      : undefined,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        {displayedHintLevel > 1 ? (
-                          <div
-                            className="flex w-full items-center justify-center"
-                            style={{ gap: 8 }}
-                            aria-hidden
-                          >
-                            {Array.from({ length: displayedHintLevel }, (_, i) => (
-                              <div
-                                key={i}
-                                style={{
-                                  width: 6,
-                                  height: 4,
-                                  borderRadius: 1,
-                                  background: i === carouselIndex ? "#C9A96E" : "#2E2410",
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-              {state.guessHistory.length > 0 ? (
-              <div
-                className={relaxedVisual ? "mt-12 md:mt-14" : "mt-8"}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  alignItems: "flex-start",
-                  padding: "0 1.5rem",
-                  width: "100%",
-                }}
-              >
-                {state.guessHistory.map((g, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5"
-                    style={{
-                      opacity: 0.75,
-                      transform: i % 2 === 0 ? "rotate(-0.4deg)" : "rotate(0.3deg)",
-                      alignSelf: i % 2 === 0 ? "flex-start" : "flex-end",
-                    }}
-                  >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div
-                        style={{
-                          width: 4,
-                          height: 3,
-                          borderRadius: 0.5,
-                          background: "#0D0D0D",
-                          border: "1px solid #2a2a2a",
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: 4,
-                          height: 3,
-                          borderRadius: 0.5,
-                          background: "#0D0D0D",
-                          border: "1px solid #2a2a2a",
-                        }}
-                      />
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: '"DM Sans", sans-serif',
-                        fontSize: "0.65rem",
-                        color: "#3a3a3a",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        borderLeft: "1px solid #1e1e1e",
-                        borderRight: "1px solid #1e1e1e",
-                        padding: "2px 8px",
-                        background: "#0f0f0f",
-                      }}
-                    >
-                      {g === "" ? "\u00a0" : g}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div
-                        style={{
-                          width: 4,
-                          height: 3,
-                          borderRadius: 0.5,
-                          background: "#0D0D0D",
-                          border: "1px solid #2a2a2a",
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: 4,
-                          height: 3,
-                          borderRadius: 0.5,
-                          background: "#0D0D0D",
-                          border: "1px solid #2a2a2a",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+                <GameHintCarousel
+                  movie={state.movie}
+                  displayedHintLevel={displayedHintLevel}
+                  carouselIndex={carouselIndex}
+                  carouselTransitionMs={carouselTransitionMs}
+                  carouselTransitionEasing={carouselTransitionEasing}
+                  hintRevealPhase={hintRevealPhase}
+                  slideOutHintText={slideOutHintText}
+                  sprocketsRunning={sprocketsRunning}
+                  isDesktop={isDesktop}
+                  relaxedVisual={relaxedVisual}
+                  onPrevHint={() => {
+                    exitingDirectionRef.current = -1;
+                    setCarouselDirection(-1);
+                    setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+                    setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+                    setCarouselIndex((c) => c - 1);
+                  }}
+                  onNextHint={() => {
+                    exitingDirectionRef.current = 1;
+                    setCarouselDirection(1);
+                    setCarouselTransitionEasing(CAROUSEL_EASING_DEFAULT);
+                    setCarouselTransitionMs(CAROUSEL_MANUAL_MS);
+                    setCarouselIndex((c) => c + 1);
+                  }}
+                  onPointerDown={handleHintPointerDown}
+                  onPointerMove={handleHintPointerMove}
+                  onPointerUp={handleHintPointerUp}
+                  onPointerCancel={() => {
+                    hintSwipeStartRef.current = null;
+                    hintSwipePointerIdRef.current = null;
+                    hintSwipeLockedRef.current = false;
+                  }}
+                />
+                <WrongGuessHistoryStrip
+                  guessHistory={state.guessHistory}
+                  relaxedVisual={relaxedVisual}
+                />
               </div>
             )}
             </div>
@@ -1586,32 +1143,6 @@ export function GameScreen() {
             }
             to {
               opacity: 1;
-            }
-          }
-          @keyframes perforationRoll {
-            from {
-              transform: translateX(0);
-            }
-            to {
-              transform: translateX(-44px);
-            }
-          }
-          @keyframes hintTextSettleFade {
-            0% {
-              opacity: 0;
-            }
-            100% {
-              opacity: 1;
-            }
-          }
-          @keyframes hintSlideOutLeft {
-            0% {
-              transform: translateX(0);
-              opacity: 1;
-            }
-            100% {
-              transform: translateX(-100%);
-              opacity: 0;
             }
           }
         `}</style>

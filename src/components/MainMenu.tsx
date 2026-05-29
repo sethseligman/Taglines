@@ -17,13 +17,23 @@ const GOLD_BORDER = "rgba(201, 169, 110, 0.35)";
 
 type Mode = "daily" | "practice";
 
+export type ChallengeMenuContext = {
+  title: string;
+  legIndex: number;
+  legCount: number;
+  score: number;
+  onExit: () => void;
+};
+
 export type MainMenuProps = {
-  mode: Mode;
-  gameLocked: boolean;
-  dailyDateKey: string;
-  dailyResult: DailyCompletionResult | null;
-  onSelectDaily: () => void;
-  onSelectPractice: () => void;
+  mode?: Mode;
+  gameLocked?: boolean;
+  dailyDateKey?: string;
+  dailyResult?: DailyCompletionResult | null;
+  onSelectDaily?: () => void;
+  onSelectPractice?: () => void;
+  /** When set, shows challenge run menu instead of daily/practice (hamburger placement unchanged). */
+  challengeMenu?: ChallengeMenuContext;
 };
 
 function formatMenuPuzzleDay(dateKey: string): string {
@@ -58,12 +68,13 @@ function HamburgerIcon() {
 }
 
 export function MainMenu({
-  mode,
-  gameLocked,
-  dailyDateKey,
-  dailyResult,
-  onSelectDaily,
-  onSelectPractice,
+  mode = "daily",
+  gameLocked = false,
+  dailyDateKey = "",
+  dailyResult = null,
+  onSelectDaily = () => {},
+  onSelectPractice = () => {},
+  challengeMenu,
 }: MainMenuProps) {
   const [open, setOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -148,6 +159,11 @@ export function MainMenu({
     setContactOpen(true);
   };
 
+  const selectExitChallenge = () => {
+    challengeMenu?.onExit();
+    close();
+  };
+
   const dailyDisabled = gameLocked && mode !== "daily";
   const practiceDisabled = gameLocked && mode !== "practice";
 
@@ -159,7 +175,15 @@ export function MainMenu({
   const practiceRowSublabel =
     mode === "practice" ? "Playing now" : "Random movies · unlimited plays";
 
-  const triggerLabel = mode === "practice" ? "Practice mode" : "Main menu";
+  const triggerLabel = challengeMenu
+    ? "Main menu"
+    : mode === "practice"
+      ? "Practice mode"
+      : "Main menu";
+
+  const challengeLegLabel = challengeMenu
+    ? `Leg ${Math.min(challengeMenu.legIndex + 1, challengeMenu.legCount)} of ${challengeMenu.legCount}`
+    : "";
 
   const menu =
     open && menuPos && mounted ? (
@@ -182,27 +206,47 @@ export function MainMenu({
           animation: reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
         }}
       >
-        <MenuRow
-          label="Today"
-          sublabel={dailyRowSublabel}
-          active={mode === "daily"}
-          disabled={dailyDisabled}
-          onSelect={selectDaily}
-        />
-        <MenuRow
-          label="Practice"
-          sublabel={practiceRowSublabel}
-          active={mode === "practice"}
-          disabled={practiceDisabled}
-          onSelect={selectPractice}
-        />
-        <MenuDivider />
-        <MenuRow label="Challenges" disabled soon />
-        <MenuRow label="Playlists" disabled soon />
-        <MenuDivider />
-        <MenuRow label="How to Play" onSelect={selectHowToPlay} />
-        <MenuRow label="Contact" onSelect={selectContact} />
-        <MenuRow label="About" disabled soon />
+        {challengeMenu ? (
+          <>
+            <MenuRow
+              label={challengeMenu.title}
+              sublabel={`${challengeLegLabel} · Score ${challengeMenu.score}`}
+              active
+            />
+            <MenuRow
+              label="Exit to portal"
+              sublabel="Progress saved"
+              onSelect={selectExitChallenge}
+            />
+            <MenuDivider />
+            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
+            <MenuRow label="Contact" onSelect={selectContact} />
+          </>
+        ) : (
+          <>
+            <MenuRow
+              label="Today"
+              sublabel={dailyRowSublabel}
+              active={mode === "daily"}
+              disabled={dailyDisabled}
+              onSelect={selectDaily}
+            />
+            <MenuRow
+              label="Practice"
+              sublabel={practiceRowSublabel}
+              active={mode === "practice"}
+              disabled={practiceDisabled}
+              onSelect={selectPractice}
+            />
+            <MenuDivider />
+            <MenuRow label="Challenges" disabled soon />
+            <MenuRow label="Playlists" disabled soon />
+            <MenuDivider />
+            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
+            <MenuRow label="Contact" onSelect={selectContact} />
+            <MenuRow label="About" disabled soon />
+          </>
+        )}
         <style jsx global>{`
           @keyframes mainMenuFadeIn {
             from {
@@ -218,7 +262,7 @@ export function MainMenu({
 
   return (
     <div className="flex items-center gap-2.5">
-      {mode === "practice" ? (
+      {!challengeMenu && mode === "practice" ? (
         <span
           className="select-none text-right leading-tight"
           style={{

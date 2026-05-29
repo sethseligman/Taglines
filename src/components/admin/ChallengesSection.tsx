@@ -11,6 +11,7 @@ import {
   publishChallenge,
   removeMovieFromChallenge,
   reorderChallengeMovies,
+  reshuffleChallengeMovies,
   unpublishChallenge,
   updateChallenge,
   type ChallengeMovieRow,
@@ -225,6 +226,7 @@ function ChallengeForm({
   const [movieSearch, setMovieSearch] = useState("");
   const [loadingMovies, setLoadingMovies] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
+  const [shuffleNotice, setShuffleNotice] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(challenge?.id ?? null);
 
   useEffect(() => {
@@ -268,6 +270,29 @@ function ChallengeForm({
     }
     setDraftId(res.id);
     return res.id;
+  };
+
+  const handleReshuffle = async () => {
+    const id = draftId ?? challenge?.id;
+    if (!id) return;
+    onError(null);
+    setShuffleNotice(null);
+    setSaving(true);
+    try {
+      const res = await reshuffleChallengeMovies(id);
+      if (res.error) {
+        onError(res.error);
+        return;
+      }
+      const updated = await getChallengeMovies(id);
+      setChallengeMovies(updated);
+      const orderText =
+        res.order?.map((m) => `${m.position}. ${m.title} (${m.year})`).join(" → ") ??
+        updated.map((m, i) => `${i + 1}. ${m.title} (${m.year})`).join(" → ");
+      setShuffleNotice(orderText ? `New play order: ${orderText}` : "Movie order reshuffled.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -451,6 +476,11 @@ function ChallengeForm({
         <div className="mt-6">
           <h4 className="text-sm font-medium text-foreground mb-1">Movies</h4>
           <p className="text-xs text-muted mb-3">{poolHint}</p>
+          {shuffleNotice ? (
+            <p className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+              {shuffleNotice}
+            </p>
+          ) : null}
 
           <input
             value={movieSearch}
@@ -533,7 +563,7 @@ function ChallengeForm({
           )}
         </div>
 
-        <div className="flex gap-2 mt-6">
+        <div className="flex flex-wrap gap-2 mt-6">
           <button
             type="button"
             disabled={saving}
@@ -542,6 +572,16 @@ function ChallengeForm({
           >
             {saving ? "Saving…" : "Save draft"}
           </button>
+          {challenge?.is_published ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleReshuffle}
+              className="rounded border border-gold/50 text-gold px-4 py-2 text-sm hover:bg-gold/10 disabled:opacity-50"
+            >
+              Reshuffle order
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onCancel}

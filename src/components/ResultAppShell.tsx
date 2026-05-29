@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 
 export interface ResultAppShellProps {
   headerMenu: ReactNode | null;
@@ -20,25 +21,8 @@ export function ResultAppShell({ headerMenu, relaxedVisual, children }: ResultAp
         }}
       />
       <div className="relative z-10 flex min-h-screen flex-col">
-        <header
-          className={`w-full shrink-0 px-5 md:px-8 ${
-            relaxedVisual ? "pb-10 pt-6 md:pb-3 md:pt-5" : "pb-9 pt-5"
-          }`}
-        >
-          <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-            <a
-              href="https://www.taglines.app"
-              className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
-            >
-              <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                <span>Tag</span>
-                <span className="text-gold">lines</span>
-              </h1>
-            </a>
-            {headerMenu}
-          </div>
-        </header>
         <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
+          <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
           {children}
         </main>
       </div>

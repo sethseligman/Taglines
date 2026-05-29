@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { DbChallenge } from "@/types/challenges";
 import type { DailyCompletionResult } from "@/lib/storage";
 import { getDailyCompletionResult } from "@/lib/storage";
+import { getPortalChallengeProgress } from "@/lib/challengeRunStorage";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { PortalMenu } from "@/components/portal/PortalMenu";
 
@@ -34,15 +35,18 @@ function formatDailyResultSummary(result: DailyCompletionResult): string {
   return `Didn't solve · ${result.guessesUsed} guesses`;
 }
 
-function challengeStatusLabel(_challenge: DbChallenge): string {
-  return "Not started";
+function challengeStatusLabel(challenge: DbChallenge, storageReady: boolean): string {
+  if (!storageReady) return "Not started";
+  return getPortalChallengeProgress(challenge.slug, challenge.leg_count).label;
 }
 
 export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreenProps) {
   const [dailyResult, setDailyResult] = useState<DailyCompletionResult | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
     setDailyResult(getDailyCompletionResult(dateKey));
+    setStorageReady(true);
   }, [dateKey]);
 
   const completionChallenges = challenges.filter(
@@ -116,7 +120,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
                 href={`/challenges/${challenge.slug}`}
                 eyebrow={challenge.eyebrow ?? "Completion"}
                 title={challenge.title}
-                status={challengeStatusLabel(challenge)}
+                status={challengeStatusLabel(challenge, storageReady)}
               />
             ))}
             <ComingSoonTile />

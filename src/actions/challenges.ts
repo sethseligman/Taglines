@@ -2,7 +2,10 @@
 
 import { createServiceClient, createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/adminAuth";
+import type { Movie } from "@/types/movie";
 import type { ChallengeType, DbChallenge } from "@/types/challenges";
+import { movieFromDb, type MovieRow } from "@/lib/movieFromDb";
+import type { DbMovie } from "@/types/database";
 
 async function requireAdmin() {
   const ok = await isAdmin();
@@ -34,6 +37,8 @@ export interface PublishChallengeResult {
 }
 
 const DAILY_POOL_MIN = 30;
+/** Staging positions during reorder/shuffle (must stay > 0 per DB check). */
+const TEMP_POSITION_BASE = 100_000;
 
 function movieFromJoin(
   movies: { title: string; year: number; is_playable: boolean } | { title: string; year: number; is_playable: boolean }[] | null
@@ -67,6 +72,77 @@ export async function getPublishedChallenges(): Promise<DbChallenge[]> {
     return [];
   }
   return (data ?? []) as DbChallenge[];
+}
+
+export interface PublishedChallengeLeg {
+  movieId: string;
+  position: number;
+  movie: Movie;
+}
+
+/** Published challenge by slug (portal / run). */
+export async function getPublishedChallengeBySlug(slug: string): Promise<DbChallenge | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("challenges")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as DbChallenge;
+}
+
+async function fetchMovieRowForChallenge(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movieId: string
+): Promise<MovieRow | null> {
+  const { data: movie, error: movieError } = await supabase
+    .from("movies")
+    .select(
+      "id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, is_playable, hint_1, hint_2, hint_3, hint_4"
+    )
+    .eq("id", movieId)
+    .single();
+  if (movieError || !movie) return null;
+  const { data: taglines } = await supabase
+    .from("taglines")
+    .select("tagline_text, is_primary")
+    .eq("movie_id", movieId);
+  const { data: aliasRows } = await supabase
+    .from("accepted_aliases")
+    .select("alias")
+    .eq("movie_id", movieId);
+  return {
+    ...(movie as DbMovie),
+    taglines: taglines ?? [],
+    aliases: (aliasRows ?? []).map((a: { alias: string }) => a.alias),
+  };
+}
+
+/** Ordered playable legs for a published challenge (anon RLS). */
+export async function getPublishedChallengeLegMovies(
+  challengeId: string
+): Promise<PublishedChallengeLeg[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("challenge_movies")
+    .select("movie_id, position")
+    .eq("challenge_id", challengeId)
+    .order("position", { ascending: true });
+  if (error || !data?.length) return [];
+
+  const legs: PublishedChallengeLeg[] = [];
+  for (const row of data) {
+    const movieRow = await fetchMovieRowForChallenge(supabase, row.movie_id as string);
+    if (!movieRow?.is_playable) continue;
+    legs.push({
+      movieId: row.movie_id as string,
+      position: row.position as number,
+      movie: movieFromDb(movieRow),
+    });
+  }
+  return legs;
 }
 
 export async function getChallengeMovies(challengeId: string): Promise<ChallengeMovieRow[]> {
@@ -180,6 +256,83 @@ async function validatePublishGate(
   return { ok: true };
 }
 
+function shufflePositions(count: number): number[] {
+  const positions = Array.from({ length: count }, (_, i) => i + 1);
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j]!, positions[i]!];
+  }
+  return positions;
+}
+
+export interface ShuffledMovieOrder {
+  title: string;
+  year: number;
+  position: number;
+}
+
+/** Randomize leg order (positions 1..n). Used at publish and via admin reshuffle. */
+export async function shuffleChallengeMoviePositions(
+  challengeId: string
+): Promise<{ error?: string; order?: ShuffledMovieOrder[] }> {
+  const supabase = createServiceClient();
+  const { data: rows, error } = await supabase
+    .from("challenge_movies")
+    .select("id, movie_id, position, movies(title, year)")
+    .eq("challenge_id", challengeId)
+    .order("position", { ascending: true });
+  if (error) return { error: error.message };
+  if (!rows?.length) return { error: "No movies in challenge." };
+
+  const shuffled = shufflePositions(rows.length);
+
+  for (let i = 0; i < rows.length; i++) {
+    const { error: phase1 } = await supabase
+      .from("challenge_movies")
+      .update({ position: TEMP_POSITION_BASE + i })
+      .eq("id", rows[i]!.id as string);
+    if (phase1) return { error: phase1.message };
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const { error: phase2 } = await supabase
+      .from("challenge_movies")
+      .update({ position: shuffled[i] })
+      .eq("id", rows[i]!.id as string);
+    if (phase2) return { error: phase2.message };
+  }
+
+  const order: ShuffledMovieOrder[] = rows.map((row, i) => {
+    const movie = movieFromJoin(
+      row.movies as { title: string; year: number; is_playable: boolean } | { title: string; year: number; is_playable: boolean }[] | null
+    );
+    return {
+      title: movie?.title ?? "Unknown",
+      year: movie?.year ?? 0,
+      position: shuffled[i]!,
+    };
+  });
+  order.sort((a, b) => a.position - b.position);
+  return { order };
+}
+
+export async function reshuffleChallengeMovies(
+  challengeId: string
+): Promise<{ error?: string; order?: ShuffledMovieOrder[] }> {
+  await requireAdmin();
+  const supabase = createServiceClient();
+  const { data: challenge, error } = await supabase
+    .from("challenges")
+    .select("is_published")
+    .eq("id", challengeId)
+    .single();
+  if (error || !challenge) return { error: error?.message ?? "Challenge not found." };
+  if (!challenge.is_published) {
+    return { error: "Only published challenges can be reshuffled from admin." };
+  }
+  return shuffleChallengeMoviePositions(challengeId);
+}
+
 export async function publishChallenge(id: string): Promise<PublishChallengeResult> {
   await requireAdmin();
   const supabase = createServiceClient();
@@ -192,6 +345,9 @@ export async function publishChallenge(id: string): Promise<PublishChallengeResu
 
   const gate = await validatePublishGate(id, challenge.type as ChallengeType);
   if (!gate.ok) return gate;
+
+  const shuffle = await shuffleChallengeMoviePositions(id);
+  if (shuffle.error) return { error: shuffle.error };
 
   const { error } = await supabase.from("challenges").update({ is_published: true }).eq("id", id);
   return error ? { error: error.message } : { ok: true };
@@ -272,7 +428,7 @@ export async function reorderChallengeMovies(
   for (let i = 0; i < orderedMovieIds.length; i++) {
     const { error } = await supabase
       .from("challenge_movies")
-      .update({ position: -(i + 1) })
+      .update({ position: TEMP_POSITION_BASE + i })
       .eq("challenge_id", challengeId)
       .eq("movie_id", orderedMovieIds[i]);
     if (error) return { error: error.message };
