@@ -1,4 +1,5 @@
 import { isAdmin } from "@/lib/adminAuth";
+import { getChallenges } from "@/actions/challenges";
 import { getSchedule, listMovies } from "@/actions/movies";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
@@ -17,10 +18,18 @@ export default async function AdminPage() {
       </div>
     );
   }
-  const [movies, schedule] = await Promise.all([listMovies(), getSchedule(60)]);
+  const [movies, schedule, challenges] = await Promise.all([
+    listMovies(),
+    getSchedule(60),
+    getChallenges(),
+  ]);
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AdminPanel initialMovies={movies} initialSchedule={schedule} />
+      <AdminPanel
+        initialMovies={movies}
+        initialSchedule={schedule}
+        initialChallenges={challenges}
+      />
     </div>
   );
 }

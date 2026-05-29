@@ -15,15 +15,18 @@ import {
 } from "@/actions/admin";
 import { logoutAdmin } from "@/actions/auth";
 import Link from "next/link";
+import type { DbChallenge } from "@/types/challenges";
+import { ChallengesSection } from "@/components/admin/ChallengesSection";
 
 type StatusFilter = "all" | "pending_review" | "approved" | "rejected";
 
 interface AdminPanelProps {
   initialMovies: MovieRow[];
   initialSchedule: DbDailySchedule[];
+  initialChallenges: DbChallenge[];
 }
 
-export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) {
+export function AdminPanel({ initialMovies, initialSchedule, initialChallenges }: AdminPanelProps) {
   const [movies, setMovies] = useState<MovieRow[]>(initialMovies);
   const [schedule, setSchedule] = useState<DbDailySchedule[]>(initialSchedule);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -159,6 +162,12 @@ export function AdminPanel({ initialMovies, initialSchedule }: AdminPanelProps) 
           {error}
         </div>
       )}
+
+      <ChallengesSection
+        initialChallenges={initialChallenges}
+        movies={movies}
+        onError={setError}
+      />
 
       <section className="mb-10">
         <h2 className="text-lg font-medium text-foreground mb-4">Movies</h2>
