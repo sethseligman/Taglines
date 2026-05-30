@@ -121,6 +121,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
                 eyebrow={challenge.eyebrow ?? "Completion"}
                 title={challenge.title}
                 status={challengeStatusLabel(challenge, storageReady)}
+                backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
               />
             ))}
             <ComingSoonTile />
@@ -249,49 +250,88 @@ function DailyHeroCard({
   );
 }
 
+function parseChallengeBackgroundUrl(artConfig: Record<string, unknown> | null): string | null {
+  if (!artConfig || typeof artConfig.backgroundUrl !== "string") return null;
+  const url = artConfig.backgroundUrl.trim();
+  return url.length > 0 ? url : null;
+}
+
 function ChallengeTile({
   href,
   eyebrow,
   title,
   status,
+  backgroundUrl,
 }: {
   href: string;
   eyebrow: string;
   title: string;
   status: string;
+  backgroundUrl?: string | null;
 }) {
+  const hasBackground = Boolean(backgroundUrl);
+
   return (
     <Link
       href={href}
       className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-xl border p-3.5 no-underline transition hover:opacity-95 active:scale-[0.99]"
       style={{
-        background: "linear-gradient(135deg, #1a1814 0%, #0f0e0c 100%)",
+        background: hasBackground ? "#0f0e0c" : "linear-gradient(135deg, #1a1814 0%, #0f0e0c 100%)",
         borderColor: "rgba(255,255,255,0.08)",
       }}
     >
+      {hasBackground ? (
+        <>
+          <img
+            src={backgroundUrl!}
+            alt=""
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: "center 38%" }}
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 38%), linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 42%, rgba(0,0,0,0.08) 68%, rgba(0,0,0,0.2) 100%)",
+            }}
+            aria-hidden
+          />
+        </>
+      ) : null}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+        className="absolute left-0 top-0 bottom-0 z-[2] w-1 rounded-l-xl"
         style={{ background: "var(--gold)" }}
         aria-hidden
       />
       <p
-        className="relative text-[8px] uppercase tracking-[0.22em]"
-        style={{ color: "#9a968c" }}
+        className="relative z-[3] text-[8px] uppercase tracking-[0.22em]"
+        style={{
+          color: hasBackground ? "rgba(255,255,255,0.82)" : "#9a968c",
+          textShadow: hasBackground ? "0 1px 8px rgba(0,0,0,0.85)" : undefined,
+        }}
       >
         {eyebrow}
       </p>
-      <div className="relative">
+      <div className="relative z-[3]">
         <p
           className="text-[17px] leading-tight md:text-[19px]"
           style={{
             fontFamily: FONT_PLAYFAIR,
             fontWeight: 700,
             color: "var(--foreground)",
+            textShadow: hasBackground ? "0 2px 12px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.8)" : undefined,
           }}
         >
           {title}
         </p>
-        <p className="mt-1.5 text-[10px]" style={{ color: "var(--gold)" }}>
+        <p
+          className="mt-1.5 text-[10px]"
+          style={{
+            color: "var(--gold)",
+            textShadow: hasBackground ? "0 1px 6px rgba(0,0,0,0.85)" : undefined,
+          }}
+        >
           {status}
         </p>
       </div>
