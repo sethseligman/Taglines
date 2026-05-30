@@ -23,18 +23,22 @@ const EASE_OUT = SLAM_EASE_OUT;
 
 interface WrongGuessFlashProps {
   onComplete: () => void;
+  /** Fires at SLAM_THINK_MS — same beat as the ✕ strike. Used for loss border slam sync. */
+  onSlam?: () => void;
 }
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
+export function WrongGuessFlash({ onComplete, onSlam }: WrongGuessFlashProps) {
   const [reduceMotion] = useState(prefersReducedMotion);
   const [phase, setPhase] = useState<"idle" | "slam" | "hold" | "fade">("idle");
   const timersRef = useRef<number[]>([]);
   const onCompleteRef = useRef(onComplete);
+  const onSlamRef = useRef(onSlam);
   onCompleteRef.current = onComplete;
+  onSlamRef.current = onSlam;
 
   useEffect(() => {
     if (reduceMotion) {
@@ -49,7 +53,12 @@ export function WrongGuessFlash({ onComplete }: WrongGuessFlashProps) {
       };
     }
 
-    timersRef.current.push(window.setTimeout(() => setPhase("slam"), SLAM_THINK_MS));
+    timersRef.current.push(
+      window.setTimeout(() => {
+        setPhase("slam");
+        onSlamRef.current?.();
+      }, SLAM_THINK_MS)
+    );
     timersRef.current.push(window.setTimeout(() => setPhase("hold"), SLAM_THINK_MS + SLAM_MS));
     timersRef.current.push(window.setTimeout(() => setPhase("fade"), FADE_START_MS));
     timersRef.current.push(

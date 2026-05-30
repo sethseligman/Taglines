@@ -71,6 +71,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   const currentLeg = sortedLegs[run?.currentLegIndex ?? 0] ?? null;
   const completedPositions = run?.legs.filter((l) => l.solved).map((l) => l.position) ?? [];
+  const legSessionKey = currentLeg
+    ? `challenge:${challenge.slug}:leg:${currentLeg.position}`
+    : "";
 
   const persistRun = useCallback((next: StoredChallengeRun) => {
     saveChallengeRun(next);
@@ -225,7 +228,6 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     );
   }
 
-  const legSessionKey = `challenge:${challenge.slug}:leg:${currentLeg.position}`;
   const relaxedVisual = isDesktop || playLayoutRelaxed;
 
   return (

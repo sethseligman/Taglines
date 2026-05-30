@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
 import { useGameState } from "@/hooks/useGameState";
@@ -9,6 +9,7 @@ import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
 import { GuessInput } from "@/components/GuessInput";
 import { HintReveal } from "@/components/HintReveal";
 import { WrongGuessFlash } from "@/components/WrongGuessFlash";
+import { BorderCircuit } from "@/components/game/BorderCircuit";
 import { GameHintCarousel } from "@/components/game/GameHintCarousel";
 import { WrongGuessHistoryStrip } from "@/components/game/WrongGuessHistoryStrip";
 
@@ -35,9 +36,14 @@ export function ChallengeLegGame({
   const { state, submitGuess } = useGameState(movie, false, legSessionKey);
   const [duplicateSignal, setDuplicateSignal] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [borderPressureWrongGuesses, setBorderPressureWrongGuesses] = useState(0);
   const legCompleteFiredRef = useRef(false);
+  const lossFlashFinishedRef = useRef(false);
+  const idleGameRef = useRef({ status: state.status, guessesUsed: state.guessesUsed });
   const taglineContainerRef = useRef<HTMLDivElement>(null);
   const taglineTextRef = useRef<HTMLParagraphElement>(null);
+
+  idleGameRef.current = { status: state.status, guessesUsed: state.guessesUsed };
 
   const hintCarousel = useHintCarousel({
     movie: state.movie,
@@ -59,7 +65,49 @@ export function ChallengeLegGame({
     deps: [state.movie.officialTagline, isDesktop],
   });
 
-  useLayoutEffect(() => {
+  const {
+    wrongGuessFlash,
+    handleWrongGuessFlashComplete: hintWrongGuessFlashComplete,
+    cinematicFocusActive,
+    displayedHintLevel,
+    carouselIndex,
+    carouselTransitionMs,
+    carouselTransitionEasing,
+    hintRevealPhase,
+    slideOutHintText,
+    sprocketsRunning,
+    goToPrevHint,
+    goToNextHint,
+    handleHintPointerDown,
+    handleHintPointerMove,
+    handleHintPointerUp,
+    handleHintPointerCancel,
+  } = hintCarousel;
+
+  const handleWrongGuessFlashComplete = useCallback(() => {
+    const { guessesUsed, status } = idleGameRef.current;
+    if (status === "playing") {
+      setBorderPressureWrongGuesses(guessesUsed);
+    } else if (status === "lost" && guessesUsed >= MAX_GUESSES) {
+      lossFlashFinishedRef.current = true;
+      setBorderPressureWrongGuesses(0);
+    }
+    hintWrongGuessFlashComplete();
+  }, [hintWrongGuessFlashComplete]);
+
+  const handleWrongGuessSlam = useCallback(() => {
+    const { guessesUsed, status } = idleGameRef.current;
+    if (status !== "lost" || guessesUsed < MAX_GUESSES) return;
+    setBorderPressureWrongGuesses(5);
+  }, []);
+
+  useEffect(() => {
+    if (state.status === "won") {
+      setBorderPressureWrongGuesses(0);
+    }
+  }, [state.status]);
+
+  useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     const apply = () => setIsDesktop(mq.matches);
     apply();
@@ -69,10 +117,18 @@ export function ChallengeLegGame({
 
   useEffect(() => {
     legCompleteFiredRef.current = false;
+    lossFlashFinishedRef.current = false;
+    setBorderPressureWrongGuesses(0);
   }, [legSessionKey]);
 
   useEffect(() => {
     if (state.status !== "playing") {
+      if (wrongGuessFlash) return;
+      const awaitingLossFlash =
+        state.status === "lost" &&
+        state.guessesUsed >= MAX_GUESSES &&
+        !lossFlashFinishedRef.current;
+      if (awaitingLossFlash) return;
       if (legCompleteFiredRef.current) return;
       legCompleteFiredRef.current = true;
       onLegComplete({
@@ -82,7 +138,7 @@ export function ChallengeLegGame({
       return;
     }
     legCompleteFiredRef.current = false;
-  }, [state.status, state.guessesUsed, onLegComplete]);
+  }, [state.status, state.guessesUsed, onLegComplete, wrongGuessFlash]);
 
   useEffect(() => {
     if (state.submitMessage === "Already guessed") {
@@ -99,7 +155,12 @@ export function ChallengeLegGame({
 
   const relaxedVisual = relaxedVisualProp ?? isDesktop;
 
-  if (state.status !== "playing") {
+  const awaitingLossFlash =
+    state.status === "lost" &&
+    state.guessesUsed >= MAX_GUESSES &&
+    !lossFlashFinishedRef.current;
+
+  if (state.status !== "playing" && !wrongGuessFlash && !awaitingLossFlash) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-sm text-muted">Saving leg…</p>
@@ -109,11 +170,15 @@ export function ChallengeLegGame({
 
   return (
     <div className="relative w-full">
-      {hintCarousel.wrongGuessFlash ? (
-        <WrongGuessFlash onComplete={hintCarousel.handleWrongGuessFlashComplete} />
+      {wrongGuessFlash ? (
+        <WrongGuessFlash onComplete={handleWrongGuessFlashComplete} onSlam={handleWrongGuessSlam} />
       ) : null}
 
-      {hintCarousel.cinematicFocusActive ? (
+      {borderPressureWrongGuesses > 0 && (state.status === "playing" || wrongGuessFlash) ? (
+        <BorderCircuit wrongGuesses={borderPressureWrongGuesses} />
+      ) : null}
+
+      {cinematicFocusActive ? (
         <div
           className="pointer-events-none fixed inset-0 z-20"
           style={{ background: "rgba(0,0,0,0.3)" }}
@@ -160,7 +225,7 @@ export function ChallengeLegGame({
               onLayoutBreathingChange={onLayoutBreathingChange}
               placeholder="Name the film..."
               aria-label="Guess the movie"
-              disabled={hintCarousel.wrongGuessFlash}
+              disabled={wrongGuessFlash}
               duplicateSignal={duplicateSignal}
             />
           </div>
@@ -173,21 +238,21 @@ export function ChallengeLegGame({
 
           <GameHintCarousel
             movie={state.movie}
-            displayedHintLevel={hintCarousel.displayedHintLevel}
-            carouselIndex={hintCarousel.carouselIndex}
-            carouselTransitionMs={hintCarousel.carouselTransitionMs}
-            carouselTransitionEasing={hintCarousel.carouselTransitionEasing}
-            hintRevealPhase={hintCarousel.hintRevealPhase}
-            slideOutHintText={hintCarousel.slideOutHintText}
-            sprocketsRunning={hintCarousel.sprocketsRunning}
-            isDesktop={hintCarousel.isDesktop}
+            displayedHintLevel={displayedHintLevel}
+            carouselIndex={carouselIndex}
+            carouselTransitionMs={carouselTransitionMs}
+            carouselTransitionEasing={carouselTransitionEasing}
+            hintRevealPhase={hintRevealPhase}
+            slideOutHintText={slideOutHintText}
+            sprocketsRunning={sprocketsRunning}
+            isDesktop={isDesktop}
             relaxedVisual={relaxedVisual}
-            onPrevHint={hintCarousel.goToPrevHint}
-            onNextHint={hintCarousel.goToNextHint}
-            onPointerDown={hintCarousel.handleHintPointerDown}
-            onPointerMove={hintCarousel.handleHintPointerMove}
-            onPointerUp={hintCarousel.handleHintPointerUp}
-            onPointerCancel={hintCarousel.handleHintPointerCancel}
+            onPrevHint={goToPrevHint}
+            onNextHint={goToNextHint}
+            onPointerDown={handleHintPointerDown}
+            onPointerMove={handleHintPointerMove}
+            onPointerUp={handleHintPointerUp}
+            onPointerCancel={handleHintPointerCancel}
           />
 
           <WrongGuessHistoryStrip
