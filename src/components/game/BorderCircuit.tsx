@@ -54,13 +54,13 @@ function circuitStyleForWrongGuesses(wrongGuesses: number, perimeter: number): C
   }
 
   if (wrongGuesses === 4) {
-    const gap = perimeter / 15;
+    const gap = perimeter / 11;
     return {
       visible: true,
       strokeDasharray: `${DOT_LENGTH} ${gap}`,
       strokeOpacity: 1,
       animationName: "borderCircuit",
-      animationDuration: "1s",
+      animationDuration: "3s",
       animationTimingFunction: "linear",
       animationIterationCount: "infinite",
       animationFillMode: "none",
@@ -68,13 +68,13 @@ function circuitStyleForWrongGuesses(wrongGuesses: number, perimeter: number): C
   }
 
   if (wrongGuesses === 3) {
-    const gap = perimeter / 11;
+    const gap = perimeter / 8;
     return {
       visible: true,
       strokeDasharray: `${DOT_LENGTH} ${gap}`,
       strokeOpacity: 1,
       animationName: "borderCircuit",
-      animationDuration: "2s",
+      animationDuration: "5s",
       animationTimingFunction: "linear",
       animationIterationCount: "infinite",
       animationFillMode: "none",
