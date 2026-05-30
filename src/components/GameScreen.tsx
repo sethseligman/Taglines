@@ -798,8 +798,7 @@ export function GameScreen() {
   const relaxedVisual = isDesktop || playLayoutRelaxed;
   const isDesktopViewport = isDesktop;
 
-  // Tagline is constrained to ~3 lines. Wrapper height is the measurement box for useAutoFitFontSize.
-  // Slightly tighter than pure math (44×1.45×3 / 56×1.45×3) so italic Playfair metrics don’t spill a 4th line.
+  // Tagline auto-fit targets ~3 lines; container grows if content needs more (no clipping).
   const TAGLINE_3LINE_HEIGHT_MOBILE_PX = 170;
   const TAGLINE_3LINE_HEIGHT_DESKTOP_PX = 220;
   const taglineThreeLineHeightPx = isDesktopViewport ? TAGLINE_3LINE_HEIGHT_DESKTOP_PX : TAGLINE_3LINE_HEIGHT_MOBILE_PX;
@@ -807,6 +806,7 @@ export function GameScreen() {
   const taglineFontSize = useAutoFitFontSize(taglineTextRef, taglineContainerRef, {
     min: isDesktopViewport ? 28 : 24,
     max: isDesktopViewport ? 56 : 44,
+    fitMaxHeight: taglineThreeLineHeightPx,
     deps: [state.movie.officialTagline, introPhase, isDesktopViewport],
   });
   const sprocketsRunning =
@@ -1074,8 +1074,7 @@ export function GameScreen() {
                   ref={taglineContainerRef}
                   className="relative z-10 w-full"
                   style={{
-                    height: taglineThreeLineHeightPx,
-                    overflow: "hidden",
+                    minHeight: taglineThreeLineHeightPx,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

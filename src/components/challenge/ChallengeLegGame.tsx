@@ -55,6 +55,7 @@ export function ChallengeLegGame({
   const taglineFontSize = useAutoFitFontSize(taglineTextRef, taglineContainerRef, {
     min: isDesktop ? 28 : 24,
     max: isDesktop ? 56 : 44,
+    fitMaxHeight: taglineThreeLineHeightPx,
     deps: [state.movie.officialTagline, isDesktop],
   });
 
@@ -128,8 +129,7 @@ export function ChallengeLegGame({
             ref={taglineContainerRef}
             className="relative z-10 w-full"
             style={{
-              height: taglineThreeLineHeightPx,
-              overflow: "hidden",
+              minHeight: taglineThreeLineHeightPx,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
