@@ -71,7 +71,7 @@ export function ChallengeRunFailed({
             className="mt-2 text-[#f0ede6]"
             style={{ fontFamily: FONT_DM, fontSize: "1rem" }}
           >
-            {guessesUsed} guesses — challenge over
+            {guessesUsed} wrong {guessesUsed === 1 ? "guess" : "guesses"} — challenge over
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3">

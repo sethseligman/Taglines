@@ -1,8 +1,8 @@
-import { normalizeForComparison } from "@/lib/answerNormalize";
+import { normalizeForAutocompleteMatch } from "@/lib/answerNormalize";
 import type { SuggestionCatalogItem } from "@/types/suggestion";
 
-/** Minimum characters before any suggestions appear. */
-const MIN_QUERY_LEN = 3;
+/** Minimum characters before any suggestions appear (after normalization). */
+const MIN_QUERY_LEN = 2;
 
 /** Maximum suggestions to show; only high-confidence. */
 const MAX_SUGGESTIONS = 5;
@@ -54,8 +54,8 @@ function fuzzySimilarity(a: string, b: string): number {
 }
 
 /**
- * Minimum prefix length required before a title can be suggested via prefix match.
- * Long/multi-word titles require more commitment; short titles stay responsive.
+ * Minimum prefix length required before a title can be suggested via word-level prefix match.
+ * Full title prefix matches are always allowed (e.g. "2001" → "2001: A Space Odyssey").
  */
 function requiredPrefixLength(normalizedTitleLength: number): number {
   return Math.max(3, Math.min(6, Math.ceil(normalizedTitleLength * 0.3)));
@@ -65,6 +65,29 @@ function getPrefixMode(titleNorm: string, queryNorm: string): "none" | "full" | 
   if (titleNorm.startsWith(queryNorm) || queryNorm.startsWith(titleNorm)) return "full";
   if (titleNorm.split(" ").some((token) => token.startsWith(queryNorm))) return "word";
   return "none";
+}
+
+/** Query tokens appear in order as title token prefixes (skips words like "the", "a"). */
+function queryTokensMatchTitle(queryNorm: string, titleNorm: string): boolean {
+  const qTokens = queryNorm.split(" ").filter(Boolean);
+  const tTokens = titleNorm.split(" ").filter(Boolean);
+  if (qTokens.length === 0) return false;
+
+  let ti = 0;
+  for (const q of qTokens) {
+    let matched = false;
+    while (ti < tTokens.length) {
+      const t = tTokens[ti]!;
+      if (t === q || t.startsWith(q) || q.startsWith(t)) {
+        matched = true;
+        ti++;
+        break;
+      }
+      ti++;
+    }
+    if (!matched) return false;
+  }
+  return true;
 }
 
 export interface ScoredMatch {
@@ -81,13 +104,13 @@ export function getPrecisionSuggestions(
   candidates: SuggestionCatalogItem[]
 ): SuggestionCatalogItem[] {
   const raw = query.trim();
-  const norm = normalizeForComparison(raw);
+  const norm = normalizeForAutocompleteMatch(raw);
   if (norm.length < MIN_QUERY_LEN) return [];
   if (BLOCKLIST.has(norm)) return [];
 
   const scored: ScoredMatch[] = [];
   for (const item of candidates) {
-    const normTitle = item.normalizedTitle || normalizeForComparison(item.title);
+    const normTitle = normalizeForAutocompleteMatch(item.title);
     if (!normTitle) continue;
 
     let score = 0;
@@ -97,9 +120,12 @@ export function getPrecisionSuggestions(
       score = Math.max(score, titleWordCount > 2 ? 130 : 108);
     }
 
-    // Starts-with (full or token-level) gets strong weighting after exact title.
     const minPrefix = requiredPrefixLength(normTitle.length);
-    const prefixMode = norm.length >= minPrefix ? getPrefixMode(normTitle, norm) : "none";
+    const prefixModeRaw = getPrefixMode(normTitle, norm);
+    const prefixMode =
+      prefixModeRaw === "full" || (prefixModeRaw === "word" && norm.length >= minPrefix)
+        ? prefixModeRaw
+        : "none";
     const prefixMatch = prefixMode !== "none";
     if (prefixMode === "full") {
       const ratio = Math.min(norm.length, normTitle.length) / Math.max(norm.length, normTitle.length, 1);
@@ -107,6 +133,12 @@ export function getPrecisionSuggestions(
     } else if (prefixMode === "word") {
       const ratio = Math.min(norm.length, normTitle.length) / Math.max(norm.length, normTitle.length, 1);
       score = Math.max(score, 84 + Math.round(ratio * 14)); // 84-98
+    }
+
+    if (queryTokensMatchTitle(norm, normTitle)) {
+      const qCount = norm.split(" ").filter(Boolean).length;
+      const ratio = qCount / Math.max(normTitle.split(" ").filter(Boolean).length, 1);
+      score = Math.max(score, 86 + Math.round(ratio * 12)); // 86-98
     }
 
     // Strong normalized partials.

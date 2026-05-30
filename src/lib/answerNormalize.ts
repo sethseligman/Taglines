@@ -43,6 +43,20 @@ function normalizePartSuffix(s: string): string {
 }
 
 /**
+ * Autocomplete-only normalization: strip punctuation entirely (not to spaces),
+ * collapse whitespace, lowercase. Display titles stay unchanged; use only when matching.
+ */
+export function normalizeForAutocompleteMatch(value: string): string {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(PUNCTUATION_REGEX, "")
+    .replace(MULTI_SPACE_REGEX, " ")
+    .trim();
+}
+
+/**
  * Full normalization for comparison (includes part number variants).
  */
 export function normalizeForComparison(value: string): string {

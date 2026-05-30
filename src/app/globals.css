@@ -202,6 +202,24 @@ body {
   }
 }
 
+@keyframes checkStrokeDraw {
+  from {
+    stroke-dashoffset: var(--check-path-length, 120);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes checkStrokeDraw {
+    from,
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
 .guess-pulse-slow,
 .guess-pulse-medium,
 .guess-pulse-fast {

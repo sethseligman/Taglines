@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { searchAutocompleteSuggestions } from "@/actions/movies";
-import { normalizeForComparison } from "@/lib/answerNormalize";
+import { normalizeForAutocompleteMatch } from "@/lib/answerNormalize";
 import type { SuggestionCatalogItem } from "@/types/suggestion";
 
 interface GuessInputProps {
@@ -133,7 +133,7 @@ export function GuessInput({
       return;
     }
     const trimmed = value.trim();
-    if (normalizeForComparison(trimmed).length < 3) {
+    if (normalizeForAutocompleteMatch(trimmed).length < 2) {
       setFiltered([]);
       return;
     }
