@@ -210,7 +210,7 @@ export function MainMenu({
           <>
             <MenuRow
               label={challengeMenu.title}
-              sublabel={`${challengeLegLabel} · Score ${challengeMenu.score}`}
+              sublabel={challengeLegLabel}
               active
             />
             <MenuRow

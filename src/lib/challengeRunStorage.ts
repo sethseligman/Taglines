@@ -78,6 +78,46 @@ export function getOrInitChallengeRun(slug: string): StoredChallengeRun {
   return loadChallengeRun(slug) ?? initChallengeRun(slug);
 }
 
+export function clearChallengeRun(slug: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(challengeRunStorageKey(slug));
+  } catch {
+    // ignore
+  }
+}
+
+/** Record a failed leg and mark the entire run failed (no advance to next leg). */
+export function markChallengeRunFailed(
+  current: StoredChallengeRun,
+  movieId: string,
+  position: number,
+  guessesUsed: number
+): StoredChallengeRun {
+  const legEntry: StoredChallengeLeg = {
+    movieId,
+    position,
+    guessesUsed,
+    solved: false,
+    completedAt: new Date().toISOString(),
+  };
+
+  const legsWithoutPosition = current.legs.filter((l) => l.position !== position);
+  const nextLegs = [...legsWithoutPosition, legEntry].sort((a, b) => a.position - b.position);
+  const failed: StoredChallengeRun = {
+    ...current,
+    legs: nextLegs,
+    status: "failed",
+  };
+  saveChallengeRun(failed);
+  return failed;
+}
+
+export function restartChallengeRun(slug: string): StoredChallengeRun {
+  clearChallengeRun(slug);
+  return initChallengeRun(slug);
+}
+
 export interface PortalChallengeProgress {
   label: string;
   solvedCount: number;
@@ -91,7 +131,16 @@ export function getPortalChallengeProgress(
   legCount: number
 ): PortalChallengeProgress {
   const run = loadChallengeRun(slug);
-  if (!run || run.status === "finished") {
+  if (!run || run.status === "finished" || run.status === "failed") {
+    if (run?.status === "failed") {
+      return {
+        label: "Failed",
+        solvedCount: run.legs.filter((l) => l.solved).length,
+        totalLegs: legCount,
+        isFinished: false,
+        isNotStarted: false,
+      };
+    }
     if (run?.status === "finished") {
       return {
         label: "Done",

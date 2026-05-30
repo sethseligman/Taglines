@@ -8,19 +8,21 @@ import type { PublishedChallengeLeg } from "@/actions/challenges";
 import {
   getOrInitChallengeRun,
   loadChallengeRun,
+  markChallengeRunFailed,
+  restartChallengeRun,
   saveChallengeRun,
-  totalGuessesForRun,
   type StoredChallengeRun,
 } from "@/lib/challengeRunStorage";
 import { ChallengeProgressTracker } from "@/components/challenge/ChallengeProgressTracker";
 import { ChallengeLegGame, type LegCompletePayload } from "@/components/challenge/ChallengeLegGame";
 import { BetweenLegsOverlay } from "@/components/challenge/BetweenLegsOverlay";
 import { ChallengeSetComplete } from "@/components/challenge/ChallengeSetComplete";
+import { ChallengeRunFailed } from "@/components/challenge/ChallengeRunFailed";
 import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 import { MainMenu } from "@/components/MainMenu";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
 
-type RunPhase = "playing" | "between" | "complete";
+type RunPhase = "playing" | "between" | "complete" | "failed";
 
 interface ChallengeRunScreenProps {
   challenge: DbChallenge;
@@ -56,6 +58,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     if (existing?.status === "finished") {
       setRun(existing);
       setPhase("complete");
+    } else if (existing?.status === "failed") {
+      setRun(existing);
+      setPhase("failed");
     } else if (existing) {
       setRun(existing);
     } else {
@@ -66,7 +71,6 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   const currentLeg = sortedLegs[run?.currentLegIndex ?? 0] ?? null;
   const completedPositions = run?.legs.filter((l) => l.solved).map((l) => l.position) ?? [];
-  const runningScore = run ? totalGuessesForRun(run) : 0;
 
   const persistRun = useCallback((next: StoredChallengeRun) => {
     saveChallengeRun(next);
@@ -86,13 +90,13 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     [challenge.leg_count, persistRun]
   );
 
-  const advanceAfterLeg = useCallback(
+  const advanceAfterWin = useCallback(
     (current: StoredChallengeRun, payload: LegCompletePayload, movieId: string, position: number) => {
       const legEntry = {
         movieId,
         position,
         guessesUsed: payload.guessesUsed,
-        solved: payload.solved,
+        solved: true,
         completedAt: new Date().toISOString(),
       };
 
@@ -116,6 +120,23 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     [challenge.leg_count, finishRun, persistRun]
   );
 
+  const failRun = useCallback(
+    (current: StoredChallengeRun, payload: LegCompletePayload, movieId: string, position: number) => {
+      const failed = markChallengeRunFailed(current, movieId, position, payload.guessesUsed);
+      setRun(failed);
+      setPhase("failed");
+    },
+    []
+  );
+
+  const handleTryAgain = useCallback(() => {
+    pendingLegRef.current = null;
+    setBetweenPosterUrl(null);
+    const fresh = restartChallengeRun(challenge.slug);
+    setRun(fresh);
+    setPhase("playing");
+  }, [challenge.slug]);
+
   const handleLegComplete = useCallback(
     (payload: LegCompletePayload) => {
       if (!run || !currentLeg) return;
@@ -127,9 +148,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
         return;
       }
 
-      advanceAfterLeg(run, payload, currentLeg.movieId, currentLeg.position);
+      failRun(run, payload, currentLeg.movieId, currentLeg.position);
     },
-    [run, currentLeg, advanceAfterLeg]
+    [run, currentLeg, failRun]
   );
 
   const handleBetweenComplete = useCallback(() => {
@@ -137,9 +158,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     const payload = pendingLegRef.current;
     if (!payload) return;
     pendingLegRef.current = null;
-    advanceAfterLeg(run, payload, currentLeg.movieId, currentLeg.position);
+    advanceAfterWin(run, payload, currentLeg.movieId, currentLeg.position);
     setBetweenPosterUrl(null);
-  }, [run, currentLeg, advanceAfterLeg]);
+  }, [run, currentLeg, advanceAfterWin]);
 
   const headerMenu = run ? (
     <MainMenu
@@ -147,7 +168,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
         title: challenge.title,
         legIndex: run.currentLegIndex,
         legCount: challenge.leg_count,
-        score: runningScore,
+        score: 0,
         onExit: () => router.push("/"),
       }}
     />
@@ -169,6 +190,17 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
           ← Portal
         </Link>
       </div>
+    );
+  }
+
+  if (phase === "failed" || run.status === "failed") {
+    return (
+      <ChallengeRunFailed
+        challengeTitle={challenge.title}
+        run={run}
+        legCount={challenge.leg_count}
+        onTryAgain={handleTryAgain}
+      />
     );
   }
 
@@ -233,17 +265,12 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
             <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
 
             <div className="mx-auto mb-4 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">
-              <div className="min-w-0">
-                <p
-                  className="truncate text-sm font-medium text-foreground"
-                  style={{ fontFamily: FONT_PLAYFAIR }}
-                >
-                  {challenge.title}
-                </p>
-                <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-muted">
-                  Score: <span className="text-gold">{runningScore}</span>
-                </p>
-              </div>
+              <p
+                className="min-w-0 truncate text-sm font-medium text-foreground"
+                style={{ fontFamily: FONT_PLAYFAIR }}
+              >
+                {challenge.title}
+              </p>
               <ChallengeProgressTracker
                 currentLegIndex={run.currentLegIndex}
                 legCount={challenge.leg_count}
