@@ -8,7 +8,7 @@ import type { SuggestionCatalogItem } from "@/types/suggestion";
 import { logDailyFallback, logPracticeFallback } from "@/lib/debug";
 import { createClient } from "@/lib/supabase/server";
 import { movieFromDb, type MovieRow } from "@/lib/movieFromDb";
-import { normalizeForComparison } from "@/lib/answerNormalize";
+import { normalizeForAutocompleteMatch, normalizeForComparison } from "@/lib/answerNormalize";
 import { getPrecisionSuggestions } from "@/lib/autocompleteMatch";
 import suggestionCatalog from "@/data/suggestionCatalog.json";
 
@@ -282,7 +282,7 @@ export async function getAutocompleteSuggestions(): Promise<SuggestionCatalogIte
 /** Server-side autocomplete query over local suggestion catalog. */
 export async function searchAutocompleteSuggestions(query: string): Promise<SuggestionCatalogItem[]> {
   const trimmed = query.trim();
-  if (normalizeForComparison(trimmed).length < 3) return [];
+  if (normalizeForAutocompleteMatch(trimmed).length < 2) return [];
   const candidates = await getAutocompleteSuggestions();
   return getPrecisionSuggestions(trimmed, candidates);
 }
