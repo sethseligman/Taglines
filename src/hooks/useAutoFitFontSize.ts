@@ -5,9 +5,9 @@ import { type RefObject, useLayoutEffect, useState } from "react";
 export function useAutoFitFontSize(
   textRef: RefObject<HTMLElement | null>,
   containerRef: RefObject<HTMLElement | null>,
-  options: { min: number; max: number; deps?: ReadonlyArray<unknown> }
+  options: { min: number; max: number; fitMaxHeight?: number; deps?: ReadonlyArray<unknown> }
 ): number {
-  const { min, max, deps = [] } = options;
+  const { min, max, fitMaxHeight, deps = [] } = options;
   const [fontSize, setFontSize] = useState(max);
 
   useLayoutEffect(() => {
@@ -25,7 +25,9 @@ export function useAutoFitFontSize(
       let size = max;
       t.style.fontSize = `${size}px`;
 
-      while (size > min && t.scrollHeight > c.clientHeight) {
+      const heightLimit = fitMaxHeight ?? c.clientHeight;
+
+      while (size > min && t.scrollHeight > heightLimit) {
         size -= 1;
         t.style.fontSize = `${size}px`;
       }
@@ -47,7 +49,7 @@ export function useAutoFitFontSize(
       ro.disconnect();
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [min, max, ...deps]);
+  }, [min, max, fitMaxHeight, ...deps]);
 
   return fontSize;
 }
