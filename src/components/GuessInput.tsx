@@ -25,6 +25,8 @@ interface GuessInputProps {
   onLayoutBreathingChange?: (relaxed: boolean) => void;
   /** Incrementing signal from parent to trigger duplicate feedback animation. */
   duplicateSignal?: number;
+  /** Optional extra classes on the submit button (e.g. ambient pulse). */
+  submitButtonClassName?: string;
 }
 
 export function GuessInput({
@@ -38,6 +40,7 @@ export function GuessInput({
   submitInline = false,
   onLayoutBreathingChange,
   duplicateSignal = 0,
+  submitButtonClassName,
 }: GuessInputProps) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -385,7 +388,7 @@ export function GuessInput({
           type="button"
           onClick={submitCurrent}
           disabled={disabled}
-          className="shrink-0 whitespace-nowrap rounded-xl bg-gold px-3 py-3 text-sm font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+          className={`shrink-0 whitespace-nowrap rounded-xl bg-gold px-3 py-3 text-sm font-semibold text-background hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99] ${submitButtonClassName ?? ""} ${submitButtonClassName ? "" : "transition"}`}
           style={{ minWidth: 130 }}
         >
           {submitButtonLabel}
@@ -402,7 +405,7 @@ export function GuessInput({
           type="button"
           onClick={submitCurrent}
           disabled={disabled}
-          className="mt-4 w-full rounded-xl bg-gold py-4 font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+          className={`mt-4 w-full rounded-xl bg-gold py-4 font-semibold text-background transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99] ${submitButtonClassName ?? ""}`}
         >
           {submitButtonLabel}
         </button>
