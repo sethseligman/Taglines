@@ -2,73 +2,109 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { SLAM_ENTRANCE_EASING, SLAM_ENTRANCE_MS } from "@/lib/slamEntrance";
 
 const STROKE = "#ef4444";
 const STROKE_WIDTH = 3;
 const DOT_LENGTH = 8;
 
 interface BorderCircuitProps {
+  /** 1–4 = traveling dots (escalates after each ✕); 5 = solid slam (final wrong guess / loss). */
   wrongGuesses: number;
 }
 
 interface CircuitStyle {
   visible: boolean;
   strokeDasharray: string | undefined;
+  strokeOpacity: number;
   animationName: string;
   animationDuration: string;
   animationTimingFunction: string;
+  animationIterationCount: string;
+  animationFillMode: string;
 }
 
 function circuitStyleForWrongGuesses(wrongGuesses: number, perimeter: number): CircuitStyle {
+  const hidden: CircuitStyle = {
+    visible: false,
+    strokeDasharray: undefined,
+    strokeOpacity: 1,
+    animationName: "none",
+    animationDuration: "0s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "1",
+    animationFillMode: "none",
+  };
+
   if (wrongGuesses <= 0 || perimeter <= 0) {
-    return {
-      visible: false,
-      strokeDasharray: undefined,
-      animationName: "none",
-      animationDuration: "0s",
-      animationTimingFunction: "linear",
-    };
+    return hidden;
   }
 
-  if (wrongGuesses >= 4) {
+  if (wrongGuesses >= 5) {
     return {
       visible: true,
       strokeDasharray: "none",
-      animationName: "borderBlink",
-      animationDuration: "0.4s",
-      animationTimingFunction: "ease-in-out",
+      strokeOpacity: 1,
+      animationName: "borderSlam",
+      animationDuration: `${SLAM_ENTRANCE_MS}ms`,
+      animationTimingFunction: SLAM_ENTRANCE_EASING,
+      animationIterationCount: "1",
+      animationFillMode: "forwards",
     };
   }
 
-  if (wrongGuesses === 3) {
+  if (wrongGuesses === 4) {
     const gap = perimeter / 15;
     return {
       visible: true,
       strokeDasharray: `${DOT_LENGTH} ${gap}`,
+      strokeOpacity: 1,
       animationName: "borderCircuit",
       animationDuration: "1s",
       animationTimingFunction: "linear",
+      animationIterationCount: "infinite",
+      animationFillMode: "none",
+    };
+  }
+
+  if (wrongGuesses === 3) {
+    const gap = perimeter / 11;
+    return {
+      visible: true,
+      strokeDasharray: `${DOT_LENGTH} ${gap}`,
+      strokeOpacity: 1,
+      animationName: "borderCircuit",
+      animationDuration: "2s",
+      animationTimingFunction: "linear",
+      animationIterationCount: "infinite",
+      animationFillMode: "none",
     };
   }
 
   if (wrongGuesses === 2) {
-    const gap = perimeter / 6;
+    const gap = perimeter / 4.5;
     return {
       visible: true,
       strokeDasharray: `${DOT_LENGTH} ${gap}`,
+      strokeOpacity: 0.5,
       animationName: "borderCircuit",
-      animationDuration: "2s",
+      animationDuration: "7s",
       animationTimingFunction: "linear",
+      animationIterationCount: "infinite",
+      animationFillMode: "none",
     };
   }
 
-  const gap = perimeter / 3;
+  const gap = perimeter / 2.5;
   return {
     visible: true,
     strokeDasharray: `${DOT_LENGTH} ${gap}`,
+    strokeOpacity: 0.35,
     animationName: "borderCircuit",
-    animationDuration: "4s",
+    animationDuration: "10s",
     animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationFillMode: "none",
   };
 }
 
@@ -112,6 +148,7 @@ export function BorderCircuit({ wrongGuesses }: BorderCircuitProps) {
       aria-hidden
     >
       <rect
+        key={wrongGuesses}
         x={STROKE_WIDTH / 2}
         y={STROKE_WIDTH / 2}
         width={rectWidth}
@@ -119,11 +156,13 @@ export function BorderCircuit({ wrongGuesses }: BorderCircuitProps) {
         fill="none"
         stroke={STROKE}
         strokeWidth={STROKE_WIDTH}
+        strokeOpacity={circuit.strokeOpacity}
         style={{
           ["--border-perimeter" as string]: `${perimeter}px`,
           strokeDasharray: circuit.strokeDasharray,
           strokeDashoffset: 0,
-          animation: `${circuit.animationName} ${circuit.animationDuration} ${circuit.animationTimingFunction} infinite`,
+          opacity: wrongGuesses >= 5 ? 0 : undefined,
+          animation: `${circuit.animationName} ${circuit.animationDuration} ${circuit.animationTimingFunction} ${circuit.animationIterationCount} ${circuit.animationFillMode}`,
         }}
       />
     </svg>

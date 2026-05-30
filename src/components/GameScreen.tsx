@@ -21,6 +21,7 @@ import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { getHintBodyForLevel } from "@/lib/hintContent";
 import { narratorResultLine } from "@/lib/narratorResult";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
+import { SLAM_THINK_MS } from "@/lib/slamEntrance";
 import {
   type DailyCompletionResult,
   getDailyCompletionResult,
@@ -153,6 +154,8 @@ export function GameScreen() {
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
   /** Tailwind `md` — desktop uses classic static layout; mobile keeps keyboard-optimized chrome. */
   const [isDesktop, setIsDesktop] = useState(false);
+  /** Border circuit level — updates after ✕ flash, not when guess is submitted. */
+  const [borderPressureWrongGuesses, setBorderPressureWrongGuesses] = useState(0);
 
   // Load daily: Supabase schedule only when configured; otherwise local sample fallback.
   useEffect(() => {
@@ -316,6 +319,7 @@ export function GameScreen() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleGameRef = useRef({ status: state.status, guessesUsed: state.guessesUsed });
   idleGameRef.current = { status: state.status, guessesUsed: state.guessesUsed };
+  const borderBlinkTimerRef = useRef<number | null>(null);
   const played = getPlayCount();
   const wins = getWinCount();
   const streak = getStoredStreak();
@@ -541,6 +545,30 @@ export function GameScreen() {
     prevGuessesUsedRef.current = used;
   }, [state.guessesUsed]);
 
+  /** Final-loss border blink — same beat as ✕ slam (SLAM_THINK_MS), not flash complete. */
+  useEffect(() => {
+    if (borderBlinkTimerRef.current) {
+      clearTimeout(borderBlinkTimerRef.current);
+      borderBlinkTimerRef.current = null;
+    }
+    if (!wrongGuessFlash || mode !== "daily") return;
+
+    const { guessesUsed, status } = idleGameRef.current;
+    if (status !== "lost" || guessesUsed < MAX_GUESSES) return;
+
+    borderBlinkTimerRef.current = window.setTimeout(() => {
+      borderBlinkTimerRef.current = null;
+      setBorderPressureWrongGuesses(5);
+    }, SLAM_THINK_MS);
+
+    return () => {
+      if (borderBlinkTimerRef.current) {
+        clearTimeout(borderBlinkTimerRef.current);
+        borderBlinkTimerRef.current = null;
+      }
+    };
+  }, [wrongGuessFlash, mode]);
+
   const handleGuessSubmit = useCallback(
     (value: string) => {
       submitGuess(value);
@@ -604,6 +632,11 @@ export function GameScreen() {
 
   wrongGuessCompleteRef.current = { hintLevel: state.hintLevel, carouselIndex };
   const handleWrongGuessFlashComplete = useCallback(() => {
+    const { guessesUsed, status } = idleGameRef.current;
+    if (mode === "daily" && status === "playing") {
+      setBorderPressureWrongGuesses(guessesUsed);
+    }
+
     if (carouselAdvanceTimeoutRef.current) {
       clearTimeout(carouselAdvanceTimeoutRef.current);
       carouselAdvanceTimeoutRef.current = null;
@@ -664,7 +697,7 @@ export function GameScreen() {
       carouselAdvanceTimeoutRef.current = null;
     }, 400);
     holdHintUntilFlashCompleteRef.current = false;
-  }, [state.movie]);
+  }, [mode, state.movie]);
 
   const handleHintPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return;
@@ -723,6 +756,21 @@ export function GameScreen() {
     !wrongGuessFlash &&
     ((mode === "daily" && effectiveDailyCompletion != null) ||
       (mode === "practice" && isGameOver));
+
+  useEffect(() => {
+    if (mode !== "daily") {
+      setBorderPressureWrongGuesses(0);
+      return;
+    }
+    if (state.status === "won" || showSeatedResult) {
+      setBorderPressureWrongGuesses(0);
+    }
+  }, [mode, state.status, showSeatedResult]);
+
+  useEffect(() => {
+    if (mode !== "daily" || wrongGuessFlash || state.status !== "playing") return;
+    setBorderPressureWrongGuesses(state.guessesUsed);
+  }, [mode, dateKey, movie.title]);
   const gameLocked =
     (mode === "daily" && !dailyCompletion && state.status === "playing") ||
     (state.status === "playing" && state.guessesUsed > 0);
@@ -749,9 +797,6 @@ export function GameScreen() {
 
   const relaxedVisual = isDesktop || playLayoutRelaxed;
   const isDesktopViewport = isDesktop;
-
-  const dailyPressureActive = mode === "daily" && state.status === "playing";
-  const wrongGuesses = dailyPressureActive ? state.guessesUsed : 0;
 
   // Tagline is constrained to ~3 lines. Wrapper height is the measurement box for useAutoFitFontSize.
   // Slightly tighter than pure math (44×1.45×3 / 56×1.45×3) so italic Playfair metrics don’t spill a 4th line.
@@ -1154,7 +1199,9 @@ export function GameScreen() {
         </div>
       </div>
 
-      {dailyPressureActive ? <BorderCircuit wrongGuesses={wrongGuesses} /> : null}
+      {mode === "daily" && borderPressureWrongGuesses > 0 && !showSeatedResult ? (
+        <BorderCircuit wrongGuesses={borderPressureWrongGuesses} />
+      ) : null}
     </div>
   );
 }

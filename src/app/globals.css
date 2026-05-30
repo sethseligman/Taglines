@@ -193,13 +193,12 @@ body {
   }
 }
 
-@keyframes borderBlink {
-  0%,
-  100% {
-    opacity: 1;
+@keyframes borderSlam {
+  from {
+    opacity: 0;
   }
-  50% {
-    opacity: 0.2;
+  to {
+    opacity: 1;
   }
 }
 
