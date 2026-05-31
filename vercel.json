@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/generate-daily-legs",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

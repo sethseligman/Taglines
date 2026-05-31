@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import type { DbChallenge } from "@/types/challenges";
 import type { DailyCompletionResult } from "@/lib/storage";
 import { getDailyCompletionResult } from "@/lib/storage";
-import { getPortalChallengeProgress } from "@/lib/challengeRunStorage";
+import { getPortalChallengeProgress, loadChallengeRun, totalGuessesForRun } from "@/lib/challengeRunStorage";
+import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { PortalMenu } from "@/components/portal/PortalMenu";
 
@@ -40,6 +41,21 @@ function challengeStatusLabel(challenge: DbChallenge, storageReady: boolean): st
   return getPortalChallengeProgress(challenge.slug, challenge.leg_count).label;
 }
 
+function dailyPoolStatusLabel(challenge: DbChallenge, storageReady: boolean): string {
+  if (!storageReady) return `${challenge.leg_count} ready`;
+  const dateKey = getTodayDateKey();
+  const progress = getPortalChallengeProgress(challenge.slug, challenge.leg_count, dateKey);
+  if (progress.isNotStarted) return `${challenge.leg_count} ready`;
+  const run = loadChallengeRun(challenge.slug, dateKey);
+  if (run?.status === "finished") {
+    return `Done · ${totalGuessesForRun(run)} guesses`;
+  }
+  if (run?.status === "failed") {
+    return "Didn't finish · try again tomorrow";
+  }
+  return "In progress";
+}
+
 export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreenProps) {
   const [dailyResult, setDailyResult] = useState<DailyCompletionResult | null>(null);
   const [storageReady, setStorageReady] = useState(false);
@@ -52,6 +68,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
   const completionChallenges = challenges.filter(
     (c) => c.type === "completion" || c.type === "one_off"
   );
+  const dailyPoolChallenges = challenges.filter((c) => c.type === "daily_pool");
   const isCompleted = dailyResult != null;
 
   return (
@@ -124,7 +141,16 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
                 backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
               />
             ))}
-            <ComingSoonTile />
+            {dailyPoolChallenges.map((challenge) => (
+              <ChallengeTile
+                key={challenge.id}
+                href={`/challenges/${challenge.slug}`}
+                eyebrow={challenge.eyebrow ?? "Decade"}
+                title={challenge.title}
+                status={dailyPoolStatusLabel(challenge, storageReady)}
+                backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
+              />
+            ))}
             <SeeAllTile />
           </div>
         </section>
@@ -336,41 +362,6 @@ function ChallengeTile({
         </p>
       </div>
     </Link>
-  );
-}
-
-function ComingSoonTile() {
-  return (
-    <div
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-xl border border-dashed p-3.5 opacity-60"
-      style={{
-        background: "linear-gradient(135deg, #2a1a3a 0%, #1a0e26 100%)",
-        borderColor: "rgba(255,100,200,0.25)",
-      }}
-      aria-label="80s Movies — Coming Soon"
-    >
-      <p
-        className="text-[8px] uppercase tracking-[0.22em]"
-        style={{ color: "#c9a8d8" }}
-      >
-        Decade
-      </p>
-      <div>
-        <p
-          className="text-[17px] leading-tight md:text-[19px]"
-          style={{
-            fontFamily: FONT_PLAYFAIR,
-            fontWeight: 700,
-            color: "#9a968c",
-          }}
-        >
-          80s Movies
-        </p>
-        <p className="mt-1.5 text-[10px]" style={{ color: "var(--muted)" }}>
-          Coming Soon
-        </p>
-      </div>
-    </div>
   );
 }
 

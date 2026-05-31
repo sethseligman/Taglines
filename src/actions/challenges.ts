@@ -145,6 +145,33 @@ export async function getPublishedChallengeLegMovies(
   return legs;
 }
 
+/** Today's scheduled legs for a published daily_pool challenge (anon RLS). */
+export async function getPublishedDailyPoolLegs(
+  challengeId: string,
+  dateKey: string
+): Promise<PublishedChallengeLeg[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("challenge_daily_legs")
+    .select("movie_id, position")
+    .eq("challenge_id", challengeId)
+    .eq("scheduled_date", dateKey)
+    .order("position", { ascending: true });
+  if (error || !data?.length) return [];
+
+  const legs: PublishedChallengeLeg[] = [];
+  for (const row of data) {
+    const movieRow = await fetchMovieRowForChallenge(supabase, row.movie_id as string);
+    if (!movieRow?.is_playable) continue;
+    legs.push({
+      movieId: row.movie_id as string,
+      position: row.position as number,
+      movie: movieFromDb(movieRow),
+    });
+  }
+  return legs;
+}
+
 export async function getChallengeMovies(challengeId: string): Promise<ChallengeMovieRow[]> {
   await requireAdmin();
   const supabase = createServiceClient();
