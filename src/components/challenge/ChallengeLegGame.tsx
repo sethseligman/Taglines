@@ -21,6 +21,7 @@ export interface LegCompletePayload {
 interface ChallengeLegGameProps {
   movie: Movie;
   legSessionKey: string;
+  backgroundUrl?: string | null;
   onLegComplete: (result: LegCompletePayload) => void;
   onLayoutBreathingChange?: (relaxed: boolean) => void;
   relaxedVisual?: boolean;
@@ -29,6 +30,7 @@ interface ChallengeLegGameProps {
 export function ChallengeLegGame({
   movie,
   legSessionKey,
+  backgroundUrl,
   onLegComplete,
   onLayoutBreathingChange,
   relaxedVisual: relaxedVisualProp,
@@ -186,50 +188,71 @@ export function ChallengeLegGame({
         />
       ) : null}
 
-      <section className="relative z-30 mx-auto w-full max-w-lg px-1">
-        <div
-          className={`relative ${relaxedVisual ? "pb-3 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"}`}
-        >
+      <div className="relative overflow-hidden">
+        {backgroundUrl ? (
           <div
-            ref={taglineContainerRef}
-            className="relative z-10 w-full"
+            className="pointer-events-none absolute inset-0 z-0"
+            aria-hidden
             style={{
-              minHeight: taglineThreeLineHeightPx,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              backgroundImage: `url("${backgroundUrl}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: 0.1,
             }}
-          >
-            <HintReveal
-              movie={state.movie}
-              hintLevel={0}
-              textRef={taglineTextRef}
-              taglineFontSizePx={taglineFontSize}
-              className="w-full [&_p]:!italic [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10"
-            />
+          />
+        ) : null}
+
+        <div className="relative z-10">
+          <section className="relative z-30 mx-auto w-full max-w-lg px-1">
+            <div
+              className={`relative ${relaxedVisual ? "pb-3 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"}`}
+            >
+              <div
+                ref={taglineContainerRef}
+                className="relative z-10 w-full"
+                style={{
+                  minHeight: taglineThreeLineHeightPx,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <HintReveal
+                  movie={state.movie}
+                  hintLevel={0}
+                  textRef={taglineTextRef}
+                  taglineFontSizePx={taglineFontSize}
+                  className="w-full [&_p]:!italic [&_p]:!leading-[1.12] md:[&_p]:!leading-[1.1] [&>div:last-child]:!mt-5 md:[&>div:last-child]:!mt-10"
+                />
+              </div>
+            </div>
+          </section>
+
+          <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center md:mt-8">
+            <div className="motion-safe:animate-[fadeIn_0.35s_ease-out_80ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
+              <div
+                className={`relative flex w-full max-w-md shrink-0 flex-col ${
+                  relaxedVisual ? "mb-6 gap-4 md:mb-11 md:gap-6" : "mb-4 gap-3 md:mb-6"
+                }`}
+              >
+                <GuessInput
+                  submitInline
+                  remainingGuesses={MAX_GUESSES - state.guessesUsed}
+                  onSubmit={handleGuessSubmit}
+                  onLayoutBreathingChange={onLayoutBreathingChange}
+                  placeholder="Name the film..."
+                  aria-label="Guess the movie"
+                  disabled={wrongGuessFlash}
+                  duplicateSignal={duplicateSignal}
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <div className="mx-auto mt-4 flex w-full max-w-lg flex-col items-center md:mt-8">
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center">
         <div className="motion-safe:animate-[fadeIn_0.35s_ease-out_80ms_both] motion-reduce:animate-none flex w-full flex-col items-center">
-          <div
-            className={`relative flex w-full max-w-md shrink-0 flex-col ${
-              relaxedVisual ? "mb-6 gap-4 md:mb-11 md:gap-6" : "mb-4 gap-3 md:mb-6"
-            }`}
-          >
-            <GuessInput
-              submitInline
-              remainingGuesses={MAX_GUESSES - state.guessesUsed}
-              onSubmit={handleGuessSubmit}
-              onLayoutBreathingChange={onLayoutBreathingChange}
-              placeholder="Name the film..."
-              aria-label="Guess the movie"
-              disabled={wrongGuessFlash}
-              duplicateSignal={duplicateSignal}
-            />
-          </div>
-
           <hr
             className={`w-full max-w-md shrink-0 border-0 border-t border-solid border-[#1a1a1a] ${
               relaxedVisual ? "my-4 md:my-9" : "my-4 md:my-6"

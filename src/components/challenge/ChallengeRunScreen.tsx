@@ -21,6 +21,7 @@ import { ChallengeRunFailed } from "@/components/challenge/ChallengeRunFailed";
 import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 import { MainMenu } from "@/components/MainMenu";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { parseChallengeBackgroundUrl } from "@/lib/challengeArt";
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 
 type RunPhase = "playing" | "between" | "complete" | "failed";
@@ -298,6 +299,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
                 key={legSessionKey}
                 movie={currentLeg.movie}
                 legSessionKey={legSessionKey}
+                backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
                 onLegComplete={handleLegComplete}
                 relaxedVisual={relaxedVisual}
                 onLayoutBreathingChange={isDesktop ? undefined : setPlayLayoutRelaxed}
