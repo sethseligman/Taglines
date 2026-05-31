@@ -188,7 +188,7 @@ export function ChallengeLegGame({
         />
       ) : null}
 
-      <div className="relative overflow-hidden">
+      <div className="relative mx-auto w-full max-w-lg overflow-hidden">
         {backgroundUrl ? (
           <div
             className="pointer-events-none absolute inset-0 z-0"
@@ -197,7 +197,7 @@ export function ChallengeLegGame({
               backgroundImage: `url("${backgroundUrl}")`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              opacity: 0.1,
+              opacity: 0.18,
             }}
           />
         ) : null}
