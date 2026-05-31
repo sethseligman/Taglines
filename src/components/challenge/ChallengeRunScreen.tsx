@@ -212,6 +212,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     return (
       <ChallengeRunFailed
         challengeTitle={challenge.title}
+        challengeType={challenge.type}
         run={run}
         legCount={challenge.leg_count}
         onTryAgain={handleTryAgain}

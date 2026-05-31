@@ -9,9 +9,11 @@ import { MainMenu } from "@/components/MainMenu";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { narratorResultLine } from "@/lib/narratorResult";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
+import type { ChallengeType } from "@/types/challenges";
 
 interface ChallengeRunFailedProps {
   challengeTitle: string;
+  challengeType: ChallengeType;
   run: StoredChallengeRun;
   legCount: number;
   onTryAgain: () => void;
@@ -19,6 +21,7 @@ interface ChallengeRunFailedProps {
 
 export function ChallengeRunFailed({
   challengeTitle,
+  challengeType,
   run,
   legCount,
   onTryAgain,
@@ -75,14 +78,20 @@ export function ChallengeRunFailed({
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3">
-            <button
-              type="button"
-              onClick={onTryAgain}
-              className="inline-flex w-full max-w-xs cursor-pointer items-center justify-center rounded-xl border-0 px-6 py-3.5 text-sm font-medium transition hover:opacity-95"
-              style={{ background: "var(--gold)", color: "#0D0D0D", fontFamily: FONT_DM }}
-            >
-              Try again from the start
-            </button>
+            {challengeType === "daily_pool" ? (
+              <p className="text-sm text-muted" style={{ fontFamily: FONT_DM }}>
+                Try again tomorrow
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={onTryAgain}
+                className="inline-flex w-full max-w-xs cursor-pointer items-center justify-center rounded-xl border-0 px-6 py-3.5 text-sm font-medium transition hover:opacity-95"
+                style={{ background: "var(--gold)", color: "#0D0D0D", fontFamily: FONT_DM }}
+              >
+                Try again from the start
+              </button>
+            )}
             <Link
               href="/"
               className="text-sm text-muted no-underline transition hover:text-foreground/80"
