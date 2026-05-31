@@ -191,7 +191,7 @@ export function ChallengeLegGame({
       <div className="relative mx-auto w-full max-w-lg overflow-hidden">
         {backgroundUrl ? (
           <div
-            className="pointer-events-none absolute bottom-0 left-0 right-0 z-0 h-[120px]"
+            className="pointer-events-none absolute inset-0 z-0"
             aria-hidden
             style={{
               backgroundImage: `url("${backgroundUrl}")`,
@@ -207,6 +207,18 @@ export function ChallengeLegGame({
             <div
               className={`relative ${relaxedVisual ? "pb-3 pt-0 md:pb-6 md:pt-2" : "pb-2 pt-0 md:pb-4 md:pt-1"}`}
             >
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 z-[1]"
+                style={{
+                  width: "min(86vw, 620px)",
+                  height: "min(48vw, 300px)",
+                  transform: "translate(-50%, -50%)",
+                  background:
+                    "radial-gradient(ellipse 60% 46% at 50% 50%, rgba(201,169,110,0.24) 0%, rgba(201,169,110,0.11) 32%, rgba(201,169,110,0.04) 55%, transparent 76%)",
+                  filter: "blur(10px)",
+                }}
+                aria-hidden
+              />
               <div
                 ref={taglineContainerRef}
                 className="relative z-10 w-full"
