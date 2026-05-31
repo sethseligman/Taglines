@@ -191,7 +191,7 @@ export function ChallengeLegGame({
       <div className="relative mx-auto w-full max-w-lg overflow-hidden">
         {backgroundUrl ? (
           <div
-            className="pointer-events-none absolute inset-0 z-0"
+            className="pointer-events-none absolute bottom-0 left-0 right-0 z-0 h-[120px]"
             aria-hidden
             style={{
               backgroundImage: `url("${backgroundUrl}")`,
