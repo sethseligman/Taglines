@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { posterFrameStyle, posterPlaceholderFrameStyle } from "@/lib/posterFrameStyle";
 import { SLAM_EASE_OUT, SLAM_THINK_MS } from "@/lib/slamEntrance";
 
 const CHECK_GREEN = "#22c55e";
@@ -62,6 +64,8 @@ function PosterCheckDraw({ drawing }: { drawing: boolean }) {
 }
 
 export function BetweenLegsOverlay({ posterUrl, onComplete }: BetweenLegsOverlayProps) {
+  const isDesktop = useIsDesktop();
+  const posterFrame = posterFrameStyle(isDesktop);
   const [reduceMotion] = useState(prefersReducedMotion);
   const [phase, setPhase] = useState<Phase>("poster");
   const [posterOpacity, setPosterOpacity] = useState(reduceMotion ? 1 : 0);
@@ -127,16 +131,18 @@ export function BetweenLegsOverlay({ posterUrl, onComplete }: BetweenLegsOverlay
               <img
                 src={posterUrl}
                 alt=""
-                className="block max-h-[40vh] w-auto max-w-[200px] rounded-lg object-contain shadow-2xl"
+                className="block object-contain object-center"
                 style={{
+                  ...posterFrame,
                   opacity: posterOpacity,
                   transition: posterTransition,
                 }}
               />
             ) : (
               <div
-                className="flex h-[200px] w-[140px] items-center justify-center rounded-lg border border-white/10 bg-white/5 shadow-2xl"
+                className="flex items-center justify-center bg-[#161616]"
                 style={{
+                  ...posterPlaceholderFrameStyle(isDesktop),
                   opacity: posterOpacity,
                   transition: posterTransition,
                 }}

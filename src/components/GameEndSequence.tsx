@@ -7,11 +7,12 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { posterFrameStyle, posterPlaceholderFrameStyle } from "@/lib/posterFrameStyle";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
 import {
   SLAM_ENTRANCE_MS,
@@ -49,35 +50,6 @@ const T_MS = {
 
 type ResultStatus = "won" | "lost";
 type VerdictSlamPhase = "hidden" | "idle" | "strike" | "hold";
-
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 768px)");
-    const apply = () => setIsDesktop(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-  return isDesktop;
-}
-
-function posterFrameStyle(isDesktop: boolean): CSSProperties {
-  if (isDesktop) {
-    return {
-      maxWidth: "min(42vw, 340px)",
-      maxHeight: "85vh",
-      width: "auto",
-      height: "auto",
-    };
-  }
-  return {
-    width: "78vw",
-    maxWidth: "320px",
-    height: "auto",
-  };
-}
 
 function VerdictLine({
   text,
@@ -341,12 +313,7 @@ export function GameEndSequence({
           ) : (
             <div
               className="bg-[#161616]"
-              style={{
-                ...posterFrame,
-                border: "1px solid #222",
-                minWidth: isDesktop ? 200 : 160,
-                minHeight: isDesktop ? 300 : 240,
-              }}
+              style={posterPlaceholderFrameStyle(isDesktop)}
               aria-hidden
             />
           )}
