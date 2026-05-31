@@ -16,14 +16,16 @@ export interface StoredChallengeRun {
   startedAt: string;
 }
 
-export function challengeRunStorageKey(slug: string): string {
+/** daily_pool runs include dateKey so each day gets a separate localStorage entry. */
+export function challengeRunStorageKey(slug: string, dateKey?: string): string {
+  if (dateKey) return `taglines:challenge-run:${slug}:${dateKey}`;
   return `taglines:challenge-run:${slug}`;
 }
 
-export function loadChallengeRun(slug: string): StoredChallengeRun | null {
+export function loadChallengeRun(slug: string, dateKey?: string): StoredChallengeRun | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(challengeRunStorageKey(slug));
+    const raw = localStorage.getItem(challengeRunStorageKey(slug, dateKey));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredChallengeRun> | null;
     if (!parsed || parsed.slug !== slug) return null;
@@ -53,16 +55,16 @@ export function loadChallengeRun(slug: string): StoredChallengeRun | null {
   }
 }
 
-export function saveChallengeRun(run: StoredChallengeRun): void {
+export function saveChallengeRun(run: StoredChallengeRun, dateKey?: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(challengeRunStorageKey(run.slug), JSON.stringify(run));
+    localStorage.setItem(challengeRunStorageKey(run.slug, dateKey), JSON.stringify(run));
   } catch {
     // ignore
   }
 }
 
-export function initChallengeRun(slug: string): StoredChallengeRun {
+export function initChallengeRun(slug: string, dateKey?: string): StoredChallengeRun {
   const run: StoredChallengeRun = {
     slug,
     legs: [],
@@ -70,18 +72,18 @@ export function initChallengeRun(slug: string): StoredChallengeRun {
     status: "in_progress",
     startedAt: new Date().toISOString(),
   };
-  saveChallengeRun(run);
+  saveChallengeRun(run, dateKey);
   return run;
 }
 
-export function getOrInitChallengeRun(slug: string): StoredChallengeRun {
-  return loadChallengeRun(slug) ?? initChallengeRun(slug);
+export function getOrInitChallengeRun(slug: string, dateKey?: string): StoredChallengeRun {
+  return loadChallengeRun(slug, dateKey) ?? initChallengeRun(slug, dateKey);
 }
 
-export function clearChallengeRun(slug: string): void {
+export function clearChallengeRun(slug: string, dateKey?: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(challengeRunStorageKey(slug));
+    localStorage.removeItem(challengeRunStorageKey(slug, dateKey));
   } catch {
     // ignore
   }
@@ -92,7 +94,8 @@ export function markChallengeRunFailed(
   current: StoredChallengeRun,
   movieId: string,
   position: number,
-  guessesUsed: number
+  guessesUsed: number,
+  dateKey?: string
 ): StoredChallengeRun {
   const legEntry: StoredChallengeLeg = {
     movieId,
@@ -109,13 +112,13 @@ export function markChallengeRunFailed(
     legs: nextLegs,
     status: "failed",
   };
-  saveChallengeRun(failed);
+  saveChallengeRun(failed, dateKey);
   return failed;
 }
 
-export function restartChallengeRun(slug: string): StoredChallengeRun {
-  clearChallengeRun(slug);
-  return initChallengeRun(slug);
+export function restartChallengeRun(slug: string, dateKey?: string): StoredChallengeRun {
+  clearChallengeRun(slug, dateKey);
+  return initChallengeRun(slug, dateKey);
 }
 
 export interface PortalChallengeProgress {
@@ -128,9 +131,10 @@ export interface PortalChallengeProgress {
 
 export function getPortalChallengeProgress(
   slug: string,
-  legCount: number
+  legCount: number,
+  dateKey?: string
 ): PortalChallengeProgress {
-  const run = loadChallengeRun(slug);
+  const run = loadChallengeRun(slug, dateKey);
   if (!run || run.status === "finished" || run.status === "failed") {
     if (run?.status === "failed") {
       return {

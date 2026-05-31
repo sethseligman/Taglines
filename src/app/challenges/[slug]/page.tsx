@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import {
   getPublishedChallengeBySlug,
   getPublishedChallengeLegMovies,
+  getPublishedDailyPoolLegs,
 } from "@/actions/challenges";
 import { ChallengeRunScreen } from "@/components/challenge/ChallengeRunScreen";
+import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +22,12 @@ export default async function ChallengeRunPage({
     notFound();
   }
 
-  const legs = await getPublishedChallengeLegMovies(challenge.id);
+  const legs =
+    challenge.type === "daily_pool"
+      ? await getPublishedDailyPoolLegs(challenge.id, getTodayDateKey())
+      : await getPublishedChallengeLegMovies(challenge.id);
 
-  if (legs.length === 0) {
+  if (legs.length === 0 && challenge.type !== "daily_pool") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
         <p className="font-serif text-xl text-foreground">Challenge unavailable</p>

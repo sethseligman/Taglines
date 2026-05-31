@@ -21,6 +21,7 @@ import { ChallengeRunFailed } from "@/components/challenge/ChallengeRunFailed";
 import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 import { MainMenu } from "@/components/MainMenu";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 
 type RunPhase = "playing" | "between" | "complete" | "failed";
 
@@ -45,6 +46,8 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     [legs]
   );
 
+  const runDateKey = challenge.type === "daily_pool" ? getTodayDateKey() : undefined;
+
   useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     const apply = () => setIsDesktop(mq.matches);
@@ -54,7 +57,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
   }, []);
 
   useEffect(() => {
-    const existing = loadChallengeRun(challenge.slug);
+    const existing = loadChallengeRun(challenge.slug, runDateKey);
     if (existing?.status === "finished") {
       setRun(existing);
       setPhase("complete");
@@ -64,10 +67,10 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     } else if (existing) {
       setRun(existing);
     } else {
-      setRun(getOrInitChallengeRun(challenge.slug));
+      setRun(getOrInitChallengeRun(challenge.slug, runDateKey));
     }
     setHydrated(true);
-  }, [challenge.slug]);
+  }, [challenge.slug, runDateKey]);
 
   const currentLeg = sortedLegs[run?.currentLegIndex ?? 0] ?? null;
   const completedPositions = run?.legs.filter((l) => l.solved).map((l) => l.position) ?? [];
@@ -75,10 +78,13 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     ? `challenge:${challenge.slug}:leg:${currentLeg.position}`
     : "";
 
-  const persistRun = useCallback((next: StoredChallengeRun) => {
-    saveChallengeRun(next);
-    setRun(next);
-  }, []);
+  const persistRun = useCallback(
+    (next: StoredChallengeRun) => {
+      saveChallengeRun(next, runDateKey);
+      setRun(next);
+    },
+    [runDateKey]
+  );
 
   const finishRun = useCallback(
     (current: StoredChallengeRun) => {
@@ -125,20 +131,26 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   const failRun = useCallback(
     (current: StoredChallengeRun, payload: LegCompletePayload, movieId: string, position: number) => {
-      const failed = markChallengeRunFailed(current, movieId, position, payload.guessesUsed);
+      const failed = markChallengeRunFailed(
+        current,
+        movieId,
+        position,
+        payload.guessesUsed,
+        runDateKey
+      );
       setRun(failed);
       setPhase("failed");
     },
-    []
+    [runDateKey]
   );
 
   const handleTryAgain = useCallback(() => {
     pendingLegRef.current = null;
     setBetweenPosterUrl(null);
-    const fresh = restartChallengeRun(challenge.slug);
+    const fresh = restartChallengeRun(challenge.slug, runDateKey);
     setRun(fresh);
     setPhase("playing");
-  }, [challenge.slug]);
+  }, [challenge.slug, runDateKey]);
 
   const handleLegComplete = useCallback(
     (payload: LegCompletePayload) => {
@@ -185,10 +197,10 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     );
   }
 
-  if (challenge.type !== "completion" && challenge.type !== "one_off") {
+  if (legs.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#080808] px-6 text-center">
-        <p className="text-foreground">This challenge type is not available yet.</p>
+        <p className="text-foreground">Today&apos;s challenge isn&apos;t ready yet. Check back soon.</p>
         <Link href="/" className="mt-4 text-sm text-gold">
           ← Portal
         </Link>
