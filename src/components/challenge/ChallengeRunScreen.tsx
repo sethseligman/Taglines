@@ -248,18 +248,27 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
       className={`relative min-h-screen w-full bg-[#080808] text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
     >
       {backgroundUrl ? (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 z-0"
-          style={{
-            backgroundImage: `url("${backgroundUrl}")`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: 0.18,
-            filter: "blur(24px)",
-            mixBlendMode: "luminosity",
-          }}
-        />
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-0"
+            style={{
+              backgroundImage: `url("${backgroundUrl}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: 0.18,
+              mixBlendMode: "luminosity",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-[0]"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 60% at 50% 45%, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)",
+            }}
+          />
+        </>
       ) : null}
       <div
         className="pointer-events-none absolute inset-0 z-0"
