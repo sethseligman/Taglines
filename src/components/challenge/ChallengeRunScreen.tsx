@@ -241,11 +241,24 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
   }
 
   const relaxedVisual = isDesktop || playLayoutRelaxed;
+  const backgroundUrl = parseChallengeBackgroundUrl(challenge.art_config);
 
   return (
     <div
       className={`relative min-h-screen w-full bg-[#080808] text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
     >
+      {backgroundUrl ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-[-1]"
+          style={{
+            backgroundImage: `url("${backgroundUrl}")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.12,
+          }}
+        />
+      ) : null}
       <div
         className="pointer-events-none absolute inset-0 z-0"
         style={{
@@ -310,4 +323,10 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
       ) : null}
     </div>
   );
+}
+
+function parseChallengeBackgroundUrl(artConfig: Record<string, unknown> | null): string | null {
+  if (!artConfig || typeof artConfig.backgroundUrl !== "string") return null;
+  const url = artConfig.backgroundUrl.trim();
+  return url.length > 0 ? url : null;
 }
