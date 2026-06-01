@@ -250,12 +250,13 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
       {backgroundUrl ? (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-[-1]"
+          className="pointer-events-none fixed inset-0 z-0"
           style={{
             backgroundImage: `url("${backgroundUrl}")`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: 0.12,
+            mixBlendMode: "luminosity",
           }}
         />
       ) : null}
