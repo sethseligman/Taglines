@@ -256,6 +256,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
             backgroundSize: "cover",
             backgroundPosition: "center",
             opacity: 0.18,
+            filter: "blur(24px)",
             mixBlendMode: "luminosity",
           }}
         />
