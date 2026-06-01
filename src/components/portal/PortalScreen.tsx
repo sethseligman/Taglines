@@ -8,6 +8,7 @@ import { getDailyCompletionResult } from "@/lib/storage";
 import { getPortalChallengeProgress, loadChallengeRun, totalGuessesForRun } from "@/lib/challengeRunStorage";
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
 import { PortalMenu } from "@/components/portal/PortalMenu";
 
 export interface PortalScreenProps {
@@ -94,13 +95,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
           paddingTop: "max(1.25rem, env(safe-area-inset-top))",
         }}
       >
-        <p
-          className="leading-none"
-          style={{ fontFamily: FONT_PLAYFAIR, fontSize: 21, fontWeight: 700 }}
-        >
-          <span style={{ color: "var(--foreground)" }}>Tag</span>
-          <span style={{ color: "var(--gold)" }}>lines</span>
-        </p>
+        <TaglinesWordmark />
         <div className="flex items-center gap-3.5">
           <span
             className="hidden text-[10px] uppercase tracking-[0.18em] sm:inline"

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
 
 interface GamePlayHeaderProps {
   headerMenu: ReactNode;
@@ -16,15 +16,7 @@ export function GamePlayHeader({ headerMenu, relaxedVisual = true }: GamePlayHea
       style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-lg items-center justify-between">
-        <Link
-          href="/"
-          className="cursor-pointer no-underline transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
-        >
-          <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-            <span>Tag</span>
-            <span className="text-gold">lines</span>
-          </h1>
-        </Link>
+        <TaglinesWordmark asLink />
         {headerMenu}
       </div>
     </header>
