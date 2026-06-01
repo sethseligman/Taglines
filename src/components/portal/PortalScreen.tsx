@@ -7,7 +7,6 @@ import type { DailyCompletionResult } from "@/lib/storage";
 import { getDailyCompletionResult } from "@/lib/storage";
 import { getPortalChallengeProgress, loadChallengeRun, totalGuessesForRun } from "@/lib/challengeRunStorage";
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
-import { parseChallengeBackgroundUrl } from "@/lib/challengeArt";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { PortalMenu } from "@/components/portal/PortalMenu";
 
@@ -275,6 +274,12 @@ function DailyHeroCard({
       {cardInner}
     </Link>
   );
+}
+
+function parseChallengeBackgroundUrl(artConfig: Record<string, unknown> | null): string | null {
+  if (!artConfig || typeof artConfig.backgroundUrl !== "string") return null;
+  const url = artConfig.backgroundUrl.trim();
+  return url.length > 0 ? url : null;
 }
 
 function ChallengeTile({
