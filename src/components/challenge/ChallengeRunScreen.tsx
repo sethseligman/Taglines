@@ -265,7 +265,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
             className="pointer-events-none fixed inset-0 z-[0]"
             style={{
               background:
-                "radial-gradient(ellipse 70% 60% at 50% 45%, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)",
+                "radial-gradient(ellipse 70% 60% at 50% 45%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)",
             }}
           />
         </>
