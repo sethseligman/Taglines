@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { MainMenu } from "@/components/MainMenu";
-import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { FONT_DM } from "@/lib/fontStacks";
 import { narratorResultLine } from "@/lib/narratorResult";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
 import type { ChallengeType } from "@/types/challenges";

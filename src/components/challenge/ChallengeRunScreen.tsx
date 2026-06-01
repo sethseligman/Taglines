@@ -39,7 +39,6 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
   const [isDesktop, setIsDesktop] = useState(false);
   const [playLayoutRelaxed, setPlayLayoutRelaxed] = useState(true);
   const pendingLegRef = useRef<LegCompletePayload | null>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
 
   const sortedLegs = useMemo(
     () => [...legs].sort((a, b) => a.position - b.position),
@@ -256,7 +255,6 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
       />
 
       <div
-        ref={stageRef}
         className={
           isDesktop
             ? "relative flex min-h-screen w-full flex-col"

@@ -171,19 +171,6 @@ body {
   }
 }
 
-/* Daily game — ambient guess-button pulse (visualPressure.ts) */
-@keyframes guessButtonPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(201, 169, 110, 0);
-  }
-  50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 20px 4px rgba(201, 169, 110, 0.5);
-  }
-}
-
 @keyframes borderCircuit {
   from {
     stroke-dashoffset: 0;
@@ -220,28 +207,3 @@ body {
   }
 }
 
-.guess-pulse-slow,
-.guess-pulse-medium,
-.guess-pulse-fast {
-  transition: none;
-}
-
-.guess-pulse-slow {
-  animation: guessButtonPulse 2s ease-in-out infinite;
-}
-
-.guess-pulse-medium {
-  animation: guessButtonPulse 1s ease-in-out infinite;
-}
-
-.guess-pulse-fast {
-  animation: guessButtonPulse 0.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .guess-pulse-slow,
-  .guess-pulse-medium,
-  .guess-pulse-fast {
-    animation: none;
-  }
-}
