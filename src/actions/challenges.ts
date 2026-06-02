@@ -120,6 +120,59 @@ async function fetchMovieRowForChallenge(
   };
 }
 
+const CHALLENGE_MOVIE_SELECT =
+  "id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, is_playable, hint_1, hint_2, hint_3, hint_4";
+
+async function fetchMovieRowsByIdsForChallenge(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movieIds: string[]
+): Promise<Map<string, MovieRow>> {
+  const uniqueIds = [...new Set(movieIds)];
+  if (!uniqueIds.length) return new Map();
+
+  const [{ data: movies, error: movieError }, { data: taglines }, { data: aliasRows }] =
+    await Promise.all([
+      supabase.from("movies").select(CHALLENGE_MOVIE_SELECT).in("id", uniqueIds),
+      supabase
+        .from("taglines")
+        .select("movie_id, tagline_text, is_primary")
+        .in("movie_id", uniqueIds),
+      supabase.from("accepted_aliases").select("movie_id, alias").in("movie_id", uniqueIds),
+    ]);
+
+  if (movieError || !movies?.length) return new Map();
+
+  const taglinesByMovie = new Map<string, { tagline_text: string; is_primary: boolean }[]>();
+  for (const t of taglines ?? []) {
+    const movieId = t.movie_id as string;
+    const list = taglinesByMovie.get(movieId) ?? [];
+    list.push({
+      tagline_text: t.tagline_text as string,
+      is_primary: t.is_primary as boolean,
+    });
+    taglinesByMovie.set(movieId, list);
+  }
+
+  const aliasesByMovie = new Map<string, string[]>();
+  for (const a of aliasRows ?? []) {
+    const movieId = a.movie_id as string;
+    const list = aliasesByMovie.get(movieId) ?? [];
+    list.push(a.alias as string);
+    aliasesByMovie.set(movieId, list);
+  }
+
+  const rowsById = new Map<string, MovieRow>();
+  for (const movie of movies) {
+    const id = movie.id as string;
+    rowsById.set(id, {
+      ...(movie as DbMovie),
+      taglines: taglinesByMovie.get(id) ?? [],
+      aliases: aliasesByMovie.get(id) ?? [],
+    });
+  }
+  return rowsById;
+}
+
 /** Ordered playable legs for a published challenge (anon RLS). */
 export async function getPublishedChallengeLegMovies(
   challengeId: string
@@ -132,12 +185,16 @@ export async function getPublishedChallengeLegMovies(
     .order("position", { ascending: true });
   if (error || !data?.length) return [];
 
+  const movieIds = data.map((row) => row.movie_id as string);
+  const movieRowsById = await fetchMovieRowsByIdsForChallenge(supabase, movieIds);
+
   const legs: PublishedChallengeLeg[] = [];
   for (const row of data) {
-    const movieRow = await fetchMovieRowForChallenge(supabase, row.movie_id as string);
+    const movieId = row.movie_id as string;
+    const movieRow = movieRowsById.get(movieId);
     if (!movieRow?.is_playable) continue;
     legs.push({
-      movieId: row.movie_id as string,
+      movieId,
       position: row.position as number,
       movie: movieFromDb(movieRow),
     });
@@ -159,12 +216,16 @@ export async function getPublishedDailyPoolLegs(
     .order("position", { ascending: true });
   if (error || !data?.length) return [];
 
+  const movieIds = data.map((row) => row.movie_id as string);
+  const movieRowsById = await fetchMovieRowsByIdsForChallenge(supabase, movieIds);
+
   const legs: PublishedChallengeLeg[] = [];
   for (const row of data) {
-    const movieRow = await fetchMovieRowForChallenge(supabase, row.movie_id as string);
+    const movieId = row.movie_id as string;
+    const movieRow = movieRowsById.get(movieId);
     if (!movieRow?.is_playable) continue;
     legs.push({
-      movieId: row.movie_id as string,
+      movieId,
       position: row.position as number,
       movie: movieFromDb(movieRow),
     });
