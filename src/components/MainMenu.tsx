@@ -34,6 +34,8 @@ export type MainMenuProps = {
   onSelectPractice?: () => void;
   /** When set, shows challenge run menu instead of daily/practice (hamburger placement unchanged). */
   challengeMenu?: ChallengeMenuContext;
+  /** Portal header: How to Play and Contact only. */
+  portalMode?: boolean;
 };
 
 function formatMenuPuzzleDay(dateKey: string): string {
@@ -75,6 +77,7 @@ export function MainMenu({
   onSelectDaily = () => {},
   onSelectPractice = () => {},
   challengeMenu,
+  portalMode = false,
 }: MainMenuProps) {
   const [open, setOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -175,11 +178,13 @@ export function MainMenu({
   const practiceRowSublabel =
     mode === "practice" ? "Playing now" : "Random movies · unlimited plays";
 
-  const triggerLabel = challengeMenu
-    ? "Main menu"
-    : mode === "practice"
-      ? "Practice mode"
-      : "Main menu";
+  const triggerLabel = portalMode
+    ? "Portal menu"
+    : challengeMenu
+      ? "Main menu"
+      : mode === "practice"
+        ? "Practice mode"
+        : "Main menu";
 
   const challengeLegLabel = challengeMenu
     ? `Leg ${Math.min(challengeMenu.legIndex + 1, challengeMenu.legCount)} of ${challengeMenu.legCount}`
@@ -190,7 +195,7 @@ export function MainMenu({
       <div
         ref={menuRef}
         role="menu"
-        aria-label="Main menu"
+        aria-label={portalMode ? "Portal menu" : "Main menu"}
         className="fixed z-[10060]"
         style={{
           top: menuPos.top,
@@ -202,11 +207,17 @@ export function MainMenu({
           boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
           fontFamily: FONT_DM,
           overflow: "hidden",
-          opacity: reduceMotion ? 1 : undefined,
-          animation: reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
+          opacity: portalMode || reduceMotion ? 1 : undefined,
+          animation:
+            portalMode || reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
         }}
       >
-        {challengeMenu ? (
+        {portalMode ? (
+          <>
+            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
+            <MenuRow label="Contact" onSelect={selectContact} />
+          </>
+        ) : challengeMenu ? (
           <>
             <MenuRow
               label={challengeMenu.title}
@@ -262,7 +273,7 @@ export function MainMenu({
 
   return (
     <div className="flex items-center gap-2.5">
-      {!challengeMenu && mode === "practice" ? (
+      {!portalMode && !challengeMenu && mode === "practice" ? (
         <span
           className="select-none text-right leading-tight"
           style={{
@@ -283,13 +294,17 @@ export function MainMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 transition-opacity duration-150 ease-out hover:opacity-80 active:opacity-65"
-        style={{
-          color: "#F0EDE6",
-          height: 28,
-          boxShadow: mode === "practice" ? `0 0 0 1px ${GOLD_BORDER}` : undefined,
-          borderRadius: 4,
-          padding: mode === "practice" ? 2 : 0,
-        }}
+        style={
+          portalMode
+            ? { color: "#F0EDE6", height: 28 }
+            : {
+                color: "#F0EDE6",
+                height: 28,
+                boxShadow: mode === "practice" ? `0 0 0 1px ${GOLD_BORDER}` : undefined,
+                borderRadius: 4,
+                padding: mode === "practice" ? 2 : 0,
+              }
+        }
         aria-label={triggerLabel}
         aria-haspopup="menu"
         aria-expanded={open}

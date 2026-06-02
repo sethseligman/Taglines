@@ -9,7 +9,7 @@ import { getPortalChallengeProgress, loadChallengeRun, totalGuessesForRun } from
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
-import { PortalMenu } from "@/components/portal/PortalMenu";
+import { MainMenu } from "@/components/MainMenu";
 
 export interface PortalScreenProps {
   dateKey: string;
@@ -103,7 +103,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
           >
             {formatHeaderDate(dateKey)}
           </span>
-          <PortalMenu />
+          <MainMenu portalMode />
         </div>
       </header>
 

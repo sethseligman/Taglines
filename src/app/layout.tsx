@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { DM_Sans, Geist_Mono, Playfair_Display } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -75,7 +76,7 @@ export default function RootLayout({
       className={`dark ${geistMono.variable} ${playfair.variable} ${dmSans.variable}`}
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
-        {children}
+        <AppShell>{children}</AppShell>
         <Analytics />
       </body>
     </html>
