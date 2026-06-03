@@ -25,17 +25,24 @@ function AppShellHeader({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header
-        className="relative z-10 mx-auto w-full max-w-2xl px-5 pb-3 pt-5 md:px-6 md:pt-6"
+        className="fixed top-0 left-0 right-0 z-50 w-full px-5 pb-3 md:px-6"
         style={{
           paddingTop: "max(1.25rem, env(safe-area-inset-top))",
           background: headerBackground,
         }}
       >
-        <div className="flex items-center justify-between">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between">
           <TaglinesWordmark asLink />
           <MainMenu gameLocked={gameLocked} />
         </div>
       </header>
+      <div
+        aria-hidden
+        className="pointer-events-none pb-3"
+        style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
+      >
+        <div className="h-7" />
+      </div>
       {children}
       <SplashModal />
     </>
