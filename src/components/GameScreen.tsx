@@ -18,6 +18,7 @@ import { SAMPLE_MOVIES } from "@/data/movies";
 import { useAutoFitFontSize } from "@/hooks/useAutoFitFontSize";
 import { useGameState } from "@/hooks/useGameState";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { useGameShell } from "@/lib/gameShellContext";
 import { getHintBodyForLevel } from "@/lib/hintContent";
 import { narratorResultLine } from "@/lib/narratorResult";
 import { buildShareText, copyShareToClipboard } from "@/lib/share";
@@ -229,6 +230,16 @@ export function GameScreen() {
   const hintSessionResetKey = mode === "daily" ? `daily:${dateKey}` : `practice:${movie.title}`;
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
+  const { setGameLocked } = useGameShell();
+
+  useEffect(() => {
+    if (state.status === "playing" && state.guessesUsed > 0) {
+      setGameLocked(true);
+    } else if (state.status === "won" || state.status === "lost") {
+      setGameLocked(false);
+    }
+    return () => setGameLocked(false);
+  }, [state.status, state.guessesUsed, setGameLocked]);
 
   /** Last guessesUsed we already reacted to for ✕ flash (init matches restored sessions). */
   const prevGuessesUsedRef = useRef(state.guessesUsed);

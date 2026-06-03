@@ -3,12 +3,26 @@
 import { usePathname } from "next/navigation";
 import { MainMenu } from "@/components/MainMenu";
 import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
+import { GameShellProvider, useGameShell } from "@/lib/gameShellContext";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <GameShellProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </GameShellProvider>
+  );
+}
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { gameLocked } = useGameShell();
 
   const menu =
-    pathname === "/play" ? <MainMenu mode="daily" /> : <MainMenu portalMode />;
+    pathname === "/play" ? (
+      <MainMenu mode="daily" gameLocked={gameLocked} />
+    ) : (
+      <MainMenu portalMode gameLocked={false} />
+    );
 
   const headerBackground = pathname.startsWith("/challenges/")
     ? "transparent"
