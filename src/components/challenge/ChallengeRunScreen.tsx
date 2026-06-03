@@ -278,8 +278,8 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
           <main
             className={
               isDesktop
-                ? "flex flex-1 flex-col justify-start px-5 pb-12 pt-16 md:px-8"
-                : "flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 pt-16 md:px-8"
+                ? "flex flex-1 flex-col justify-start px-5 pb-12 pt-5 md:px-8 md:pt-7"
+                : "flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 pt-5 md:px-8 md:pt-7"
             }
           >
             <div className="mx-auto mb-4 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">

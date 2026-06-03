@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { MainMenu } from "@/components/MainMenu";
 import { SplashModal } from "@/components/SplashModal";
 import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
@@ -15,23 +14,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function AppShellHeader({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const { gameLocked } = useGameShell();
-
-  const headerBackground = pathname.startsWith("/challenges/")
-    ? "transparent"
-    : "#0D0D0D";
 
   return (
     <>
       <header
-        className="fixed top-0 left-0 right-0 z-50 w-full px-5 pb-3 md:px-6"
+        className="fixed top-0 left-0 right-0 z-50 w-full pb-3"
         style={{
           paddingTop: "max(1.25rem, env(safe-area-inset-top))",
-          background: headerBackground,
+          background: "#0D0D0D",
         }}
       >
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 md:px-6">
           <TaglinesWordmark asLink />
           <MainMenu gameLocked={gameLocked} />
         </div>
