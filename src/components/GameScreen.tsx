@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
@@ -101,7 +102,13 @@ function formatCountdownToLocalMidnight(): string {
 }
 
 export function GameScreen() {
+  const searchParams = useSearchParams();
+  const urlMode = searchParams.get("mode") === "practice" ? "practice" : "daily";
   const [mode, setMode] = useState<Mode>("daily");
+
+  useEffect(() => {
+    setMode(urlMode);
+  }, [urlMode]);
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
   const [dailyFailed, setDailyFailed] = useState(false);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);
@@ -231,15 +238,6 @@ export function GameScreen() {
 
   const { state, submitGuess, reset } = useGameState(movie, isDaily, dateKey);
   const { setGameLocked } = useGameShell();
-
-  useEffect(() => {
-    if (state.status === "playing" && state.guessesUsed > 0) {
-      setGameLocked(true);
-    } else if (state.status === "won" || state.status === "lost") {
-      setGameLocked(false);
-    }
-    return () => setGameLocked(false);
-  }, [state.status, state.guessesUsed, setGameLocked]);
 
   /** Last guessesUsed we already reacted to for ✕ flash (init matches restored sessions). */
   const prevGuessesUsedRef = useRef(state.guessesUsed);
@@ -765,6 +763,12 @@ export function GameScreen() {
     !wrongGuessFlash &&
     ((mode === "daily" && effectiveDailyCompletion != null) ||
       (mode === "practice" && isGameOver));
+
+  useEffect(() => {
+    const locked = state.status === "playing" && state.guessesUsed > 0 && !showSeatedResult;
+    setGameLocked(locked);
+    return () => setGameLocked(false);
+  }, [state.status, state.guessesUsed, showSeatedResult, setGameLocked]);
 
   useEffect(() => {
     if (mode !== "daily") {
