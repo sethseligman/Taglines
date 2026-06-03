@@ -282,7 +282,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
                 : "flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 pt-16 md:px-8"
             }
           >
-            <div className="mx-auto mb-4 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">
+            <div className="mx-auto mb-2 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">
               <p
                 className="min-w-0 truncate text-sm font-medium text-foreground"
                 style={{ fontFamily: FONT_PLAYFAIR }}
