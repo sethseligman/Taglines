@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import type { HintLevel } from "@/types/movie";
 import type { Movie } from "@/types/movie";
 import { MAX_GUESSES } from "@/types/movie";
@@ -101,14 +100,12 @@ function formatCountdownToLocalMidnight(): string {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-export function GameScreen() {
-  const searchParams = useSearchParams();
-  const urlMode = searchParams.get("mode") === "practice" ? "practice" : "daily";
-  const [mode, setMode] = useState<Mode>("daily");
+export interface GameScreenProps {
+  mode: "daily" | "practice";
+}
 
-  useEffect(() => {
-    setMode(urlMode);
-  }, [urlMode]);
+export function GameScreen({ mode: initialMode }: GameScreenProps) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [dailyPayload, setDailyPayload] = useState<{ movie: Movie; dateKey: string } | null>(null);
   const [dailyFailed, setDailyFailed] = useState(false);
   const [practiceMovie, setPracticeMovie] = useState<Movie | null>(null);

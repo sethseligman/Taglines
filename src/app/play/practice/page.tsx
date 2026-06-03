@@ -1,9 +1,9 @@
 import { GameScreen } from "@/components/GameScreen";
 
-export default function PlayPage() {
+export default function PracticePage() {
   return (
     <div className="relative min-h-screen bg-background">
-      <GameScreen mode="daily" />
+      <GameScreen mode="practice" />
     </div>
   );
 }

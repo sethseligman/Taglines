@@ -129,7 +129,7 @@ export function MainMenu({ gameLocked = false }: MainMenuProps) {
         <MenuRowLink label="Today" href="/play" disabled={todayDisabled} onNavigate={close} />
         <MenuRowLink
           label="Practice"
-          href="/play?mode=practice"
+          href="/play/practice"
           disabled={practiceDisabled}
           onNavigate={close}
         />
