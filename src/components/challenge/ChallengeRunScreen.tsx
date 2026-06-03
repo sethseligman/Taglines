@@ -264,8 +264,8 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
       <div
         className={
           isDesktop
-            ? "relative flex min-h-screen w-full flex-col pt-[60px]"
-            : "relative mt-[60px] flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden"
+            ? "relative flex min-h-screen w-full flex-col"
+            : "relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden"
         }
       >
         <div
@@ -278,8 +278,8 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
           <main
             className={
               isDesktop
-                ? "flex flex-1 flex-col justify-start px-5 pb-12 pt-5 md:px-8"
-                : "flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 pt-5 md:px-8"
+                ? "flex flex-1 flex-col justify-start px-5 pb-12 pt-16 md:px-8"
+                : "flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 pt-16 md:px-8"
             }
           >
             <div className="mx-auto mb-2 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">
