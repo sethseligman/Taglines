@@ -1,16 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 
 export interface ResultAppShellProps {
-  headerMenu: ReactNode | null;
-  relaxedVisual: boolean;
   children: ReactNode;
 }
 
-/** Seated result frame: radial bg, persistent wordmark header, main slot for end sequence + result body. */
-export function ResultAppShell({ headerMenu, relaxedVisual, children }: ResultAppShellProps) {
+/** Seated result frame: radial bg and main slot for end sequence + result body. */
+export function ResultAppShell({ children }: ResultAppShellProps) {
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
       <div
@@ -22,7 +19,6 @@ export function ResultAppShell({ headerMenu, relaxedVisual, children }: ResultAp
       />
       <div className="relative z-10 flex min-h-screen flex-col">
         <main className="flex flex-1 flex-col items-center justify-start px-5 py-4 md:px-8">
-          <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
           {children}
         </main>
       </div>

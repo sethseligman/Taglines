@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
-import { MainMenu } from "@/components/MainMenu";
 import { FONT_DM } from "@/lib/fontStacks";
 import { narratorResultLine } from "@/lib/narratorResult";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
@@ -26,8 +24,6 @@ export function ChallengeRunFailed({
   legCount,
   onTryAgain,
 }: ChallengeRunFailedProps) {
-  const router = useRouter();
-
   const failedLeg = useMemo(() => {
     const unsolved = run.legs.filter((l) => !l.solved);
     if (unsolved.length === 0) return run.legs[run.legs.length - 1] ?? null;
@@ -38,20 +34,8 @@ export function ChallengeRunFailed({
   const guessesUsed = failedLeg?.guessesUsed ?? 5;
   const narratorLine = narratorResultLine("lost", guessesUsed);
 
-  const headerMenu = (
-    <MainMenu
-      challengeMenu={{
-        title: challengeTitle,
-        legIndex: Math.max(0, failedLegIndex - 1),
-        legCount,
-        score: 0,
-        onExit: () => router.push("/"),
-      }}
-    />
-  );
-
   return (
-    <ResultAppShell headerMenu={headerMenu} relaxedVisual>
+    <ResultAppShell>
       <GameEndSequence
         resultStatus="lost"
         narratorLine={narratorLine}

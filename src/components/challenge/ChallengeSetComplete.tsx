@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ResultAppShell } from "@/components/ResultAppShell";
-import { MainMenu } from "@/components/MainMenu";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
 import { formatChallengeRunDuration, totalGuessesForRun } from "@/lib/challengeRunStorage";
@@ -32,7 +30,6 @@ export function ChallengeSetComplete({
   run,
   legCount,
 }: ChallengeSetCompleteProps) {
-  const router = useRouter();
   const total = totalGuessesForRun(run);
   const perfect = total === legCount;
   const solvedCount = run.legs.filter((l) => l.solved).length;
@@ -41,20 +38,8 @@ export function ChallengeSetComplete({
   const completedAt = lastLeg?.completedAt ?? new Date().toISOString();
   const durationLabel = formatChallengeRunDuration(run.startedAt, completedAt);
 
-  const headerMenu = (
-    <MainMenu
-      challengeMenu={{
-        title: challengeTitle,
-        legIndex: legCount,
-        legCount,
-        score: total,
-        onExit: () => router.push("/"),
-      }}
-    />
-  );
-
   return (
-    <ResultAppShell headerMenu={headerMenu} relaxedVisual>
+    <ResultAppShell>
       <div className="mx-auto w-full max-w-md text-center">
         <p
           className="text-xs uppercase tracking-[0.2em]"

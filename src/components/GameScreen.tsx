@@ -36,12 +36,10 @@ import {
 import { GameEndSequence } from "./GameEndSequence";
 import { GuessInput } from "./GuessInput";
 import { HintReveal } from "./HintReveal";
-import { MainMenu } from "./MainMenu";
 import { ResultAppShell } from "./ResultAppShell";
 import { ResultContent } from "./ResultContent";
 import { WrongGuessFlash } from "./WrongGuessFlash";
 import { GameHintCarousel } from "@/components/game/GameHintCarousel";
-import { GamePlayHeader } from "@/components/game/GamePlayHeader";
 import { WrongGuessHistoryStrip } from "@/components/game/WrongGuessHistoryStrip";
 import { BorderCircuit } from "@/components/game/BorderCircuit";
 
@@ -771,26 +769,6 @@ export function GameScreen() {
     if (mode !== "daily" || wrongGuessFlash || state.status !== "playing") return;
     setBorderPressureWrongGuesses(state.guessesUsed);
   }, [mode, dateKey, movie.title]);
-  const gameLocked =
-    (mode === "daily" && !dailyCompletion && state.status === "playing") ||
-    (state.status === "playing" && state.guessesUsed > 0);
-  const dailyResultToday = getDailyCompletionResult(dateKeyForDaily);
-
-  const headerMenu = (
-    <MainMenu
-      mode={mode}
-      gameLocked={gameLocked}
-      dailyDateKey={dateKeyForDaily}
-      dailyResult={dailyResultToday}
-      onSelectDaily={() => {
-        if (!gameLocked) setMode("daily");
-      }}
-      onSelectPractice={() => {
-        if (!gameLocked) setMode("practice");
-      }}
-    />
-  );
-
   const practiceLoading = mode === "practice" && practiceMovie === null;
   const dailyUnavailable =
     mode === "daily" && hasSupabase && !loading && (dailyFailed || !dailyPayload);
@@ -894,10 +872,7 @@ export function GameScreen() {
     } as const;
 
     return (
-      <ResultAppShell
-        headerMenu={headerMenu}
-        relaxedVisual={relaxedVisual}
-      >
+      <ResultAppShell>
         <GameEndSequence
           key={sequenceKey}
           resultStatus={resultStatus as "won" | "lost"}
@@ -1007,7 +982,7 @@ export function GameScreen() {
 
   return (
     <div
-      className={`relative min-h-screen w-full bg-[#080808] text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
+      className={`relative min-h-screen w-full bg-background text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
     >
       <div
         className="pointer-events-none absolute inset-0 z-0"
@@ -1039,7 +1014,6 @@ export function GameScreen() {
                 : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"} ${introPhase !== "ready" ? "overflow-hidden" : ""}`
             }
           >
-            <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
             <section
               className="relative z-30 mx-auto w-full max-w-lg px-1"
               style={

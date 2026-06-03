@@ -8,25 +8,11 @@ import { getDailyCompletionResult } from "@/lib/storage";
 import { getPortalChallengeProgress, loadChallengeRun, totalGuessesForRun } from "@/lib/challengeRunStorage";
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
-import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
-import { MainMenu } from "@/components/MainMenu";
 
 export interface PortalScreenProps {
   dateKey: string;
   dailyTagline: string | null;
   challenges: DbChallenge[];
-}
-
-function formatHeaderDate(dateKey: string): string {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  if (!y || !m || !d) return dateKey;
-  const date = new Date(y, m - 1, d);
-  if (Number.isNaN(date.getTime())) return dateKey;
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "numeric",
-    day: "numeric",
-  }).format(date);
 }
 
 function formatDailyResultSummary(result: DailyCompletionResult): string {
@@ -74,7 +60,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
 
   return (
     <div
-      className="relative mx-auto min-h-screen w-full max-w-lg md:max-w-2xl"
+      className="relative min-h-screen w-full"
       style={{
         background: "var(--background)",
         fontFamily: FONT_DM,
@@ -89,67 +75,51 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
         aria-hidden
       />
 
-      <header
-        className="relative flex items-center justify-between px-5 pb-3 pt-5 md:px-6 md:pt-6"
-        style={{
-          paddingTop: "max(1.25rem, env(safe-area-inset-top))",
-        }}
-      >
-        <TaglinesWordmark />
-        <div className="flex items-center gap-3.5">
-          <span
-            className="hidden text-[10px] uppercase tracking-[0.18em] sm:inline"
-            style={{ color: "var(--muted)" }}
-          >
-            {formatHeaderDate(dateKey)}
-          </span>
-          <MainMenu portalMode />
-        </div>
-      </header>
+      <div className="mx-auto w-full max-w-2xl px-4 md:px-6">
+        <main className="relative pb-10">
+          <DailyHeroCard
+            dailyTagline={dailyTagline}
+            dailyResult={dailyResult}
+            isCompleted={isCompleted}
+          />
 
-      <main className="relative px-4 pb-10 md:px-6">
-        <DailyHeroCard
-          dailyTagline={dailyTagline}
-          dailyResult={dailyResult}
-          isCompleted={isCompleted}
-        />
+          <section className="mt-6">
+            <p
+              className="text-[10px] uppercase tracking-[0.22em]"
+              style={{ color: "var(--gold)" }}
+            >
+              Challenges
+            </p>
+            <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+              Completion runs and daily sets
+            </p>
 
-        <section className="mt-6">
-          <p
-            className="text-[10px] uppercase tracking-[0.22em]"
-            style={{ color: "var(--gold)" }}
-          >
-            Challenges
-          </p>
-          <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
-            Completion runs and daily sets
-          </p>
-
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            {completionChallenges.map((challenge) => (
-              <ChallengeTile
-                key={challenge.id}
-                href={`/challenges/${challenge.slug}`}
-                eyebrow={challenge.eyebrow ?? "Completion"}
-                title={challenge.title}
-                status={challengeStatusLabel(challenge, storageReady)}
-                backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
-              />
-            ))}
-            {dailyPoolChallenges.map((challenge) => (
-              <ChallengeTile
-                key={challenge.id}
-                href={`/challenges/${challenge.slug}`}
-                eyebrow={challenge.eyebrow ?? "Decade"}
-                title={challenge.title}
-                status={dailyPoolStatusLabel(challenge, storageReady)}
-                backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
-              />
-            ))}
-            <SeeAllTile />
-          </div>
-        </section>
-      </main>
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
+              {completionChallenges.map((challenge) => (
+                <ChallengeTile
+                  key={challenge.id}
+                  href={`/challenges/${challenge.slug}`}
+                  eyebrow={challenge.eyebrow ?? "Completion"}
+                  title={challenge.title}
+                  status={challengeStatusLabel(challenge, storageReady)}
+                  backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
+                />
+              ))}
+              {dailyPoolChallenges.map((challenge) => (
+                <ChallengeTile
+                  key={challenge.id}
+                  href={`/challenges/${challenge.slug}`}
+                  eyebrow={challenge.eyebrow ?? "Decade"}
+                  title={challenge.title}
+                  status={dailyPoolStatusLabel(challenge, storageReady)}
+                  backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
+                />
+              ))}
+              <SeeAllTile />
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

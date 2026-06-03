@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DbChallenge } from "@/types/challenges";
 import type { PublishedChallengeLeg } from "@/actions/challenges";
@@ -18,8 +17,6 @@ import { ChallengeLegGame, type LegCompletePayload } from "@/components/challeng
 import { BetweenLegsOverlay } from "@/components/challenge/BetweenLegsOverlay";
 import { ChallengeSetComplete } from "@/components/challenge/ChallengeSetComplete";
 import { ChallengeRunFailed } from "@/components/challenge/ChallengeRunFailed";
-import { GamePlayHeader } from "@/components/game/GamePlayHeader";
-import { MainMenu } from "@/components/MainMenu";
 import { FONT_PLAYFAIR } from "@/lib/fontStacks";
 import { getTodayDateKey } from "@/lib/generateChallengeDailyLegs";
 
@@ -31,7 +28,6 @@ interface ChallengeRunScreenProps {
 }
 
 export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps) {
-  const router = useRouter();
   const [run, setRun] = useState<StoredChallengeRun | null>(null);
   const [phase, setPhase] = useState<RunPhase>("playing");
   const [betweenPosterUrl, setBetweenPosterUrl] = useState<string | null>(null);
@@ -176,21 +172,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
     setBetweenPosterUrl(null);
   }, [run, currentLeg, advanceAfterWin]);
 
-  const headerMenu = run ? (
-    <MainMenu
-      challengeMenu={{
-        title: challenge.title,
-        legIndex: run.currentLegIndex,
-        legCount: challenge.leg_count,
-        score: 0,
-        onExit: () => router.push("/"),
-      }}
-    />
-  ) : null;
-
   if (!hydrated || !run) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#080808] text-muted text-sm">
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted text-sm">
         Loading challenge…
       </div>
     );
@@ -198,7 +182,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   if (legs.length === 0) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#080808] px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
         <p className="text-foreground">Today&apos;s challenge isn&apos;t ready yet. Check back soon.</p>
         <Link href="/" className="mt-4 text-sm text-gold">
           ← Portal
@@ -231,7 +215,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   if (!currentLeg) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#080808] px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
         <p className="text-foreground">No movies configured for this challenge.</p>
         <Link href="/" className="mt-4 text-sm text-gold">
           ← Portal
@@ -245,7 +229,7 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
 
   return (
     <div
-      className={`relative min-h-screen w-full bg-[#080808] text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
+      className={`relative min-h-screen w-full bg-background text-foreground ${isDesktop ? "overflow-x-hidden" : "overflow-hidden"}`}
     >
       {backgroundUrl ? (
         <>
@@ -298,8 +282,6 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
                 : `flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overscroll-contain px-5 pb-12 md:px-8 ${relaxedVisual ? "pt-5 md:pt-7" : "pt-2"}`
             }
           >
-            <GamePlayHeader headerMenu={headerMenu} relaxedVisual={relaxedVisual} />
-
             <div className="mx-auto mb-4 flex w-full max-w-lg items-end justify-between gap-3 border-b border-white/5 pb-3">
               <p
                 className="min-w-0 truncate text-sm font-medium text-foreground"
