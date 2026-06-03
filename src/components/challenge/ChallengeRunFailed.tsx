@@ -66,7 +66,7 @@ export function ChallengeRunFailed({
               <p className="text-sm text-muted" style={{ fontFamily: FONT_DM }}>
                 Try again tomorrow
               </p>
-            ) : (
+            ) : challengeType === "completion" || challengeType === "one_off" ? (
               <button
                 type="button"
                 onClick={onTryAgain}
@@ -75,7 +75,7 @@ export function ChallengeRunFailed({
               >
                 Try again from the start
               </button>
-            )}
+            ) : null}
             <Link
               href="/"
               className="text-sm text-muted no-underline transition hover:text-foreground/80"
