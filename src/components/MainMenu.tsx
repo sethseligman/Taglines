@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FONT_DM } from "@/lib/fontStacks";
 import { ContactModal } from "@/components/ContactModal";
 import { openHowToPlayModal } from "@/lib/htpModal";
-import type { DailyCompletionResult } from "@/lib/storage";
 
 const MENU_WIDTH_PX = 224;
 const MENU_GAP_PX = 6;
@@ -13,49 +13,10 @@ const VIEWPORT_PAD_PX = 8;
 
 const GOLD = "#C9A96E";
 const GOLD_TINT = "rgba(201, 169, 110, 0.12)";
-const GOLD_BORDER = "rgba(201, 169, 110, 0.35)";
-
-type Mode = "daily" | "practice";
-
-export type ChallengeMenuContext = {
-  title: string;
-  legIndex: number;
-  legCount: number;
-  score: number;
-  onExit: () => void;
-};
 
 export type MainMenuProps = {
-  mode?: Mode;
   gameLocked?: boolean;
-  dailyDateKey?: string;
-  dailyResult?: DailyCompletionResult | null;
-  onSelectDaily?: () => void;
-  onSelectPractice?: () => void;
-  /** When set, shows challenge run menu instead of daily/practice (hamburger placement unchanged). */
-  challengeMenu?: ChallengeMenuContext;
-  /** Portal header: How to Play and Contact only. */
-  portalMode?: boolean;
 };
-
-function formatMenuPuzzleDay(dateKey: string): string {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  if (!y || !m || !d) return dateKey;
-  const date = new Date(y, m - 1, d);
-  if (Number.isNaN(date.getTime())) return dateKey;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-function formatDailyResultSummary(result: DailyCompletionResult): string {
-  if (result.status === "won") {
-    const n = result.guessesUsed;
-    return `Solved in ${n} ${n === 1 ? "guess" : "guesses"}`;
-  }
-  return `Didn't solve · ${result.guessesUsed} guesses`;
-}
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -69,16 +30,7 @@ function HamburgerIcon() {
   );
 }
 
-export function MainMenu({
-  mode = "daily",
-  gameLocked = false,
-  dailyDateKey = "",
-  dailyResult = null,
-  onSelectDaily = () => {},
-  onSelectPractice = () => {},
-  challengeMenu,
-  portalMode = false,
-}: MainMenuProps) {
+export function MainMenu({ gameLocked = false }: MainMenuProps) {
   const [open, setOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -140,18 +92,6 @@ export function MainMenu({
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, [open, close]);
 
-  const selectDaily = () => {
-    if (gameLocked && mode !== "daily") return;
-    onSelectDaily();
-    close();
-  };
-
-  const selectPractice = () => {
-    if (gameLocked && mode !== "practice") return;
-    onSelectPractice();
-    close();
-  };
-
   const selectHowToPlay = () => {
     openHowToPlayModal();
     close();
@@ -162,40 +102,15 @@ export function MainMenu({
     setContactOpen(true);
   };
 
-  const selectExitChallenge = () => {
-    challengeMenu?.onExit();
-    close();
-  };
-
-  const dailyDisabled = gameLocked && mode !== "daily";
-  const practiceDisabled = gameLocked && mode !== "practice";
-
-  const puzzleDay = formatMenuPuzzleDay(dailyDateKey);
-  const dailyRowSublabel = dailyResult
-    ? `${puzzleDay} · ${formatDailyResultSummary(dailyResult)}`
-    : `${puzzleDay} · Playing now`;
-
-  const practiceRowSublabel =
-    mode === "practice" ? "Playing now" : "Random movies · unlimited plays";
-
-  const triggerLabel = portalMode
-    ? "Portal menu"
-    : challengeMenu
-      ? "Main menu"
-      : mode === "practice"
-        ? "Practice mode"
-        : "Main menu";
-
-  const challengeLegLabel = challengeMenu
-    ? `Leg ${Math.min(challengeMenu.legIndex + 1, challengeMenu.legCount)} of ${challengeMenu.legCount}`
-    : "";
+  const todayDisabled = gameLocked;
+  const practiceDisabled = gameLocked;
 
   const menu =
     open && menuPos && mounted ? (
       <div
         ref={menuRef}
         role="menu"
-        aria-label={portalMode ? "Portal menu" : "Main menu"}
+        aria-label="Main menu"
         className="fixed z-[10060]"
         style={{
           top: menuPos.top,
@@ -207,57 +122,20 @@ export function MainMenu({
           boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
           fontFamily: FONT_DM,
           overflow: "hidden",
-          opacity: portalMode || reduceMotion ? 1 : undefined,
-          animation:
-            portalMode || reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
+          opacity: reduceMotion ? 1 : undefined,
+          animation: reduceMotion ? undefined : "mainMenuFadeIn 150ms var(--ease-out) both",
         }}
       >
-        {portalMode ? (
-          <>
-            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
-            <MenuRow label="Contact" onSelect={selectContact} />
-          </>
-        ) : challengeMenu ? (
-          <>
-            <MenuRow
-              label={challengeMenu.title}
-              sublabel={challengeLegLabel}
-              active
-            />
-            <MenuRow
-              label="Exit to portal"
-              sublabel="Progress saved"
-              onSelect={selectExitChallenge}
-            />
-            <MenuDivider />
-            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
-            <MenuRow label="Contact" onSelect={selectContact} />
-          </>
-        ) : (
-          <>
-            <MenuRow
-              label="Today"
-              sublabel={dailyRowSublabel}
-              active={mode === "daily"}
-              disabled={dailyDisabled}
-              onSelect={selectDaily}
-            />
-            <MenuRow
-              label="Practice"
-              sublabel={practiceRowSublabel}
-              active={mode === "practice"}
-              disabled={practiceDisabled}
-              onSelect={selectPractice}
-            />
-            <MenuDivider />
-            <MenuRow label="Challenges" disabled soon />
-            <MenuRow label="Playlists" disabled soon />
-            <MenuDivider />
-            <MenuRow label="How to Play" onSelect={selectHowToPlay} />
-            <MenuRow label="Contact" onSelect={selectContact} />
-            <MenuRow label="About" disabled soon />
-          </>
-        )}
+        <MenuRowLink label="Today" href="/play" disabled={todayDisabled} onNavigate={close} />
+        <MenuRow label="Practice" disabled={practiceDisabled} soon />
+        <MenuDivider />
+        <MenuRow label="Challenges" disabled soon />
+        <MenuRow label="Playlists" disabled soon />
+        <MenuDivider />
+        <MenuRow label="How to Play" onSelect={selectHowToPlay} />
+        <MenuRow label="Contact" onSelect={selectContact} />
+        <MenuDivider />
+        <MenuRow label="Sign Up / Log In" disabled soon />
         <style jsx global>{`
           @keyframes mainMenuFadeIn {
             from {
@@ -273,39 +151,13 @@ export function MainMenu({
 
   return (
     <div className="flex items-center gap-2.5">
-      {!portalMode && !challengeMenu && mode === "practice" ? (
-        <span
-          className="select-none text-right leading-tight"
-          style={{
-            fontFamily: FONT_DM,
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: GOLD,
-          }}
-          aria-hidden
-        >
-          Practice
-        </span>
-      ) : null}
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 transition-opacity duration-150 ease-out hover:opacity-80 active:opacity-65"
-        style={
-          portalMode
-            ? { color: "#F0EDE6", height: 28 }
-            : {
-                color: "#F0EDE6",
-                height: 28,
-                boxShadow: mode === "practice" ? `0 0 0 1px ${GOLD_BORDER}` : undefined,
-                borderRadius: 4,
-                padding: mode === "practice" ? 2 : 0,
-              }
-        }
-        aria-label={triggerLabel}
+        style={{ color: "#F0EDE6", height: 28 }}
+        aria-label="Main menu"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -385,6 +237,62 @@ function MenuRow({ label, sublabel, active, disabled, soon, onSelect }: MenuRowP
         </span>
         {soon ? <span style={{ fontSize: 12, color: "#4a4844", flexShrink: 0 }}>Soon</span> : null}
       </button>
+    </div>
+  );
+}
+
+type MenuRowLinkProps = {
+  label: string;
+  href: string;
+  disabled?: boolean;
+  onNavigate: () => void;
+};
+
+function MenuRowLink({ label, href, disabled, onNavigate }: MenuRowLinkProps) {
+  const labelColor = disabled ? "#6B6860" : "#F0EDE6";
+
+  if (disabled) {
+    return (
+      <div role="none">
+        <span
+          role="menuitem"
+          aria-disabled
+          className="flex w-full cursor-default items-center justify-between gap-2 border-0 text-left"
+          style={{
+            fontFamily: FONT_DM,
+            padding: "11px 14px 11px 12px",
+            color: labelColor,
+            background: "transparent",
+            borderLeft: "3px solid transparent",
+            fontSize: 14,
+            lineHeight: 1.25,
+          }}
+        >
+          {label}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div role="none">
+      <Link
+        href={href}
+        role="menuitem"
+        onClick={onNavigate}
+        className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 text-left no-underline transition-colors duration-150 ease-out hover:bg-[#1a1a1a]"
+        style={{
+          fontFamily: FONT_DM,
+          padding: "11px 14px 11px 12px",
+          color: labelColor,
+          background: "transparent",
+          borderLeft: "3px solid transparent",
+          fontSize: 14,
+          lineHeight: 1.25,
+        }}
+      >
+        {label}
+      </Link>
     </div>
   );
 }

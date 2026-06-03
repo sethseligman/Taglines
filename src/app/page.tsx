@@ -1,7 +1,6 @@
 import { getPublishedChallenges } from "@/actions/challenges";
 import { getDailyMovie } from "@/actions/movies";
 import { PortalScreen } from "@/components/portal/PortalScreen";
-import { SplashModal } from "@/components/SplashModal";
 import { getTodayKey } from "@/data/movies";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,6 @@ export default async function Home() {
         dailyTagline={dailyTagline}
         challenges={challenges}
       />
-      <SplashModal />
     </div>
   );
 }
