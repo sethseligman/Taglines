@@ -1,5 +1,6 @@
 "use client";
 
+import { HowToPlayModal } from "@/components/HowToPlayModal";
 import { MainMenu } from "@/components/MainMenu";
 import { SplashModal } from "@/components/SplashModal";
 import { TaglinesWordmark } from "@/components/ui/TaglinesWordmark";
@@ -40,6 +41,7 @@ function AppShellHeader({ children }: { children: React.ReactNode }) {
       </div>
       {children}
       <SplashModal />
+      <HowToPlayModal />
     </>
   );
 }
