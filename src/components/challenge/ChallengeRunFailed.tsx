@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
+import type { PublishedChallengeLeg } from "@/actions/challenges";
+import { ChallengeRevealCards } from "@/components/challenge/ChallengeRevealCards";
 import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { FONT_DM } from "@/lib/fontStacks";
@@ -15,6 +17,8 @@ interface ChallengeRunFailedProps {
   run: StoredChallengeRun;
   legCount: number;
   onTryAgain: () => void;
+  legs: PublishedChallengeLeg[];
+  challengeArtConfig: Record<string, unknown> | null;
 }
 
 export function ChallengeRunFailed({
@@ -23,6 +27,8 @@ export function ChallengeRunFailed({
   run,
   legCount,
   onTryAgain,
+  legs,
+  challengeArtConfig,
 }: ChallengeRunFailedProps) {
   const failedLeg = useMemo(() => {
     const unsolved = run.legs.filter((l) => !l.solved);
@@ -64,6 +70,12 @@ export function ChallengeRunFailed({
           >
             {guessesUsed} wrong {guessesUsed === 1 ? "guess" : "guesses"} — challenge over
           </p>
+
+          {challengeType === "daily_pool" ? (
+            <div className="mt-8 px-2">
+              <ChallengeRevealCards legs={legs} run={run} challengeArtConfig={challengeArtConfig} />
+            </div>
+          ) : null}
 
           <div className="mt-10 flex flex-col items-center gap-3">
             {challengeType === "daily_pool" ? (

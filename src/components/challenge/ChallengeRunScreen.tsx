@@ -199,6 +199,8 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
         run={run}
         legCount={challenge.leg_count}
         onTryAgain={handleTryAgain}
+        legs={sortedLegs}
+        challengeArtConfig={challenge.art_config}
       />
     );
   }
@@ -209,6 +211,9 @@ export function ChallengeRunScreen({ challenge, legs }: ChallengeRunScreenProps)
         challengeTitle={challenge.title}
         run={run}
         legCount={challenge.leg_count}
+        legs={sortedLegs}
+        challengeArtConfig={challenge.art_config}
+        challengeType={challenge.type}
       />
     );
   }

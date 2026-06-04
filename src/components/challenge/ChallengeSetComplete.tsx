@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import type { PublishedChallengeLeg } from "@/actions/challenges";
+import { ChallengeRevealCards } from "@/components/challenge/ChallengeRevealCards";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
 import { formatChallengeRunDuration, totalGuessesForRun } from "@/lib/challengeRunStorage";
+import type { ChallengeType } from "@/types/challenges";
 
 function verdictForTotal(totalGuesses: number, legCount: number): string {
   if (totalGuesses === legCount) {
@@ -24,12 +27,18 @@ interface ChallengeSetCompleteProps {
   challengeTitle: string;
   run: StoredChallengeRun;
   legCount: number;
+  legs: PublishedChallengeLeg[];
+  challengeArtConfig: Record<string, unknown> | null;
+  challengeType: ChallengeType;
 }
 
 export function ChallengeSetComplete({
   challengeTitle,
   run,
   legCount,
+  legs,
+  challengeArtConfig,
+  challengeType,
 }: ChallengeSetCompleteProps) {
   const total = totalGuessesForRun(run);
   const perfect = total === legCount;
@@ -58,6 +67,12 @@ export function ChallengeSetComplete({
         >
           {narratorLine}
         </p>
+
+        {challengeType === "daily_pool" ? (
+          <div className="mt-8 px-2">
+            <ChallengeRevealCards legs={legs} run={run} challengeArtConfig={challengeArtConfig} />
+          </div>
+        ) : null}
 
         <p
           className="mt-8 uppercase tracking-[0.15em]"
