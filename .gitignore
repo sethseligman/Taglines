@@ -45,10 +45,27 @@ scripts/HINT GENERATOR/taglines_progress.json
 scripts/HINT GENERATOR/taglines_progress_block*.json
 taglines_progress_block*.json
 
+# Hint generator artifacts
+scripts/HINT GENERATOR/*.csv
+scripts/HINT GENERATOR/*.log
+taglines_hints_output*.csv
+
 # Hint generator test / backup outputs (keep block*.csv in repo root if committed)
 scripts/HINT GENERATOR/taglines_hints_output_*_TEST*.csv
 scripts/HINT GENERATOR/taglines_hints_output_*_NOCRITIC.csv
 scripts/HINT GENERATOR/taglines_hints_output_BACKUP.csv
+
+# Supabase temp
+supabase/.temp/
+
+# Skills
+skills-lock.json
+
+# Legacy files
+*.old.ts
+
+# Local data files
+src/data/*.xlsx
 
 # Excel lock files
 ~$*
