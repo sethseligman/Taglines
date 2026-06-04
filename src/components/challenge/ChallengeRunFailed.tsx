@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { FONT_DM } from "@/lib/fontStacks";
@@ -33,6 +33,10 @@ export function ChallengeRunFailed({
   const failedLegIndex = failedLeg?.position ?? run.currentLegIndex + 1;
   const guessesUsed = failedLeg?.guessesUsed ?? 5;
   const narratorLine = narratorResultLine("lost", guessesUsed);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   return (
     <ResultAppShell>

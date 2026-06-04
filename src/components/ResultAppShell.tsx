@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export interface ResultAppShellProps {
   children: ReactNode;
@@ -8,6 +8,10 @@ export interface ResultAppShellProps {
 
 /** Seated result frame: radial bg and main slot for end sequence + result body. */
 export function ResultAppShell({ children }: ResultAppShellProps) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#080808] text-foreground">
       <div

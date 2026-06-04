@@ -73,6 +73,10 @@ export function BetweenLegsOverlay({ posterUrl, onComplete }: BetweenLegsOverlay
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
+  useEffect(() => {
     if (reduceMotion) return;
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => setPosterOpacity(1));

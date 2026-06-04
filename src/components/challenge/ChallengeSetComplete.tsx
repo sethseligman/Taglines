@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
@@ -37,6 +38,10 @@ export function ChallengeSetComplete({
   const lastLeg = run.legs[run.legs.length - 1];
   const completedAt = lastLeg?.completedAt ?? new Date().toISOString();
   const durationLabel = formatChallengeRunDuration(run.startedAt, completedAt);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   return (
     <ResultAppShell>
