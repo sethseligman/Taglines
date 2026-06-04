@@ -25,6 +25,8 @@ import {
   VERDICT_SLAM_TEXT_SHADOW,
 } from "@/lib/slamEntrance";
 
+const VERDICT_WIN_TEXT_SHADOW = `0 0 28px rgba(255, 255, 255, 0.6), 0 0 10px rgba(201, 169, 110, 0.8), 0 1px 0 rgba(255,255,255,0.4)`;
+
 /** Charcoal letterboxing behind object-contain poster. */
 const POSTER_LETTERBOX = "#0D0D0D";
 
@@ -55,10 +57,12 @@ function VerdictLine({
   text,
   visible,
   slamPhase,
+  resultStatus,
 }: {
   text: string;
   visible: boolean;
   slamPhase: VerdictSlamPhase;
+  resultStatus: "won" | "lost";
 }) {
   const isDesktop = useIsDesktop();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +103,11 @@ function VerdictLine({
           maxWidth: "100%",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
-          textShadow: struck ? VERDICT_SLAM_TEXT_SHADOW : undefined,
+          textShadow: struck
+            ? resultStatus === "won"
+              ? VERDICT_WIN_TEXT_SHADOW
+              : VERDICT_SLAM_TEXT_SHADOW
+            : undefined,
           transition: struck ? `text-shadow ${SLAM_ENTRANCE_MS}ms ${SLAM_EASE_OUT}` : undefined,
         }}
       >
@@ -366,6 +374,7 @@ export function GameEndSequence({
                 text={narratorLine}
                 visible={verdictVisible}
                 slamPhase={verdictSlamPhase}
+                resultStatus={resultStatus}
               />
             </span>
           </div>

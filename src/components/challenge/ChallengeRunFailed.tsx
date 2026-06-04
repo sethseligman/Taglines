@@ -7,6 +7,7 @@ import { ChallengeRevealCards } from "@/components/challenge/ChallengeRevealCard
 import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
 import { FONT_DM } from "@/lib/fontStacks";
+import { challengeFailedNarratorLine } from "@/lib/challengeNarratorLines";
 import { narratorResultLine } from "@/lib/narratorResult";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
 import type { ChallengeType } from "@/types/challenges";
@@ -38,7 +39,11 @@ export function ChallengeRunFailed({
 
   const failedLegIndex = failedLeg?.position ?? run.currentLegIndex + 1;
   const guessesUsed = failedLeg?.guessesUsed ?? 5;
-  const narratorLine = narratorResultLine("lost", guessesUsed);
+  const correctLegs = run.legs.filter((l) => l.solved).length;
+  const narratorLine =
+    challengeType === "daily_pool"
+      ? challengeFailedNarratorLine(correctLegs)
+      : narratorResultLine("lost", guessesUsed);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });

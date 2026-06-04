@@ -4,24 +4,14 @@ import Link from "next/link";
 import { useEffect } from "react";
 import type { PublishedChallengeLeg } from "@/actions/challenges";
 import { ChallengeRevealCards } from "@/components/challenge/ChallengeRevealCards";
+import { GameEndSequence } from "@/components/GameEndSequence";
 import { ResultAppShell } from "@/components/ResultAppShell";
+import { challengeCompletedNarratorLine } from "@/lib/challengeNarratorLines";
 import { FONT_DM, FONT_PLAYFAIR } from "@/lib/fontStacks";
+import { narratorResultLine } from "@/lib/narratorResult";
 import type { StoredChallengeRun } from "@/lib/challengeRunStorage";
 import { formatChallengeRunDuration, totalGuessesForRun } from "@/lib/challengeRunStorage";
 import type { ChallengeType } from "@/types/challenges";
-
-function verdictForTotal(totalGuesses: number, legCount: number): string {
-  if (totalGuesses === legCount) {
-    return "Five films. Five answers. The archaeologist would approve.";
-  }
-  if (totalGuesses <= legCount + 3) {
-    return "A strong run through the set — the hat stays on.";
-  }
-  if (totalGuesses <= legCount * 2) {
-    return "You made it through the set. The whip saw plenty of use.";
-  }
-  return "Every leg finished. Not every guess was pretty — but the set is done.";
-}
 
 interface ChallengeSetCompleteProps {
   challengeTitle: string;
@@ -43,7 +33,10 @@ export function ChallengeSetComplete({
   const total = totalGuessesForRun(run);
   const perfect = total === legCount;
   const solvedCount = run.legs.filter((l) => l.solved).length;
-  const narratorLine = verdictForTotal(total, legCount);
+  const narratorLine =
+    challengeType === "daily_pool"
+      ? challengeCompletedNarratorLine(total)
+      : narratorResultLine("won", Math.min(5, Math.ceil(total / legCount)));
   const lastLeg = run.legs[run.legs.length - 1];
   const completedAt = lastLeg?.completedAt ?? new Date().toISOString();
   const durationLabel = formatChallengeRunDuration(run.startedAt, completedAt);
@@ -54,77 +47,78 @@ export function ChallengeSetComplete({
 
   return (
     <ResultAppShell>
-      <div className="mx-auto w-full max-w-md text-center">
-        <p
-          className="text-xs uppercase tracking-[0.2em]"
-          style={{ color: "var(--muted)", fontFamily: FONT_DM }}
-        >
-          {challengeTitle}
-        </p>
-        <p
-          className="mt-6 text-xl leading-snug md:text-2xl"
-          style={{ fontFamily: FONT_PLAYFAIR, fontStyle: "italic", color: "var(--gold)" }}
-        >
-          {narratorLine}
-        </p>
-
-        {challengeType === "daily_pool" ? (
-          <div className="mt-8 px-2">
-            <ChallengeRevealCards legs={legs} run={run} challengeArtConfig={challengeArtConfig} />
-          </div>
-        ) : null}
-
-        <p
-          className="mt-8 uppercase tracking-[0.15em]"
-          style={{ color: "var(--muted)", fontFamily: FONT_DM, fontSize: "0.68rem" }}
-        >
-          total guesses
-        </p>
-        <p
-          className="leading-none text-gold"
-          style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
-        >
-          {total}
-        </p>
-
-        <p className="mt-3 text-sm text-muted" style={{ fontFamily: FONT_DM }}>
-          {solvedCount} of {legCount} films solved
-        </p>
-
-        <p className="mt-2 text-sm text-muted" style={{ fontFamily: FONT_DM }}>
-          {durationLabel}
-        </p>
-
-        {perfect ? (
+      <GameEndSequence
+        resultStatus="won"
+        narratorLine={narratorLine}
+        posterUrl={null}
+        showPoster={false}
+      >
+        <div className="mx-auto w-full max-w-md text-center">
           <p
-            className="mt-4 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold"
-            style={{ fontFamily: FONT_DM }}
+            className="text-xs uppercase tracking-[0.2em]"
+            style={{ color: "var(--muted)", fontFamily: FONT_DM }}
           >
-            Perfect run — one guess per film.
+            {challengeTitle}
           </p>
-        ) : null}
 
-        <p className="mt-6 text-xs text-muted/80" style={{ fontFamily: FONT_DM }}>
-          Leaderboard coming soon
-        </p>
+          {challengeType === "daily_pool" ? (
+            <div className="mt-8 px-2">
+              <ChallengeRevealCards legs={legs} run={run} challengeArtConfig={challengeArtConfig} />
+            </div>
+          ) : null}
 
-        <div className="mt-10 flex flex-col items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex w-full max-w-xs items-center justify-center rounded-xl px-6 py-3.5 text-sm font-medium no-underline transition hover:opacity-95"
-            style={{ background: "var(--gold)", color: "#0D0D0D", fontFamily: FONT_DM }}
+          <p
+            className="mt-8 uppercase tracking-[0.15em]"
+            style={{ color: "var(--muted)", fontFamily: FONT_DM, fontSize: "0.68rem" }}
           >
-            Back to portal
-          </Link>
-          <Link
-            href="/challenges"
-            className="text-sm text-muted no-underline transition hover:text-foreground/80"
-            style={{ fontFamily: FONT_DM }}
+            total guesses
+          </p>
+          <p
+            className="leading-none text-gold"
+            style={{ fontFamily: FONT_PLAYFAIR, fontSize: "5rem", marginTop: "0.2rem" }}
           >
-            Play another challenge
-          </Link>
+            {total}
+          </p>
+
+          <p className="mt-3 text-sm text-muted" style={{ fontFamily: FONT_DM }}>
+            {solvedCount} of {legCount} films solved
+          </p>
+
+          <p className="mt-2 text-sm text-muted" style={{ fontFamily: FONT_DM }}>
+            {durationLabel}
+          </p>
+
+          {perfect ? (
+            <p
+              className="mt-4 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold"
+              style={{ fontFamily: FONT_DM }}
+            >
+              Perfect run — one guess per film.
+            </p>
+          ) : null}
+
+          <p className="mt-6 text-xs text-muted/80" style={{ fontFamily: FONT_DM }}>
+            Leaderboard coming soon
+          </p>
+
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex w-full max-w-xs items-center justify-center rounded-xl px-6 py-3.5 text-sm font-medium no-underline transition hover:opacity-95"
+              style={{ background: "var(--gold)", color: "#0D0D0D", fontFamily: FONT_DM }}
+            >
+              Back to portal
+            </Link>
+            <Link
+              href="/challenges"
+              className="text-sm text-muted no-underline transition hover:text-foreground/80"
+              style={{ fontFamily: FONT_DM }}
+            >
+              Play another challenge
+            </Link>
+          </div>
         </div>
-      </div>
+      </GameEndSequence>
     </ResultAppShell>
   );
 }

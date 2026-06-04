@@ -23,24 +23,51 @@ function formatDailyResultSummary(result: DailyCompletionResult): string {
   return `Didn't solve · ${result.guessesUsed} guesses`;
 }
 
-function challengeStatusLabel(challenge: DbChallenge, storageReady: boolean): string {
-  if (!storageReady) return "Not started";
-  return getPortalChallengeProgress(challenge.slug, challenge.leg_count).label;
-}
+type ChallengeTileStatusIcon = "done" | "failed" | null;
 
-function dailyPoolStatusLabel(challenge: DbChallenge, storageReady: boolean): string {
-  if (!storageReady) return `${challenge.leg_count} ready`;
-  const dateKey = getTodayDateKey();
-  const progress = getPortalChallengeProgress(challenge.slug, challenge.leg_count, dateKey);
-  if (progress.isNotStarted) return `${challenge.leg_count} ready`;
-  const run = loadChallengeRun(challenge.slug, dateKey);
+type ChallengeTileStatus = {
+  label: string;
+  icon: ChallengeTileStatusIcon;
+};
+
+function completionTileStatus(
+  challenge: DbChallenge,
+  storageReady: boolean
+): ChallengeTileStatus {
+  if (!storageReady) return { label: "Start →", icon: null };
+  const progress = getPortalChallengeProgress(challenge.slug, challenge.leg_count);
+  const run = loadChallengeRun(challenge.slug);
+  if (progress.isNotStarted) return { label: "Start →", icon: null };
   if (run?.status === "finished") {
-    return `Done · ${totalGuessesForRun(run)} guesses`;
+    return { label: `Completed · ${totalGuessesForRun(run)} guesses`, icon: "done" };
   }
   if (run?.status === "failed") {
-    return "Didn't finish · try again tomorrow";
+    return { label: "Didn't finish · try again", icon: "failed" };
   }
-  return "In progress";
+  const legNum = run ? Math.min(run.currentLegIndex + 1, challenge.leg_count) : 1;
+  return {
+    label: `In progress · leg ${legNum} of ${challenge.leg_count}`,
+    icon: null,
+  };
+}
+
+function dailyPoolTileStatus(challenge: DbChallenge, storageReady: boolean): ChallengeTileStatus {
+  if (!storageReady) return { label: "Start →", icon: null };
+  const dateKey = getTodayDateKey();
+  const progress = getPortalChallengeProgress(challenge.slug, challenge.leg_count, dateKey);
+  const run = loadChallengeRun(challenge.slug, dateKey);
+  if (progress.isNotStarted) return { label: "Start →", icon: null };
+  if (run?.status === "finished") {
+    return { label: `Completed · ${totalGuessesForRun(run)} guesses`, icon: "done" };
+  }
+  if (run?.status === "failed") {
+    return { label: "Didn't finish · try again tomorrow", icon: "failed" };
+  }
+  const legNum = run ? Math.min(run.currentLegIndex + 1, challenge.leg_count) : 1;
+  return {
+    label: `In progress · leg ${legNum} of ${challenge.leg_count}`,
+    icon: null,
+  };
 }
 
 export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreenProps) {
@@ -83,41 +110,59 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
             isCompleted={isCompleted}
           />
 
-          <section className="mt-6">
-            <p
-              className="text-[10px] uppercase tracking-[0.22em]"
-              style={{ color: "var(--gold)" }}
-            >
-              Challenges
-            </p>
-            <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
-              Completion runs and daily sets
-            </p>
+          {completionChallenges.length > 0 ? (
+            <section className="mt-6">
+              <ChallengeSectionHeader
+                title="Challenges"
+                subtitle="Work through the full set at your own pace"
+              />
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                {completionChallenges.map((challenge) => {
+                  const tileStatus = completionTileStatus(challenge, storageReady);
+                  return (
+                    <ChallengeTile
+                      key={challenge.id}
+                      href={`/challenges/${challenge.slug}`}
+                      eyebrow={challenge.eyebrow ?? "Completion"}
+                      title={challenge.title}
+                      legCount={challenge.leg_count}
+                      status={tileStatus.label}
+                      statusIcon={tileStatus.icon}
+                      backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
+                    />
+                  );
+                })}
+                {dailyPoolChallenges.length === 0 ? <SeeAllTile /> : null}
+              </div>
+            </section>
+          ) : null}
 
-            <div className="mt-3 grid grid-cols-2 gap-2.5">
-              {completionChallenges.map((challenge) => (
-                <ChallengeTile
-                  key={challenge.id}
-                  href={`/challenges/${challenge.slug}`}
-                  eyebrow={challenge.eyebrow ?? "Completion"}
-                  title={challenge.title}
-                  status={challengeStatusLabel(challenge, storageReady)}
-                  backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
-                />
-              ))}
-              {dailyPoolChallenges.map((challenge) => (
-                <ChallengeTile
-                  key={challenge.id}
-                  href={`/challenges/${challenge.slug}`}
-                  eyebrow={challenge.eyebrow ?? "Decade"}
-                  title={challenge.title}
-                  status={dailyPoolStatusLabel(challenge, storageReady)}
-                  backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
-                />
-              ))}
-              <SeeAllTile />
-            </div>
-          </section>
+          {dailyPoolChallenges.length > 0 ? (
+            <section className="mt-6">
+              <ChallengeSectionHeader
+                title="Daily challenges"
+                subtitle="5 rounds · resets every day"
+              />
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                {dailyPoolChallenges.map((challenge) => {
+                  const tileStatus = dailyPoolTileStatus(challenge, storageReady);
+                  return (
+                    <ChallengeTile
+                      key={challenge.id}
+                      href={`/challenges/${challenge.slug}`}
+                      eyebrow={challenge.eyebrow ?? "Decade"}
+                      title={challenge.title}
+                      legCount={challenge.leg_count}
+                      status={tileStatus.label}
+                      statusIcon={tileStatus.icon}
+                      backgroundUrl={parseChallengeBackgroundUrl(challenge.art_config)}
+                    />
+                  );
+                })}
+                <SeeAllTile />
+              </div>
+            </section>
+          ) : null}
         </main>
       </div>
     </div>
@@ -241,6 +286,22 @@ function DailyHeroCard({
   );
 }
 
+function ChallengeSectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <>
+      <p
+        className="text-[10px] uppercase tracking-[0.22em]"
+        style={{ color: "var(--gold)" }}
+      >
+        {title}
+      </p>
+      <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+        {subtitle}
+      </p>
+    </>
+  );
+}
+
 function parseChallengeBackgroundUrl(artConfig: Record<string, unknown> | null): string | null {
   if (!artConfig || typeof artConfig.backgroundUrl !== "string") return null;
   const url = artConfig.backgroundUrl.trim();
@@ -251,21 +312,26 @@ function ChallengeTile({
   href,
   eyebrow,
   title,
+  legCount,
   status,
+  statusIcon = null,
   backgroundUrl,
 }: {
   href: string;
   eyebrow: string;
   title: string;
+  legCount: number;
   status: string;
+  statusIcon?: ChallengeTileStatusIcon;
   backgroundUrl?: string | null;
 }) {
+  const filmLabel = `${legCount} ${legCount === 1 ? "film" : "films"}`;
   const hasBackground = Boolean(backgroundUrl);
 
   return (
     <Link
       href={href}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-xl border p-3.5 no-underline transition hover:opacity-95 active:scale-[0.99]"
+      className="relative flex aspect-[5/4] flex-col justify-between overflow-hidden rounded-xl border p-3.5 no-underline transition hover:opacity-95 active:scale-[0.99]"
       style={{
         background: hasBackground ? "#0f0e0c" : "linear-gradient(135deg, #1a1814 0%, #0f0e0c 100%)",
         borderColor: "rgba(255,255,255,0.08)",
@@ -295,6 +361,29 @@ function ChallengeTile({
         style={{ background: "var(--gold)" }}
         aria-hidden
       />
+      {statusIcon ? (
+        <div
+          className="absolute z-[4] flex items-center justify-center rounded-full"
+          style={{
+            top: 8,
+            right: 8,
+            width: 28,
+            height: 28,
+            background: "rgba(0,0,0,0.6)",
+          }}
+          aria-hidden
+        >
+          <span
+            style={{
+              fontSize: "1rem",
+              lineHeight: 1,
+              color: statusIcon === "done" ? "#22c55e" : "#ef4444",
+            }}
+          >
+            {statusIcon === "done" ? "✓" : "✕"}
+          </span>
+        </div>
+      ) : null}
       <p
         className="relative z-[3] text-[8px] uppercase tracking-[0.22em]"
         style={{
@@ -317,14 +406,25 @@ function ChallengeTile({
           {title}
         </p>
         <p
-          className="mt-1.5 text-[10px]"
+          className="mt-0.5 text-[10px] leading-tight"
           style={{
-            color: "var(--gold)",
+            color: "var(--muted)",
             textShadow: hasBackground ? "0 1px 6px rgba(0,0,0,0.85)" : undefined,
           }}
         >
-          {status}
+          {filmLabel}
         </p>
+        {status ? (
+          <p
+            className="mt-1 text-[10px] leading-tight"
+            style={{
+              color: "var(--gold)",
+              textShadow: hasBackground ? "0 1px 6px rgba(0,0,0,0.85)" : undefined,
+            }}
+          >
+            {status}
+          </p>
+        ) : null}
       </div>
     </Link>
   );
@@ -334,7 +434,7 @@ function SeeAllTile() {
   return (
     <Link
       href="/challenges"
-      className="flex aspect-square flex-col items-center justify-center rounded-xl border border-dashed no-underline transition hover:opacity-90"
+      className="flex aspect-[5/4] flex-col items-center justify-center rounded-xl border border-dashed no-underline transition hover:opacity-90"
       style={{
         background: "linear-gradient(135deg, #1a1814 0%, #0f0e0c 100%)",
         borderColor: "rgba(255,255,255,0.12)",
