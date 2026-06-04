@@ -27,7 +27,7 @@ function AppShellHeader({ children }: { children: React.ReactNode }) {
       >
         <div
           className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 md:px-6"
-          style={{ borderBottom: "1px solid rgba(201, 169, 110, 0.4)" }}
+          style={{ borderBottom: "0.5px solid #C9A96E" }}
         >
           <TaglinesWordmark asLink />
           <MainMenu gameLocked={gameLocked} />
