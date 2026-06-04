@@ -66,7 +66,7 @@ export function WrongGuessHistoryStrip({
               background: "#0f0f0f",
             }}
           >
-            {g === "" ? "\u00a0" : g}
+            {g === "" ? "?" : g}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div

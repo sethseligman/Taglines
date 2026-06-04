@@ -76,7 +76,7 @@ export function PortalScreen({ dateKey, dailyTagline, challenges }: PortalScreen
       />
 
       <div className="mx-auto w-full max-w-2xl px-4 md:px-6">
-        <main className="relative pb-10">
+        <main className="relative pb-10 pt-4">
           <DailyHeroCard
             dailyTagline={dailyTagline}
             dailyResult={dailyResult}
