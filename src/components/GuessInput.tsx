@@ -310,7 +310,7 @@ export function GuessInput({
         >
           {filtered.map((item, i) => (
             <li
-              key={`${item.tmdbId}-${item.title}`}
+              key={`${item.tmdbId}-${item.title}-${item.year}`}
               id={`guess-option-${i}`}
               role="option"
               aria-selected={i === highlightIndex}

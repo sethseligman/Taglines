@@ -1,0 +1,18 @@
+SPORTS HINT EDIT — FORMAT REPORT
+================================
+
+Input data rows: 191
+Parsed OK: 191
+Needs manual review: 0
+Expected: 191
+
+✓ All 191 movies parsed.
+
+HOW TO FIX FLAGGED ROWS:
+- Each row must have exactly: title, year, hint_1, hint_2, hint_3, hint_4
+- Wrap EVERY hint in double quotes
+- Internal quotes inside a hint become doubled: ""like this""
+- Between hints use: "," (quote-comma-quote)
+- Do NOT wrap the entire row in outer quotes
+
+--- ROWS NEEDING MANUAL FIX ---

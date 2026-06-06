@@ -64,18 +64,21 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { data: taglines, error: taglineErr } = await supabase
-    .from("taglines")
-    .select("movie_id, tagline_text, is_primary");
-
-  if (taglineErr) {
-    console.error("Failed to fetch taglines:", taglineErr.message);
-    process.exit(1);
-  }
-
+  const movieIds = movies.map((m) => m.id as string);
   const taglineByMovie = new Map<string, string>();
-  for (const t of taglines ?? []) {
-    if (t.is_primary) {
+  const CHUNK = 100;
+  for (let i = 0; i < movieIds.length; i += CHUNK) {
+    const chunk = movieIds.slice(i, i + CHUNK);
+    const { data: taglines, error: taglineErr } = await supabase
+      .from("taglines")
+      .select("movie_id, tagline_text, is_primary")
+      .in("movie_id", chunk)
+      .eq("is_primary", true);
+    if (taglineErr) {
+      console.error("Failed to fetch taglines:", taglineErr.message);
+      process.exit(1);
+    }
+    for (const t of taglines ?? []) {
       taglineByMovie.set(t.movie_id as string, t.tagline_text as string);
     }
   }
@@ -103,7 +106,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const outPath = resolve(process.cwd(), "scripts/HINT GENERATOR/movies_for_hints.csv");
+  const outArg = process.argv.find((a) => a.startsWith("--output="));
+  const outPath = outArg
+    ? resolve(process.cwd(), outArg.slice("--output=".length))
+    : resolve(process.cwd(), "scripts/HINT GENERATOR/movies_for_hints.csv");
   writeFileSync(outPath, header + rows.join("\n") + "\n");
 
   console.log(`Exported ${rows.length} movie(s) to ${outPath}`);

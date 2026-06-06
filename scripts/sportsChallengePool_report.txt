@@ -1,0 +1,47 @@
+SPORTS CHALLENGE POOL REPORT
+============================
+
+Generated: 2026-06-05T22:46:30.445Z
+Master list entries: 226
+Approved + playable in pool: 210
+  pre-catalog: 31
+  imported: 179
+
+By category:
+  Boxing / Fighting: 37
+  Baseball: 37
+  Football: 30
+  Basketball: 21
+  Racing: 16
+  Surf / Skate / Extreme: 11
+  Hockey / Skating: 10
+  Soccer: 9
+  Track / Olympics: 9
+  Other Games: 9
+  Horse Racing: 6
+  Golf: 5
+  Tennis: 5
+  Cheer / Gymnastics: 5
+
+Excluded — rejected (10):
+  #50 Trouble with the Curve → Trouble with the Curve (2012)
+  #101 Everybody's All-American → Everybody's All-American (1988)
+  #139 The Cutting Edge 2: Going for the Gold → The Cutting Edge: Going for the Gold (2006)
+  #157 Le Mans → Le Mans (1971)
+  #182 Race → Race (2016)
+  #184 Eddie the Eagle → Eddie the Eagle (2016)
+  #186 The Boys in the Boat → The Boys in the Boat (2023)
+  #203 Bring It On Again → Bring It On Again (2004)
+  #205 Bring It On: In It to Win It → Bring It On: In It to Win It (2007)
+  #226 The Young Black Stallion → Young Black Stallion (2003)
+
+Excluded — not approved/playable (0):
+  (none)
+
+Not in catalog (6):
+  #76 Brian's Song
+  #137 Miracle on Ice
+  #140 The Cutting Edge 3: Chasing the Dream
+  #147 The Greatest Game Ever Played
+  #204 Bring It On: All or Nothing
+  #221 Dreamer

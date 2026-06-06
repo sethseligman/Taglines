@@ -100,6 +100,17 @@ export type ImportResult =
   | { outcome: "skipped"; reason: string }
   | { outcome: "error"; message: string };
 
+export interface ImportMovieEntry {
+  /** TMDB search query (or ignored when tmdbId is set). */
+  title: string;
+  /** Disambiguates remakes and short titles in TMDB search. */
+  year?: number;
+  /** Stored catalog title when it should differ from TMDB (e.g. remakes sharing a name). */
+  catalogTitle?: string;
+  /** Bypass title search when the TMDB id is known. */
+  tmdbId?: number;
+}
+
 function missingEnvError(): ImportResult {
   return {
     outcome: "error",
@@ -137,7 +148,8 @@ async function fetchTmdbMovie(
 async function insertMovieFromTmdb(
   supabase: ReturnType<typeof createClient>,
   details: TMDBMovieDetails,
-  credits: TMDBCredits
+  credits: TMDBCredits,
+  catalogTitle?: string
 ): Promise<ImportResult> {
   const tagline = cleanTagline(details.tagline ?? "");
   if (!tagline) {
@@ -149,7 +161,8 @@ async function insertMovieFromTmdb(
     return { outcome: "skipped", reason: "No valid release year." };
   }
 
-  const normalizedNewTitle = normalizeTitleForDedup(details.title);
+  const storedTitle = (catalogTitle ?? details.title).trim();
+  const normalizedNewTitle = normalizeTitleForDedup(storedTitle);
   const { data: existingRows } = await supabase.from("movies").select("id, title, year");
   const existing = (existingRows ?? []).find(
     (row: { id: string; title: string; year: number }) =>
@@ -171,7 +184,7 @@ async function insertMovieFromTmdb(
   const { data: insertedMovie, error: movieErr } = await supabase
     .from("movies")
     .insert({
-      title: details.title.trim(),
+      title: storedTitle,
       year,
       genre,
       cast_hint: castHint,
@@ -198,56 +211,75 @@ async function insertMovieFromTmdb(
     return { outcome: "error", message: `Insert tagline failed: ${taglineErr.message}` };
   }
 
-  const canonicalTitle = details.title.trim();
   const { error: aliasErr } = await supabase.from("accepted_aliases").insert({
     movie_id: movieUuid,
-    alias: canonicalTitle,
+    alias: storedTitle,
   });
   if (aliasErr && aliasErr.code !== "23505") {
     return { outcome: "error", message: `Insert alias failed: ${aliasErr.message}` };
   }
 
-  return { outcome: "inserted", id: movieUuid, title: canonicalTitle, year };
+  return { outcome: "inserted", id: movieUuid, title: storedTitle, year };
 }
 
 /** Import one movie by TMDB movie id (bypasses ambiguous title search). */
-export async function importMovieByTmdbId(tmdbId: number): Promise<ImportResult> {
+export async function importMovieByTmdbId(
+  tmdbId: number,
+  catalogTitle?: string
+): Promise<ImportResult> {
   const clients = getImportClients();
   if (!clients) return missingEnvError();
 
   const fetched = await fetchTmdbMovie(tmdbId, clients.headers);
   if ("outcome" in fetched) return fetched;
 
-  return insertMovieFromTmdb(clients.supabase, fetched.details, fetched.credits);
+  return insertMovieFromTmdb(clients.supabase, fetched.details, fetched.credits, catalogTitle);
+}
+
+/** Import one movie from TMDB into Supabase. Caller must have env and loadEnv() already run. */
+export async function importMovieEntry(entry: ImportMovieEntry): Promise<ImportResult> {
+  const clients = getImportClients();
+  if (!clients) return missingEnvError();
+
+  let movieId = entry.tmdbId;
+  if (!movieId) {
+    const searchUrl = new URL(`${TMDB_BASE}/search/movie`);
+    searchUrl.searchParams.set("query", entry.title);
+    searchUrl.searchParams.set("language", "en-US");
+    if (entry.year) searchUrl.searchParams.set("year", String(entry.year));
+
+    const searchRes = await fetch(searchUrl.toString(), { headers: clients.headers });
+    if (!searchRes.ok) {
+      return { outcome: "error", message: `TMDB search failed: ${searchRes.status}` };
+    }
+    const searchData = (await searchRes.json()) as { results?: TMDBSearchResult[] };
+    const results = searchData.results ?? [];
+    if (results.length === 0) {
+      return { outcome: "skipped", reason: "No TMDB results found." };
+    }
+    const best =
+      entry.year != null
+        ? results.find((r) => getYear(r.release_date) === entry.year) ?? results[0]!
+        : results[0]!;
+    movieId = best.id;
+  }
+
+  const fetched = await fetchTmdbMovie(movieId, clients.headers);
+  if ("outcome" in fetched) return fetched;
+
+  return insertMovieFromTmdb(
+    clients.supabase,
+    fetched.details,
+    fetched.credits,
+    entry.catalogTitle
+  );
 }
 
 /**
  * Import one movie from TMDB into Supabase. Caller must have env and loadEnv() already run.
  */
 export async function importOneMovie(titleArg: string, year?: number): Promise<ImportResult> {
-  const clients = getImportClients();
-  if (!clients) return missingEnvError();
-
-  const searchUrl = new URL(`${TMDB_BASE}/search/movie`);
-  searchUrl.searchParams.set("query", titleArg);
-  searchUrl.searchParams.set("language", "en-US");
-  if (year) searchUrl.searchParams.set("year", String(year));
-
-  const searchRes = await fetch(searchUrl.toString(), { headers: clients.headers });
-  if (!searchRes.ok) {
-    return { outcome: "error", message: `TMDB search failed: ${searchRes.status}` };
-  }
-  const searchData = (await searchRes.json()) as { results?: TMDBSearchResult[] };
-  const results = searchData.results ?? [];
-  if (results.length === 0) {
-    return { outcome: "skipped", reason: "No TMDB results found." };
-  }
-
-  const best = results[0]!;
-  const fetched = await fetchTmdbMovie(best.id, clients.headers);
-  if ("outcome" in fetched) return fetched;
-
-  return insertMovieFromTmdb(clients.supabase, fetched.details, fetched.credits);
+  return importMovieEntry({ title: titleArg, year });
 }
 
 async function main(): Promise<void> {

@@ -33,9 +33,19 @@ export function AdminPanel({ initialMovies, initialSchedule, initialChallenges }
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const displayMovies = useMemo(() => {
     let list = movies;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (m) =>
+          m.title?.toLowerCase().includes(q) ||
+          String(m.year).includes(q) ||
+          (m.aliases ?? []).some((a) => a.toLowerCase().includes(q))
+      );
+    }
     if (statusFilter !== "all") {
       list = list.filter((m) => m.status === statusFilter);
     }
@@ -46,7 +56,7 @@ export function AdminPanel({ initialMovies, initialSchedule, initialChallenges }
       if (ai !== bi) return ai - bi;
       return (a.title ?? "").localeCompare(b.title ?? "", "en", { sensitivity: "base" });
     });
-  }, [movies, statusFilter]);
+  }, [movies, statusFilter, searchQuery]);
 
   const refreshMovies = useCallback(async () => {
     const list = await listMovies();
@@ -171,6 +181,15 @@ export function AdminPanel({ initialMovies, initialSchedule, initialChallenges }
 
       <section className="mb-10">
         <h2 className="text-lg font-medium text-foreground mb-4">Movies</h2>
+        <div className="mb-3">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search title, year, or alias…"
+            className="w-full rounded-lg bg-white/10 border border-white/10 px-3 py-2 text-sm text-foreground placeholder:text-muted"
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="text-xs text-muted">Status:</span>
           {(["all", "pending_review", "approved", "rejected"] as const).map((f) => (

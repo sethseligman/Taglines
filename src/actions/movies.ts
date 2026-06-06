@@ -105,23 +105,72 @@ export async function getMovieById(id: string): Promise<MovieRow | null> {
   return fetchMovieRow(supabase, id);
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+type TaglineRow = { movie_id: string; tagline_text: string; is_primary: boolean };
+type AliasRow = { movie_id: string; alias: string };
+
+/** PostgREST caps each request at 1000 rows; page until the table is exhausted. */
+async function fetchAllMovies(supabase: Awaited<ReturnType<typeof createClient>>): Promise<DbMovie[]> {
+  const rows: DbMovie[] = [];
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("movies")
+      .select(
+        "id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, status, is_playable, hint_1, hint_2, hint_3, hint_4"
+      )
+      .order("title")
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...(data as DbMovie[]));
+    if (data.length < SUPABASE_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchAllTaglines(supabase: Awaited<ReturnType<typeof createClient>>): Promise<TaglineRow[]> {
+  const rows: TaglineRow[] = [];
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("taglines")
+      .select("movie_id, tagline_text, is_primary")
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...(data as TaglineRow[]));
+    if (data.length < SUPABASE_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchAllAliases(supabase: Awaited<ReturnType<typeof createClient>>): Promise<AliasRow[]> {
+  const rows: AliasRow[] = [];
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("accepted_aliases")
+      .select("movie_id, alias")
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...(data as AliasRow[]));
+    if (data.length < SUPABASE_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 /** List all movies (for admin and practice fallback). */
 export async function listMovies(): Promise<MovieRow[]> {
   if (!hasSupabase) return [];
   const supabase = await createClient();
 
-  const [{ data: movies }, { data: allTaglines }, { data: allAliases }] = await Promise.all([
-    supabase
-      .from("movies")
-      .select(
-        "id, title, year, genre, cast_hint, plot_hint, poster_url, poster_path, status, is_playable, hint_1, hint_2, hint_3, hint_4"
-      )
-      .order("title"),
-    supabase.from("taglines").select("movie_id, tagline_text, is_primary"),
-    supabase.from("accepted_aliases").select("movie_id, alias"),
+  const [movies, allTaglines, allAliases] = await Promise.all([
+    fetchAllMovies(supabase),
+    fetchAllTaglines(supabase),
+    fetchAllAliases(supabase),
   ]);
 
-  if (!movies?.length) return [];
+  if (!movies.length) return [];
 
   const taglinesByMovie = new Map<string, { tagline_text: string; is_primary: boolean }[]>();
   for (const t of allTaglines ?? []) {
@@ -137,7 +186,7 @@ export async function listMovies(): Promise<MovieRow[]> {
     aliasesByMovie.set(a.movie_id, list);
   }
 
-  return (movies as DbMovie[]).map((m) => ({
+  return movies.map((m) => ({
     ...m,
     taglines: taglinesByMovie.get(m.id) ?? [],
     aliases: aliasesByMovie.get(m.id) ?? [],

@@ -2,6 +2,10 @@
 
 import { createServiceClient, createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/adminAuth";
+import {
+  generateChallengeDailyLegs,
+  getTodayDateKey,
+} from "@/lib/generateChallengeDailyLegs";
 import type { Movie } from "@/types/movie";
 import type { ChallengeType, DbChallenge } from "@/types/challenges";
 import { movieFromDb, type MovieRow } from "@/lib/movieFromDb";
@@ -426,7 +430,7 @@ export async function publishChallenge(id: string): Promise<PublishChallengeResu
   const supabase = createServiceClient();
   const { data: challenge, error: fetchError } = await supabase
     .from("challenges")
-    .select("type")
+    .select("type, slug")
     .eq("id", id)
     .single();
   if (fetchError || !challenge) return { error: fetchError?.message ?? "Challenge not found." };
@@ -438,7 +442,23 @@ export async function publishChallenge(id: string): Promise<PublishChallengeResu
   if (shuffle.error) return { error: shuffle.error };
 
   const { error } = await supabase.from("challenges").update({ is_published: true }).eq("id", id);
-  return error ? { error: error.message } : { ok: true };
+  if (error) return { error: error.message };
+
+  if (challenge.type === "daily_pool") {
+    const legs = await generateChallengeDailyLegs({
+      targetDate: getTodayDateKey(),
+      challengeSlug: challenge.slug as string,
+      supabase,
+    });
+    if (legs.errorCount > 0) {
+      const failed = legs.results.find((r) => r.status === "error");
+      return {
+        error: failed?.error ?? "Challenge published but today's daily legs could not be generated.",
+      };
+    }
+  }
+
+  return { ok: true };
 }
 
 export async function unpublishChallenge(id: string): Promise<{ error?: string }> {
